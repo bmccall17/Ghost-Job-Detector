@@ -1,0 +1,219 @@
+Here’s a clean, step-by-step way to find the leak in your Edge Config setup and get it working fast.
+
+# 0) What “done” looks like
+
+* You can run a tiny test endpoint that returns a value from Edge Config both **locally** and on **Vercel**.
+* The Vercel project shows your **Edge Config Store connected** under **Storage → Edge Config** with at least one key/value.
+
+---
+
+# 1) Sanity checks in the Vercel dashboard
+
+1. **Store exists & has data**
+
+   * In *Storage → Edge Config Store*, add a simple key:
+
+     * Key: `test_message`
+     * Value: `"hello-from-edge-config"`
+   * Make sure Storage Size > 0 and the key is visible.
+
+2. **Store is connected to your project**
+
+   * In the store sidebar, open **Projects** and ensure your **ghost-job-detector** project is listed as “Connected”.
+   * If not, connect it now.
+
+3. **No token needed for reads from your app**
+
+   * Tokens are for the REST Admin API (writes/automation). Your app reads via the SDK with the `EDGE_CONFIG` env var.
+
+---
+
+# 2) Local environment is up to date
+
+1. **Install the SDK**
+
+   ```bash
+   npm i @vercel/edge-config
+   ```
+2. **Pull latest env vars**
+
+   ```bash
+   vercel login      # if needed
+   vercel link       # if not linked to this folder yet
+   vercel env pull   # populates .env.local with EDGE_CONFIG
+   ```
+3. **Verify the env var exists**
+
+   * Open `.env.local` and confirm you see an `EDGE_CONFIG=` URL.
+   * If it’s missing:
+
+     * In the store page, click **Tokens** → **Connection details** and confirm the project is connected.
+     * Re-run `vercel env pull`.
+
+---
+
+# 3) Minimal, bulletproof code test
+
+Use **edge runtime** (required). Add a tiny route that only calls Edge Config.
+
+### Next.js (App Router) – `app/api/edge-config-test/route.ts`
+
+```ts
+import { get, has } from '@vercel/edge-config';
+
+export const runtime = 'edge';
+
+export async function GET() {
+  try {
+    const exists = await has('test_message');
+    const value = await get<string>('test_message');
+
+    return new Response(
+      JSON.stringify({
+        runtime: 'edge',
+        has_test_message: exists,
+        test_message: value ?? null,
+        edge_config_present: typeof process.env.EDGE_CONFIG === 'string',
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ error: err?.message ?? String(err) }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
+    );
+  }
+}
+```
+
+### If you’re on Pages Router
+
+`pages/api/edge-config-test.ts`
+
+```ts
+import type { NextRequest } from 'next/server';
+import { get, has } from '@vercel/edge-config';
+
+export const config = { runtime: 'edge' };
+
+export default async function handler(req: NextRequest) {
+  try {
+    const exists = await has('test_message');
+    const value = await get<string>('test_message');
+
+    return new Response(JSON.stringify({
+      runtime: 'edge',
+      has_test_message: exists,
+      test_message: value ?? null,
+      edge_config_present: typeof process.env.EDGE_CONFIG === 'string',
+    }), { status: 200, headers: { 'content-type': 'application/json' }});
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message ?? String(err) }), { status: 500 });
+  }
+}
+```
+
+Run locally:
+
+```bash
+npm run dev
+# then open http://localhost:3000/api/edge-config-test
+```
+
+You should see:
+
+```json
+{
+  "runtime": "edge",
+  "has_test_message": true,
+  "test_message": "hello-from-edge-config",
+  "edge_config_present": true
+}
+```
+
+---
+
+# 4) Deploy check
+
+```bash
+vercel --prod
+# or push to the branch that deploys
+```
+
+Open the deployed URL `/api/edge-config-test`. Expect the same JSON.
+
+---
+
+# 5) If something breaks, use this decision tree
+
+### A) `edge_config_present: false`
+
+* **Cause:** `EDGE_CONFIG` isn’t in the environment.
+* **Fix:**
+
+  * Ensure project is linked: `vercel link`
+  * Pull env again: `vercel env pull`
+  * For production/staging, confirm `EDGE_CONFIG` appears in **Vercel → Project → Settings → Environment Variables** (it’s injected automatically when the store is connected). Redeploy.
+
+### B) `runtime` isn’t `edge` or you get Node API errors
+
+* **Cause:** Route isn’t on the Edge runtime.
+* **Fix:** Ensure `export const runtime = 'edge'` (App Router) or `export const config = { runtime: 'edge' }` (Pages Router). Remove any Node-only APIs (e.g., `fs`, `crypto` Web APIs are fine).
+
+### C) Network/403/404 fetching config
+
+* **Causes:**
+
+  * Store not connected to the project.
+  * Wrong project linked locally (EDGE\_CONFIG from a different project).
+  * Old env var cached.
+* **Fix:**
+
+  * Verify Store → **Projects** shows your app.
+  * `vercel link` → pick the correct project.
+  * `vercel env pull` again.
+  * Redeploy.
+
+### D) `has_test_message: false` or `test_message: null`
+
+* **Cause:** No such key in the store you’re reading from.
+* **Fix:** Add the key in the store UI (or via Admin API) and re-test. Double-check you’re not mixing multiple stores.
+
+### E) Local works, prod fails
+
+* **Cause:** Prod deployment doesn’t have the latest env or store connection.
+* **Fix:** In the Vercel dashboard:
+
+  * Project → **Storage** → confirm the store is listed.
+  * Re-deploy from Vercel to refresh runtime env.
+
+---
+
+# 6) (Optional) Admin API smoke test (writes)
+
+If you’re automating writes, generate a **Token** with write scope in the store, then:
+
+```bash
+curl -X PATCH \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"operation":"upsert","key":"test_message","value":"hello-from-admin-api"}]}' \
+  https://api.vercel.com/v1/edge-config/<STORE_ID>/items
+```
+
+Then hit `/api/edge-config-test` again and confirm the value changed.
+
+---
+
+# 7) Quick checklist you can run every time
+
+* [ ] Store has at least one key/value
+* [ ] Store is connected to the correct Vercel project
+* [ ] `@vercel/edge-config` installed
+* [ ] `vercel link` points to this project
+* [ ] `vercel env pull` shows `EDGE_CONFIG=…` in `.env.local`
+* [ ] Test route uses **edge runtime**
+* [ ] Local test returns the key
+* [ ] Deploy and confirm the same in prod
+
+If you paste the output of `/api/edge-config-test` (local + prod), I’ll pinpoint exactly which link in the chain is failing and give you the next action.
