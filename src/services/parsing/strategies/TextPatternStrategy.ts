@@ -77,6 +77,10 @@ export class TextPatternStrategy implements ExtractionStrategy {
 
     // Common title patterns
     const patterns = [
+      // LinkedIn specific: "Company hiring Job Title in Location" - prioritize this to extract location properly
+      { regex: /^(.+?)\s+hiring\s+(.+?)\s+in\s+.+$/i, titleIndex: 2, companyIndex: 1, cleanLocation: true },
+      // LinkedIn specific: "Company hiring Job Title" or "Company is hiring for Job Title"
+      { regex: /^(.+?)(?:\s+is)?\s+hiring(?:\s+for)?\s+(.+)$/i, titleIndex: 2, companyIndex: 1, cleanLocation: true },
       // "Job Title - Company Name"
       { regex: /^(.+?)\s+-\s+(.+)$/, titleIndex: 1, companyIndex: 2 },
       // "Job Title at Company Name"
@@ -94,8 +98,13 @@ export class TextPatternStrategy implements ExtractionStrategy {
     for (const pattern of patterns) {
       const match = cleaned.match(pattern.regex)
       if (match && match[1] && match[2]) {
-        const title = match[pattern.titleIndex].trim()
+        let title = match[pattern.titleIndex].trim()
         const company = match[pattern.companyIndex].trim()
+        
+        // Clean location information if this pattern requires it
+        if (pattern.cleanLocation) {
+          title = this.cleanLocationFromTitle(title)
+        }
         
         // Validate that we didn't just split a single entity
         if (title.length > 2 && company.length > 2 && title !== company) {
@@ -136,6 +145,17 @@ export class TextPatternStrategy implements ExtractionStrategy {
     }
 
     return undefined
+  }
+
+  private cleanLocationFromTitle(title: string): string {
+    // Remove common location patterns from job titles
+    return title
+      .replace(/\s+in\s+[A-Z]{2,}$/i, '') // Remove "in NAMER", "in USA", "in UK", etc.
+      .replace(/\s+in\s+[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?$/i, '') // Remove "in London", "in New York, NY"
+      .replace(/\s+in\s+.+$/i, '') // Remove any remaining "in Location" patterns
+      .replace(/\s+-\s+[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?$/i, '') // Remove "- Location" patterns
+      .replace(/\s*\([^)]*(?:remote|hybrid|onsite|location)[^)]*\)$/i, '') // Remove location parentheticals
+      .trim()
   }
 
   private cleanText(text: string): string {
