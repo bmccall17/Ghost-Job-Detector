@@ -53,6 +53,16 @@ A dual-interface platform combining:
 **I want** to upload a PDF of the job posting along with its URL  
 **So that** I can analyze positions that may not be easily accessible via direct URL scraping
 
+### US8: Persistent Analysis History
+**As a** user of the job analysis platform  
+**I want** my analysis history to be saved across browser sessions  
+**So that** I can reference previous analyses and avoid re-analyzing the same job postings
+
+### US9: Duplicate Job Detection and User Feedback
+**As a** user analyzing job postings  
+**I want** to see when I'm submitting a job that has already been analyzed  
+**So that** I get instant results and receive positive feedback for contributing new research
+
 ## 5.1. Multi-Platform Search and Analysis
 
 ### MPS1: Universal URL Processing
@@ -135,6 +145,13 @@ A dual-interface platform combining:
 - **Rate Limiting:** 1000 requests per hour for free tier, unlimited for paid plans
 - **Database:** PostgreSQL for user data, MongoDB for job posting content
 - **Caching:** Redis caching with 1-hour TTL for expensive computations
+
+### TR6: Persistent Analysis History
+- **Local Storage:** Browser localStorage for analysis history persistence across sessions
+- **Duplicate Detection:** URL-based deduplication to avoid re-analyzing identical job postings
+- **Storage Optimization:** Intelligent pruning to keep storage under 5MB browser limit
+- **Data Structure:** JSON serialization with date-based indexing for efficient retrieval
+- **User Feedback:** Visual indicators for new contributions vs. retrieved cached results
 
 ### TR4: Real-time Data Processing
 - **Streaming Pipeline:** Apache Kafka + Spark for processing job posting updates

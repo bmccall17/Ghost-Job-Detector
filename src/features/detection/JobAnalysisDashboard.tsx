@@ -7,6 +7,7 @@ import { useAnalysisStore } from '@/stores/analysisStore'
 import { AnalysisService } from '@/services/analysisService'
 import { FileUpload } from '@/components/FileUpload'
 import { GhostJobBadge } from '@/components/GhostJobBadge'
+import { NewContributionBadge } from '@/components/NewContributionBadge'
 import { JobAnalysis } from '@/types'
 
 const urlAnalysisSchema = z.object({
@@ -35,7 +36,8 @@ export const JobAnalysisDashboard: React.FC = () => {
     setCurrentAnalysis,
     addToHistory,
     setIsAnalyzing,
-    addBulkJob
+    addBulkJob,
+    findExistingAnalysis
   } = useAnalysisStore()
 
   const urlForm = useForm<UrlAnalysisForm>({
@@ -51,7 +53,19 @@ export const JobAnalysisDashboard: React.FC = () => {
     setCurrentAnalysis(null)
 
     try {
-      // Extract job data and run analysis in parallel
+      // Check if this job has already been analyzed
+      const existingAnalysis = findExistingAnalysis(data.jobUrl)
+      
+      if (existingAnalysis) {
+        // Job already analyzed - show existing results
+        setCurrentAnalysis(existingAnalysis)
+        addToHistory(existingAnalysis) // This will move it to top without marking as new
+        urlForm.reset()
+        setIsAnalyzing(false)
+        return
+      }
+
+      // New job - extract data and run analysis
       const [jobData, result] = await Promise.all([
         AnalysisService.extractJobData(data.jobUrl),
         AnalysisService.mockAnalyzeJob(data.jobUrl)
@@ -66,7 +80,8 @@ export const JobAnalysisDashboard: React.FC = () => {
         confidence: result.confidence,
         factors: result.factors.map(f => f.description),
         analyzedAt: new Date(),
-        status: 'completed'
+        status: 'completed',
+        isNewContribution: true
       }
 
       setCurrentAnalysis(analysis)
@@ -86,7 +101,20 @@ export const JobAnalysisDashboard: React.FC = () => {
     setCurrentAnalysis(null)
 
     try {
-      // Extract job data from PDF and run analysis in parallel
+      // Check if this job has already been analyzed
+      const existingAnalysis = findExistingAnalysis(data.sourceUrl)
+      
+      if (existingAnalysis) {
+        // Job already analyzed - show existing results
+        setCurrentAnalysis(existingAnalysis)
+        addToHistory(existingAnalysis) // This will move it to top without marking as new
+        pdfForm.reset()
+        setSelectedPdf(null)
+        setIsAnalyzing(false)
+        return
+      }
+
+      // New job - extract data from PDF and run analysis
       const [jobData, result] = await Promise.all([
         AnalysisService.extractJobDataFromPDF(selectedPdf, data.sourceUrl),
         AnalysisService.mockAnalyzeJob(data.sourceUrl)
@@ -101,7 +129,8 @@ export const JobAnalysisDashboard: React.FC = () => {
         confidence: result.confidence,
         factors: result.factors.map(f => f.description),
         analyzedAt: new Date(),
-        status: 'completed'
+        status: 'completed',
+        isNewContribution: true
       }
 
       setCurrentAnalysis(analysis)
@@ -217,7 +246,10 @@ export const JobAnalysisDashboard: React.FC = () => {
 
           {currentAnalysis && (
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
+              <div className="flex items-center space-x-3 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
+                <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+              </div>
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -314,7 +346,10 @@ export const JobAnalysisDashboard: React.FC = () => {
 
           {currentAnalysis && (
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
+              <div className="flex items-center space-x-3 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
+                <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+              </div>
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>

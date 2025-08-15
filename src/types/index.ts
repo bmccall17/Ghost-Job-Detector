@@ -8,6 +8,7 @@ export interface JobAnalysis {
   factors: string[]
   analyzedAt: Date
   status: 'pending' | 'completed' | 'failed'
+  isNewContribution?: boolean
 }
 
 export interface AnalysisResult {
