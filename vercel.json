@@ -1,0 +1,35 @@
+{
+  "functions": {
+    "api/analyze.py": {
+      "runtime": "python3.9"
+    },
+    "api/history.py": {
+      "runtime": "python3.9"
+    },
+    "api/stats.py": {
+      "runtime": "python3.9"
+    },
+    "api/health.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "EDGE_CONFIG": "@edge_config"
+  }
+}

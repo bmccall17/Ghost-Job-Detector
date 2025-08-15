@@ -2,10 +2,10 @@ import { AnalysisResult, BulkAnalysisJob } from '@/types'
 import { ParserRegistry } from './parsing/ParserRegistry'
 
 export class AnalysisService {
-  private static readonly API_BASE = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || 'http://localhost:8000/api/v1'
+  private static readonly API_BASE = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || '/api'
 
   static async analyzeJob(jobUrl: string): Promise<AnalysisResult> {
-    const response = await fetch(`${this.API_BASE}/detection/analyze`, {
+    const response = await fetch(`${this.API_BASE}/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ export class AnalysisService {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch(`${this.API_BASE}/detection/bulk-analyze`, {
+    const response = await fetch(`${this.API_BASE}/bulk-analyze`, {
       method: 'POST',
       body: formData,
     })
@@ -37,7 +37,7 @@ export class AnalysisService {
   }
 
   static async getBulkAnalysisStatus(jobId: string): Promise<BulkAnalysisJob> {
-    const response = await fetch(`${this.API_BASE}/detection/bulk-analyze/${jobId}`)
+    const response = await fetch(`${this.API_BASE}/bulk-analyze/${jobId}`)
 
     if (!response.ok) {
       throw new Error(`Failed to get bulk analysis status: ${response.statusText}`)
@@ -50,7 +50,7 @@ export class AnalysisService {
     analysisIds: string[],
     format: 'csv' | 'pdf'
   ): Promise<Blob> {
-    const response = await fetch(`${this.API_BASE}/detection/export`, {
+    const response = await fetch(`${this.API_BASE}/export`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
