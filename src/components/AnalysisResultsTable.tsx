@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { Download, ExternalLink, Calendar, Filter } from 'lucide-react'
 import { JobAnalysis } from '@/types'
 import { GhostJobBadge } from './GhostJobBadge'
+import { RiskTooltip } from './RiskTooltip'
+import { JobReportModal } from './JobReportModal'
 import { AnalysisService } from '@/services/analysisService'
 
 interface AnalysisResultsTableProps {
@@ -14,6 +16,18 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
   const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set())
   const [sortBy, setSortBy] = useState<'date' | 'probability' | 'company'>('date')
   const [filterBy, setFilterBy] = useState<'all' | 'high' | 'medium' | 'low'>('all')
+  const [selectedAnalysis, setSelectedAnalysis] = useState<JobAnalysis | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const openJobReport = (analysis: JobAnalysis) => {
+    setSelectedAnalysis(analysis)
+    setIsModalOpen(true)
+  }
+
+  const closeJobReport = () => {
+    setSelectedAnalysis(null)
+    setIsModalOpen(false)
+  }
 
   const handleSelectAll = () => {
     if (selectedResults.size === results.length) {
@@ -167,7 +181,13 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                 </td>
                 <td className="px-4 py-3">
                   <div className="max-w-xs">
-                    <p className="font-medium text-gray-900 truncate">{result.title}</p>
+                    <button
+                      onClick={() => openJobReport(result)}
+                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left truncate"
+                      title="Click to view detailed analysis report"
+                    >
+                      {result.title}
+                    </button>
                     <p className="text-sm text-gray-500 truncate">{result.jobUrl}</p>
                   </div>
                 </td>
@@ -175,11 +195,18 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   <span className="text-sm text-gray-900">{result.company}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <GhostJobBadge 
+                  <RiskTooltip 
+                    factors={result.factors}
                     probability={result.ghostProbability}
-                    confidence={result.confidence}
-                    size="sm"
-                  />
+                  >
+                    <div>
+                      <GhostJobBadge 
+                        probability={result.ghostProbability}
+                        confidence={result.confidence}
+                        size="sm"
+                      />
+                    </div>
+                  </RiskTooltip>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center space-x-1 text-sm text-gray-500">
@@ -202,6 +229,12 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
           </tbody>
         </table>
       </div>
+      
+      <JobReportModal 
+        analysis={selectedAnalysis}
+        isOpen={isModalOpen}
+        onClose={closeJobReport}
+      />
     </div>
   )
 }

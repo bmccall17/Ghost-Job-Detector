@@ -1,0 +1,412 @@
+# Ghost Job Detector - Product Requirements Document
+**Version:** 0.09 | **Status:** Development Ready | **Last Updated:** August 2025
+
+## 1. Introduction
+The Ghost Job Detector is a machine learning-powered platform that identifies fake job postings with 95%+ accuracy. The system helps job seekers avoid wasting time on non-existent opportunities while helping recruiters maintain authentic hiring practices.
+
+**Primary Goal:** Detect ghost jobs on LinkedIn with real-time analysis and user-friendly interfaces for both job seekers and recruiters.
+
+## 2. Problem Statement
+**Core Problem:** 21-60% of job postings are ghost jobs, causing job seekers to waste 9+ hours per fake application with significant psychological impact.
+
+**Impact Metrics:**
+- Job seekers average 448,800 wasted applications annually
+- 43% of ghosted candidates never reapply to companies
+- Legitimate recruiters lose credibility and candidate trust
+- No automated detection solutions exist in the market
+
+## 3. Solution Overview
+A dual-interface platform combining:
+- Browser extension for real-time LinkedIn job analysis for job seekers
+- Web dashboard for bulk analysis and monitoring for recruiters
+- Machine learning detection engine with 95%+ accuracy using hybrid BERT + XGBoost + graph analysis
+
+## 4. User Stories
+
+### US1: Job Seeker Ghost Job Detection
+**As a** job seeker browsing LinkedIn  
+**I want** to see ghost job probability scores on job listings  
+**So that** I can avoid wasting time on fake opportunities
+
+### US2: Job Seeker Application Tracking
+**As a** job seeker who has applied to multiple positions  
+**I want** to track my application response rates  
+**So that** I can identify patterns and improve my success rate
+
+### US3: Recruiter Bulk Analysis
+**As a** recruiter or hiring manager  
+**I want** to analyze multiple job postings for authenticity  
+**So that** I can benchmark against competitors and maintain hiring integrity
+
+### US4: Recruiter Company Scoring
+**As a** recruiter  
+**I want** to see hiring authenticity scores for companies  
+**So that** I can make informed decisions about partnerships and referrals
+
+### US6: Multi-Platform Job Analysis
+**As a** recruiter or job seeker  
+**I want** to analyze job postings from any website (LinkedIn, company career pages, Indeed, etc.)  
+**So that** I can detect ghost jobs regardless of where they're posted
+
+### US7: PDF Job Posting Upload
+**As a** user who has a job posting document  
+**I want** to upload a PDF of the job posting along with its URL  
+**So that** I can analyze positions that may not be easily accessible via direct URL scraping
+
+### US8: Persistent Analysis History
+**As a** user of the job analysis platform  
+**I want** my analysis history to be saved across browser sessions  
+**So that** I can reference previous analyses and avoid re-analyzing the same job postings
+
+### US9: Duplicate Job Detection and User Feedback
+**As a** user analyzing job postings  
+**I want** to see when I'm submitting a job that has already been analyzed  
+**So that** I get instant results and receive positive feedback for contributing new research
+
+### US10: Interactive Risk Factor Analysis
+**As a** user reviewing analysis history  
+**I want** to hover over Ghost Risk indicators to see detailed breakdown of risk factors  
+**So that** I can understand why a job was flagged with colored indicators for red/yellow/green flags
+
+### US11: Detailed Algorithm Report Access
+**As a** user interested in analysis methodology  
+**I want** to click on job titles to view the complete algorithm report  
+**So that** I can see how the risk score was calculated and make informed decisions
+
+## 5.1. Multi-Platform Search and Analysis
+
+### MPS1: Universal URL Processing
+- **Platform Detection:** Automatically identify job posting source (LinkedIn, company websites, major job boards)
+- **Adaptive Scraping:** Custom parsing logic for each platform's unique HTML structure
+- **Supported Platforms:** LinkedIn, Indeed, Glassdoor, AngelList, company career pages (starting with top 100 tech companies)
+- **URL Validation:** Verify URLs point to actual job postings before processing
+- **Error Handling:** Graceful fallbacks when scraping fails with clear user messaging
+
+### MPS2: Company Career Page Integration
+- **Dynamic Parser:** Machine learning-based content extraction for non-standardized career pages
+- **Common Patterns:** Pre-built parsers for popular ATS systems (Greenhouse, Lever, Workday, BambooHR)
+- **Content Recognition:** Identify job title, description, requirements, company information, and posting date
+- **Metadata Extraction:** Capture application instructions, contact information, and posting freshness indicators
+- **Anti-Bot Detection:** Respect robots.txt and implement human-like browsing patterns
+
+### MPS3: PDF Upload and Processing
+- **File Upload:** Support PDF uploads up to 10MB with drag-and-drop interface
+- **OCR Integration:** Extract text from image-based PDFs using Tesseract OCR
+- **Text Parsing:** Intelligent extraction of job posting components from unstructured PDF content
+- **URL Association:** Require URL input alongside PDF to maintain source tracking
+- **Document Storage:** Secure storage with user consent for model training improvement
+
+### MPS4: Data Standardization
+- **Unified Schema:** Convert all job postings to standardized internal format regardless of source
+- **Field Mapping:** Intelligent mapping of platform-specific fields to common job posting attributes
+- **Quality Scoring:** Rate data extraction completeness and confidence for each posting
+- **Duplicate Detection:** Identify same job posted across multiple platforms
+- **Version Tracking:** Monitor changes to job postings over time across platforms
+
+### US5: Enterprise Monitoring
+**As an** enterprise HR team  
+**I want** to monitor our industry for ghost job trends  
+**So that** I can differentiate our authentic hiring practices
+
+### US6: Multi-Platform Job Analysis
+**As a** recruiter or job seeker  
+**I want** to analyze job postings from any website (LinkedIn, company career pages, Indeed, etc.)  
+**So that** I can detect ghost jobs regardless of where they're posted
+
+### US7: PDF Job Posting Upload
+**As a** user who has a job posting document  
+**I want** to upload a PDF of the job posting along with its URL  
+**So that** I can analyze positions that may not be easily accessible via direct URL scraping
+
+## 5. Technical Requirements
+
+### TR1: Machine Learning Detection Engine
+- **Accuracy Requirement:** Minimum 95% accuracy on held-out test dataset
+- **Processing Speed:** Maximum 1 second response time per job analysis
+- **Model Architecture:** Hybrid ensemble combining BERT transformer, XGBoost, and graph neural networks
+- **Training Data:** Minimum 50,000 labeled job postings across tech industry
+- **Model Updates:** Weekly retraining with new feedback data
+
+### TR2: Multi-Platform Data Collection Engine
+- **Platform Support:** LinkedIn, Indeed, Glassdoor, AngelList, and top 100 tech company career pages
+- **Adaptive Scraping:** Custom parsers for each platform with fallback to ML-based extraction
+- **ATS Integration:** Pre-built parsers for Greenhouse, Lever, Workday, BambooHR, and other major systems
+- **Rate Limiting:** Respect platform rate limits with intelligent request scheduling
+- **Anti-Detection:** Human-like browsing patterns to avoid bot detection systems
+
+### TR3: Document Processing Pipeline
+- **PDF Support:** Handle text and image-based PDFs up to 10MB
+- **OCR Integration:** Tesseract OCR for image-to-text conversion
+- **Text Extraction:** Natural language processing to identify job posting components
+- **Content Validation:** Verify extracted content represents actual job posting
+- **Storage Security:** Encrypted storage with user consent tracking for uploaded documents
+
+### TR4: Browser Extension Infrastructure
+- **Platform Support:** Chrome and Firefox browsers with Manifest V3 compatibility
+- **Multi-Platform Detection:** Support ghost job detection across LinkedIn, Indeed, Glassdoor, AngelList
+- **Performance:** Extension must not slow page load by more than 100ms on any supported platform
+- **Storage:** Local storage for user preferences, maximum 5MB quota
+- **Updates:** Automatic updates via browser web stores
+- **Permissions:** Minimal permissions with clear user explanations
+
+### TR5: Web Dashboard Backend
+- **API Framework:** FastAPI with automatic OpenAPI documentation
+- **Authentication:** JWT tokens with 24-hour expiry and refresh token pattern
+- **Rate Limiting:** 1000 requests per hour for free tier, unlimited for paid plans
+- **Database:** PostgreSQL for user data, MongoDB for job posting content
+- **Caching:** Redis caching with 1-hour TTL for expensive computations
+
+### TR6: Persistent Analysis History
+- **Local Storage:** Browser localStorage for analysis history persistence across sessions
+- **Duplicate Detection:** URL-based deduplication to avoid re-analyzing identical job postings
+- **Storage Optimization:** Intelligent pruning to keep storage under 5MB browser limit
+- **Data Structure:** JSON serialization with date-based indexing for efficient retrieval
+- **User Feedback:** Visual indicators for new contributions vs. retrieved cached results
+
+### TR4: Real-time Data Processing
+- **Streaming Pipeline:** Apache Kafka + Spark for processing job posting updates
+- **Data Sources:** LinkedIn public postings, user-contributed feedback, company information
+- **Processing Volume:** Handle 100,000+ job analyses per day
+- **Monitoring:** Real-time accuracy monitoring with alerts for degradation below 90%
+
+### TR5: Security and Privacy
+- **Data Protection:** GDPR and CCPA compliant data handling
+- **Encryption:** TLS 1.3 for all data transmission
+- **User Privacy:** No personal job application data stored without explicit consent
+- **Audit Trail:** Complete logging of all user actions and system decisions
+
+## 6. Acceptance Criteria
+
+### AC1: Multi-Platform Job URL Processing
+- System automatically detects job posting platform from URL (LinkedIn, Indeed, Glassdoor, company sites)
+- Custom scraping logic extracts job title, description, requirements, and company information
+- Analysis completes within 5 seconds for any supported platform
+- Clear error messages when URL cannot be processed
+- Support for at least 10 major job platforms and top 100 tech company career pages
+
+### AC2: PDF Upload and Analysis
+- Drag-and-drop PDF upload interface with file size validation (max 10MB)
+- OCR processing extracts text from image-based PDFs
+- User must provide source URL alongside PDF upload
+- Extracted content displays for user verification before analysis
+- PDF content processed through same ML pipeline as scraped jobs
+
+### AC3: Universal Job Analysis Interface
+- Consistent analysis results format regardless of input source (URL or PDF)
+- Ghost job probability score with platform-agnostic key factors
+- Source platform clearly identified in results
+- Ability to re-analyze same job from different sources for comparison
+- Export functionality includes source platform and URL metadata
+
+### AC7: Interactive Risk Factor Display
+- Hover tooltips appear after 1-second delay over Ghost Risk indicators
+- Risk factors automatically categorized into red/yellow/green with appropriate colored bullets
+- Tooltip displays risk level, percentage, and categorized factor lists
+- Tooltip positioning adapts to viewport boundaries to remain visible
+- Smooth fade-in/fade-out animations with proper cleanup on mouse leave
+
+### AC8: Detailed Algorithm Report Modal
+- Job titles in Analysis History are visually indicated as clickable (hover effects)
+- Clicking job title opens full-screen modal with comprehensive analysis report
+- Modal displays algorithm assessment, categorized risk factors, recommendations
+- Report includes model metadata (version, processing time, analysis date)
+- Modal supports keyboard navigation (ESC to close) and proper focus management
+
+### AC4: Browser Extension Ghost Job Detection
+- Ghost job probability score displays as colored overlay on supported job sites
+- Score calculation completes within 1 second of page load
+- Color coding: Green (0-33% ghost probability), Yellow (34-66%), Red (67-100%)
+- Clicking overlay shows detailed explanation of scoring factors
+- User can report false positives/negatives with one-click feedback
+
+### AC5: Browser Extension User Interface
+- Extension icon shows active status when on LinkedIn job pages
+- Settings panel accessible via extension popup
+- Dark and light mode support matching user's LinkedIn theme
+- No visual interference with LinkedIn's existing interface elements
+- Accessible design meeting WCAG 2.1 AA standards
+
+### AC3: Web Dashboard Authentication
+- User registration with email verification required
+- Social login options: Google, LinkedIn, GitHub
+- Password reset functionality with secure token expiration
+- Multi-factor authentication available for paid accounts
+- Session management with automatic logout after 24 hours of inactivity
+
+### AC4: Web Dashboard Job Analysis
+- Bulk job analysis via CSV upload (up to 1000 jobs per batch)
+- Individual job analysis via LinkedIn URL paste
+- Analysis results display within 5 seconds for single jobs
+- Export functionality for analysis results (PDF, CSV formats)
+- Historical analysis tracking with date/time stamps
+
+### AC5: Web Dashboard Company Insights
+- Company hiring authenticity scores based on historical posting patterns
+- Competitor benchmarking with industry average comparisons
+- Trend analysis showing ghost job patterns over time
+- Alert system for significant changes in company hiring behavior
+
+### AC6: Machine Learning Model Performance
+- Accuracy validation against manually labeled test dataset exceeds 95%
+- Precision (avoiding false positives) exceeds 90%
+- Recall (catching real ghost jobs) exceeds 85%
+- Model confidence scores correlate with actual accuracy rates
+- Explainable AI features show top factors influencing each prediction
+
+### AC7: API Integration Capabilities
+- RESTful API with comprehensive OpenAPI documentation
+- Webhook support for real-time notifications
+- Rate limiting with clear error messages and retry guidance
+- API versioning with backward compatibility guarantees
+- SDK availability for JavaScript and Python integration
+
+## 7. Constraints and Non-Negotiables
+
+### C1: Legal and Compliance Constraints
+- Must comply with Terms of Service for LinkedIn, Indeed, Glassdoor, and other platforms
+- Implement rate limiting and respectful scraping practices to avoid platform restrictions
+- No storage of copyrighted job posting content without permission
+- GDPR Article 17 "Right to be Forgotten" implementation required
+- No automated job application submission features
+- Transparent disclosure of AI decision-making processes
+
+### C2: Technical Performance Constraints
+- Browser extension bundle size maximum 2MB to ensure fast installation across platforms
+- Universal job analysis must complete within 5 seconds regardless of source platform
+- API response times must not exceed 2 seconds for any endpoint
+- Database queries optimized to complete within 500ms
+- Maximum memory usage of 100MB for browser extension
+- Support for concurrent usage by 10,000+ active users across all platforms
+
+### C3: Platform-Specific Constraints
+- Respect robots.txt files and platform-specific scraping guidelines
+- Implement exponential backoff for rate-limited platforms
+- Handle platform updates and UI changes with graceful degradation
+- Maintain separate error handling for each supported platform
+- Platform detection must achieve 99%+ accuracy to prevent misrouted requests
+
+### C3: Business Model Constraints
+- Free tier must remain functional for basic ghost job detection
+- No selling of user data to third parties under any circumstances
+- Pricing must remain competitive with existing HR tech solutions
+- Open source components must maintain compatible licenses
+- Revenue model must be sustainable with projected user acquisition costs
+
+### C4: Data Quality Constraints
+- Training data must include diverse job types across multiple industries
+- Manual validation required for at least 10% of training dataset
+- Regular bias testing for demographic and industry fairness
+- Data retention policies limited to 12 months for personal information
+- Anonymization required for all machine learning training datasets
+
+## 8. Success Metrics and KPIs
+
+### M1: Product Performance Metrics
+- **Detection Accuracy:** Target >95%, minimum acceptable 90%
+- **Response Time:** Target <1 second, maximum acceptable 2 seconds
+- **User Satisfaction:** Net Promoter Score >50 for job seekers, >70 for recruiters
+- **False Positive Rate:** Target <5%, maximum acceptable 10%
+- **System Uptime:** Target 99.9%, minimum acceptable 99.5%
+
+### M2: User Engagement Metrics
+- **Daily Active Users:** Target 1000+ within 6 months
+- **Browser Extension Installs:** Target 10,000+ within 6 months
+- **Job Analysis Volume:** Target 100,000+ analyses per month by month 6
+- **User Retention:** Target 80%+ monthly retention for active users
+- **Feature Adoption:** Target 60%+ of users trying feedback functionality
+
+### M3: Business Growth Metrics
+- **Revenue Growth:** Target $1M ARR within 18 months
+- **Customer Acquisition:** Target 50+ paid enterprise customers by month 12
+- **Customer Retention:** Target 90%+ monthly retention for paid subscribers
+- **Customer Acquisition Cost:** Target <3 months payback period
+- **Market Penetration:** Target 5% market share in tech recruiting tools
+
+### M4: Technical Quality Metrics
+- **Code Coverage:** Minimum 80% test coverage for all new features
+- **Bug Resolution:** Target <24 hours for critical issues, <1 week for minor issues
+- **Security Incidents:** Zero tolerance for data breaches or privacy violations
+- **Performance Degradation:** Alert system for >10% decline in key metrics
+- **Model Drift:** Monthly accuracy validation with retraining triggers
+
+## 9. Technical Architecture Overview
+
+### A1: Frontend Architecture
+- **Browser Extension:** Vanilla JavaScript with TypeScript for type safety
+- **Web Dashboard:** React 18 with TypeScript and Tailwind CSS
+- **State Management:** Zustand for global state, React hooks for local state
+- **Build System:** Vite for fast development and optimized production builds
+- **Testing:** Jest + Testing Library for comprehensive component testing
+
+### A2: Backend Architecture
+- **API Layer:** FastAPI with Pydantic models for request/response validation
+- **Authentication Service:** JWT with refresh tokens and role-based access control
+- **ML Service:** Separate microservice for model inference with auto-scaling
+- **Data Pipeline:** Apache Kafka for streaming job posting updates
+- **Database Layer:** PostgreSQL for structured data, MongoDB for job content
+
+### A3: Machine Learning Pipeline
+- **Data Collection:** Automated scraping with respect for rate limits
+- **Feature Engineering:** Scikit-learn pipelines for reproducible preprocessing
+- **Model Training:** MLflow for experiment tracking and model versioning
+- **Model Serving:** FastAPI with async prediction endpoints
+- **Monitoring:** Real-time accuracy tracking with automated retraining triggers
+
+### A4: Infrastructure and Deployment
+- **Containerization:** Docker containers for all services
+- **Orchestration:** Kubernetes for auto-scaling and load balancing
+- **Monitoring:** Datadog for infrastructure monitoring, Sentry for error tracking
+- **CI/CD:** GitHub Actions with automated testing and deployment
+- **Security:** Vault for secrets management, regular security scanning
+
+## 10. Implementation Timeline
+
+### Phase 1: Foundation (Months 1-2)
+- Set up development environment and CI/CD pipeline
+- Implement core ML model training pipeline
+- Create basic API structure with authentication
+- Develop initial dataset collection and labeling tools
+
+### Phase 2: MVP Development (Months 3-4)
+- Build browser extension with basic ghost job detection
+- Implement web dashboard with user registration and job analysis
+- Deploy ML model inference service with monitoring
+- Create user feedback collection and model improvement loop
+
+### Phase 3: Beta Testing (Months 5-6)
+- Launch closed beta with 100 selected users
+- Implement comprehensive testing and quality assurance
+- Optimize performance based on real-world usage patterns
+- Refine UI/UX based on user feedback and usage analytics
+
+### Phase 4: Public Launch (Months 7-9)
+- Public beta launch with marketing campaign
+- Implement customer support systems and documentation
+- Scale infrastructure for increased user load
+- Begin B2B sales development and partnership discussions
+
+### Phase 5: Growth and Expansion (Months 10-12)
+- Implement paid subscription features and billing system
+- Expand platform support beyond LinkedIn
+- Develop enterprise features and custom integrations
+- Launch affiliate and partnership programs for growth
+
+## 11. Risk Mitigation Strategies
+
+### R1: Technical Risk Mitigation
+- **Model Accuracy Degradation:** Implement continuous monitoring with automatic retraining triggers
+- **Platform Access Restrictions:** Develop multi-platform strategy and user-contributed data sources
+- **Scalability Challenges:** Use cloud-native architecture with auto-scaling capabilities
+- **Security Vulnerabilities:** Regular security audits and penetration testing
+
+### R2: Business Risk Mitigation
+- **Legal Challenges:** Maintain transparency in methodology and seek legal review for compliance
+- **Competitive Response:** Focus on technical excellence and user experience differentiation
+- **Market Adoption:** Implement freemium model to reduce barriers to entry
+- **Revenue Generation:** Diversify revenue streams across multiple user segments
+
+### R3: Operational Risk Mitigation
+- **Team Scaling:** Document all processes and implement knowledge sharing practices
+- **Data Quality Issues:** Implement multiple validation layers and human oversight
+- **Customer Support Load:** Create comprehensive documentation and automated support tools
+- **Regulatory Changes:** Monitor legal landscape and maintain compliance flexibility
