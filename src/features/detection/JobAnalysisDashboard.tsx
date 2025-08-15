@@ -42,17 +42,17 @@ export const JobAnalysisDashboard: React.FC = () => {
     setCurrentAnalysis(null)
 
     try {
-      const result = await AnalysisService.mockAnalyzeJob(data.jobUrl)
-      
-      const urlObj = new URL(data.jobUrl)
-      const jobTitle = urlObj.searchParams.get('title') || 'Software Engineer'
-      const company = urlObj.hostname.includes('linkedin') ? 'LinkedIn Company' : 'Unknown Company'
+      // Extract job data and run analysis in parallel
+      const [jobData, result] = await Promise.all([
+        AnalysisService.extractJobData(data.jobUrl),
+        AnalysisService.mockAnalyzeJob(data.jobUrl)
+      ])
 
       const analysis: JobAnalysis = {
         id: result.id,
         jobUrl: data.jobUrl,
-        title: jobTitle,
-        company,
+        title: jobData.title,
+        company: jobData.company,
         ghostProbability: result.ghostProbability,
         confidence: result.confidence,
         factors: result.factors.map(f => f.description),

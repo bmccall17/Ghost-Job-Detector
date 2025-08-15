@@ -64,6 +64,64 @@ export class AnalysisService {
     return response.blob()
   }
 
+  static async extractJobData(jobUrl: string): Promise<{title: string, company: string}> {
+    try {
+      // For demo purposes, we'll extract from common job board patterns
+      const url = new URL(jobUrl)
+      
+      if (url.hostname.includes('greenhouse')) {
+        // Extract from Greenhouse URLs like job-boards.greenhouse.io/contentful/jobs/6901692
+        const pathParts = url.pathname.split('/').filter(part => part.length > 0)
+        const company = pathParts[0] || 'Unknown Company'
+        
+        // Try to fetch the page and extract title
+        try {
+          const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(jobUrl)}`)
+          const data = await response.json()
+          const html = data.contents
+          
+          // Extract title from page content
+          const titleMatch = html.match(/<title[^>]*>([^<]+)</i) || 
+                           html.match(/<h1[^>]*>([^<]+)</i) ||
+                           html.match(/class="[^"]*title[^"]*"[^>]*>([^<]+)/i)
+          
+          let title = titleMatch ? titleMatch[1].trim() : 'Unknown Position'
+          
+          // Clean up common suffixes from job board titles
+          title = title.replace(/\s*-\s*(Contentful|at\s+\w+).*$/i, '').trim()
+          
+          return {
+            title: title,
+            company: company.charAt(0).toUpperCase() + company.slice(1)
+          }
+        } catch (fetchError) {
+          return {
+            title: 'Unknown Position',
+            company: company.charAt(0).toUpperCase() + company.slice(1)
+          }
+        }
+      }
+      
+      if (url.hostname.includes('linkedin')) {
+        return {
+          title: url.searchParams.get('title') || 'LinkedIn Position',
+          company: 'LinkedIn Company'
+        }
+      }
+      
+      // Generic fallback
+      return {
+        title: 'Unknown Position',
+        company: url.hostname.replace('www.', '').split('.')[0] || 'Unknown Company'
+      }
+    } catch (error) {
+      return {
+        title: 'Unknown Position',
+        company: 'Unknown Company'
+      }
+    }
+  }
+
   static mockAnalyzeJob(_jobUrl: string): Promise<AnalysisResult> {
     return new Promise((resolve) => {
       setTimeout(() => {

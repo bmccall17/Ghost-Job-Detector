@@ -10,7 +10,8 @@
       "Bash(rm:*)",
       "Bash(node:*)",
       "Bash(npm run test-setup:*)",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(timeout 10 npm run dev)",
+      "Bash(cd:*)"
     ],
     "deny": []
   }
