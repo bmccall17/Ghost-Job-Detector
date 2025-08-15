@@ -29,6 +29,9 @@ export const JobAnalysisDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'url' | 'pdf' | 'bulk'>('url')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null)
+  const [linkedInSearchUrl, setLinkedInSearchUrl] = useState('')
+  const [careerSiteUrl, setCareerSiteUrl] = useState('')
+  const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false)
   
   const {
     currentAnalysis,
@@ -161,6 +164,66 @@ export const JobAnalysisDashboard: React.FC = () => {
     addBulkJob(bulkJob)
   }
 
+  const handleLinkedInSearchAnalysis = async () => {
+    if (!linkedInSearchUrl.trim()) return
+    
+    setIsBulkAnalyzing(true)
+    try {
+      const jobUrls = await AnalysisService.extractJobsFromLinkedInSearch(linkedInSearchUrl)
+      
+      const bulkJob = {
+        id: Math.random().toString(36).substr(2, 9),
+        fileName: `LinkedIn Search (${jobUrls.length} jobs)`,
+        totalJobs: jobUrls.length,
+        completedJobs: 0,
+        failedJobs: 0,
+        status: 'processing' as const,
+        createdAt: new Date(),
+        results: []
+      }
+
+      addBulkJob(bulkJob)
+      setLinkedInSearchUrl('')
+      
+      // TODO: Process jobs in background
+      console.log('Found LinkedIn jobs:', jobUrls)
+    } catch (error) {
+      console.error('LinkedIn search analysis failed:', error)
+    } finally {
+      setIsBulkAnalyzing(false)
+    }
+  }
+
+  const handleCareerSiteAnalysis = async () => {
+    if (!careerSiteUrl.trim()) return
+    
+    setIsBulkAnalyzing(true)
+    try {
+      const jobUrls = await AnalysisService.extractJobsFromCareerSite(careerSiteUrl)
+      
+      const bulkJob = {
+        id: Math.random().toString(36).substr(2, 9),
+        fileName: `Career Site Crawl (${jobUrls.length} jobs)`,
+        totalJobs: jobUrls.length,
+        completedJobs: 0,
+        failedJobs: 0,
+        status: 'processing' as const,
+        createdAt: new Date(),
+        results: []
+      }
+
+      addBulkJob(bulkJob)
+      setCareerSiteUrl('')
+      
+      // TODO: Process jobs in background
+      console.log('Found career site jobs:', jobUrls)
+    } catch (error) {
+      console.error('Career site analysis failed:', error)
+    } finally {
+      setIsBulkAnalyzing(false)
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
@@ -217,7 +280,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 {...urlForm.register('jobUrl')}
                 type="url"
                 id="jobUrl"
-                placeholder="https://careers.blackbaud.com/us/en/job/R0012886/Manager-Product-Management-Grantmaking"
+                placeholder="https://www.linkedin.com/jobs/view/1234567890 or https://careers.company.com/jobs/123"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {urlForm.formState.errors.jobUrl && (
@@ -290,7 +353,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 {...pdfForm.register('sourceUrl')}
                 type="url"
                 id="sourceUrl"
-                placeholder="https://careers.blackbaud.com/us/en/job/R0012886/Manager-Product-Management-Grantmaking"
+                placeholder="https://careers.company.com/jobs/123"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {pdfForm.formState.errors.sourceUrl && (
@@ -380,13 +443,65 @@ export const JobAnalysisDashboard: React.FC = () => {
       )}
 
       {activeTab === 'bulk' && (
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Job Analysis</h3>
-          <FileUpload 
-            onFileSelect={handleFileUpload}
-            accept=".csv"
-            maxSize={10 * 1024 * 1024}
-          />
+        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Bulk Job Analysis</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Analyze multiple job postings at once using CSV files, LinkedIn search URLs, or career site URLs
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* CSV Upload */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">CSV File Upload</h4>
+              <p className="text-xs text-gray-500 mb-3">Upload a CSV with job URLs</p>
+              <FileUpload 
+                onFileSelect={handleFileUpload}
+                accept=".csv"
+                maxSize={10 * 1024 * 1024}
+              />
+            </div>
+
+            {/* LinkedIn Search URL */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">LinkedIn Search</h4>
+              <p className="text-xs text-gray-500 mb-3">Paste LinkedIn jobs search URL</p>
+              <textarea
+                value={linkedInSearchUrl}
+                onChange={(e) => setLinkedInSearchUrl(e.target.value)}
+                placeholder="https://www.linkedin.com/jobs/search/?currentJobId=4283562303&f_C=2582861..."
+                className="w-full h-20 text-xs px-2 py-1 border border-gray-300 rounded-md resize-none"
+              />
+              <button 
+                onClick={handleLinkedInSearchAnalysis}
+                disabled={isBulkAnalyzing || !linkedInSearchUrl.trim()}
+                className="w-full mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBulkAnalyzing ? 'Analyzing...' : 'Analyze Search Results'}
+              </button>
+            </div>
+
+            {/* Career Site URL */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">Career Site Crawl</h4>
+              <p className="text-xs text-gray-500 mb-3">Crawl company career pages</p>
+              <input
+                type="url"
+                value={careerSiteUrl}
+                onChange={(e) => setCareerSiteUrl(e.target.value)}
+                placeholder="https://careers.company.com/jobs"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md"
+              />
+              <button 
+                onClick={handleCareerSiteAnalysis}
+                disabled={isBulkAnalyzing || !careerSiteUrl.trim()}
+                className="w-full mt-2 px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBulkAnalyzing ? 'Crawling...' : 'Crawl & Analyze'}
+              </button>
+            </div>
+          </div>
           
           {uploadedFile && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">

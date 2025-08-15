@@ -13,13 +13,14 @@
     "start": "npm run dev"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.3.2",
+    "@vercel/analytics": "^1.5.0",
+    "lucide-react": "^0.288.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.47.0",
-    "zustand": "^4.4.4",
     "zod": "^3.22.4",
-    "lucide-react": "^0.288.0",
-    "@hookform/resolvers": "^3.3.2"
+    "zustand": "^4.4.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
@@ -35,6 +36,6 @@
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
-    "vite": "^4.5.0"
+    "vite": "^7.1.2"
   }
 }

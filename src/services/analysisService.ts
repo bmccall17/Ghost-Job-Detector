@@ -380,6 +380,81 @@ export class AnalysisService {
     }
   }
 
+  static async extractJobsFromLinkedInSearch(searchUrl: string): Promise<string[]> {
+    try {
+      // Extract job IDs from LinkedIn search URL
+      const url = new URL(searchUrl)
+      const jobIds: string[] = []
+      
+      // Parse currentJobId parameter
+      const currentJobId = url.searchParams.get('currentJobId')
+      if (currentJobId) {
+        jobIds.push(`https://www.linkedin.com/jobs/view/${currentJobId}`)
+      }
+      
+      // For demo purposes, simulate extracting multiple job IDs from search results
+      // In production, this would scrape the LinkedIn search results page
+      const mockJobIds = [
+        '4283562303', '4281730064', '4281723876', '4283559564', 
+        '4283562302', '4267431281', '4276824745', '4268337639', '4268938377'
+      ]
+      
+      mockJobIds.forEach(id => {
+        jobIds.push(`https://www.linkedin.com/jobs/view/${id}`)
+      })
+      
+      return jobIds.slice(0, 10) // Limit to first 10 results
+    } catch (error) {
+      console.error('LinkedIn search extraction error:', error)
+      return []
+    }
+  }
+
+  static async extractJobsFromCareerSite(careerSiteUrl: string): Promise<string[]> {
+    try {
+      // Crawl career site for job postings
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(careerSiteUrl)}`)
+      const data = await response.json()
+      const html = data.contents
+      
+      const url = new URL(careerSiteUrl)
+      const baseUrl = `${url.protocol}//${url.hostname}`
+      
+      // Common patterns for job links on career pages
+      const linkPatterns = [
+        /href="([^"]*(?:job|position|career|role)[^"]*\d+[^"]*)"/gi,
+        /href="([^"]*\/jobs\/[^"]*\d+[^"]*)"/gi,
+        /href="([^"]*\/careers\/[^"]*\d+[^"]*)"/gi
+      ]
+      
+      const jobUrls = new Set<string>()
+      
+      for (const pattern of linkPatterns) {
+        let match
+        while ((match = pattern.exec(html)) !== null) {
+          let jobUrl = match[1]
+          
+          // Convert relative URLs to absolute
+          if (jobUrl.startsWith('/')) {
+            jobUrl = baseUrl + jobUrl
+          } else if (!jobUrl.startsWith('http')) {
+            jobUrl = baseUrl + '/' + jobUrl
+          }
+          
+          // Validate it looks like a job posting URL
+          if (jobUrl.includes('job') || jobUrl.includes('position') || jobUrl.includes('career')) {
+            jobUrls.add(jobUrl)
+          }
+        }
+      }
+      
+      return Array.from(jobUrls).slice(0, 20) // Limit to first 20 results
+    } catch (error) {
+      console.error('Career site crawling error:', error)
+      return []
+    }
+  }
+
   static mockAnalyzeJob(_jobUrl: string): Promise<AnalysisResult> {
     return new Promise((resolve) => {
       setTimeout(() => {
