@@ -1,0 +1,217 @@
+import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Loader2, Link as LinkIcon, Upload, BarChart3 } from 'lucide-react'
+import { useAnalysisStore } from '@/stores/analysisStore'
+import { AnalysisService } from '@/services/analysisService'
+import { FileUpload } from '@/components/FileUpload'
+import { GhostJobBadge } from '@/components/GhostJobBadge'
+import { JobAnalysis } from '@/types'
+
+const urlAnalysisSchema = z.object({
+  jobUrl: z.string().url('Please enter a valid LinkedIn job URL')
+})
+
+type UrlAnalysisForm = z.infer<typeof urlAnalysisSchema>
+
+export const JobAnalysisDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  
+  const {
+    currentAnalysis,
+    isAnalyzing,
+    setCurrentAnalysis,
+    addToHistory,
+    setIsAnalyzing,
+    addBulkJob
+  } = useAnalysisStore()
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset
+  } = useForm<UrlAnalysisForm>({
+    resolver: zodResolver(urlAnalysisSchema)
+  })
+
+  const onSubmitUrl = async (data: UrlAnalysisForm) => {
+    setIsAnalyzing(true)
+    setCurrentAnalysis(null)
+
+    try {
+      const result = await AnalysisService.mockAnalyzeJob(data.jobUrl)
+      
+      const urlObj = new URL(data.jobUrl)
+      const jobTitle = urlObj.searchParams.get('title') || 'Software Engineer'
+      const company = urlObj.hostname.includes('linkedin') ? 'LinkedIn Company' : 'Unknown Company'
+
+      const analysis: JobAnalysis = {
+        id: result.id,
+        jobUrl: data.jobUrl,
+        title: jobTitle,
+        company,
+        ghostProbability: result.ghostProbability,
+        confidence: result.confidence,
+        factors: result.factors.map(f => f.description),
+        analyzedAt: new Date(),
+        status: 'completed'
+      }
+
+      setCurrentAnalysis(analysis)
+      addToHistory(analysis)
+      reset()
+    } catch (error) {
+      console.error('Analysis failed:', error)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleFileUpload = async (file: File) => {
+    setUploadedFile(file)
+    
+    const bulkJob = {
+      id: Math.random().toString(36).substr(2, 9),
+      fileName: file.name,
+      totalJobs: 0,
+      completedJobs: 0,
+      failedJobs: 0,
+      status: 'uploading' as const,
+      createdAt: new Date(),
+      results: []
+    }
+
+    addBulkJob(bulkJob)
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold text-gray-900">Job Analysis Dashboard</h1>
+        <p className="text-gray-600">
+          Analyze individual jobs or upload CSV files for bulk ghost job detection
+        </p>
+      </div>
+
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+        <button
+          onClick={() => setActiveTab('single')}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'single'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <LinkIcon className="w-4 h-4" />
+          <span>Single Job Analysis</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('bulk')}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'bulk'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          <span>Bulk Analysis</span>
+        </button>
+      </div>
+
+      {activeTab === 'single' && (
+        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+          <form onSubmit={handleSubmit(onSubmitUrl)} className="space-y-4">
+            <div>
+              <label htmlFor="jobUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                LinkedIn Job URL
+              </label>
+              <input
+                {...register('jobUrl')}
+                type="url"
+                id="jobUrl"
+                placeholder="https://www.linkedin.com/jobs/view/1234567890"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {errors.jobUrl && (
+                <p className="mt-1 text-sm text-red-600">{errors.jobUrl.message}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isAnalyzing}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Analyzing...</span>
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Analyze Job</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {currentAnalysis && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{currentAnalysis.title}</h4>
+                    <p className="text-sm text-gray-600">{currentAnalysis.company}</p>
+                  </div>
+                  <GhostJobBadge 
+                    probability={currentAnalysis.ghostProbability}
+                    confidence={currentAnalysis.confidence}
+                  />
+                </div>
+
+                <div>
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Key Factors:</h5>
+                  <ul className="space-y-1">
+                    {currentAnalysis.factors.map((factor, index) => (
+                      <li key={index} className="text-sm text-gray-600 flex items-start">
+                        <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-2 flex-shrink-0" />
+                        {factor}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'bulk' && (
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Job Analysis</h3>
+          <FileUpload 
+            onFileSelect={handleFileUpload}
+            accept=".csv"
+            maxSize={10 * 1024 * 1024}
+          />
+          
+          {uploadedFile && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>File uploaded:</strong> {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Processing will begin automatically. You can monitor progress in the history section.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
