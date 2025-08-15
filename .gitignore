@@ -41,3 +41,6 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+
+# Sample files (keep for reference but don't commit)
+sample-jobs.csv
