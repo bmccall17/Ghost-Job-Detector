@@ -1,0 +1,21 @@
+[10:41:20.763] Running build in Washington, D.C., USA (East) – iad1
+[10:41:20.764] Build machine configuration: 2 cores, 8 GB
+[10:41:20.827] Cloning github.com/bmccall17/Ghost-Job-Detector (Branch: main, Commit: 61260b0)
+[10:41:21.740] Cloning completed: 913.000ms
+[10:41:22.086] Restored build cache from previous deployment (5QZeR1gu9yNfYwz7TQdNZnEuX1pD)
+[10:41:24.931] Running "vercel build"
+[10:41:25.345] Vercel CLI 45.0.9
+[10:41:25.955] Installing dependencies...
+[10:41:27.640] 
+[10:41:27.641] up to date in 1s
+[10:41:27.642] 
+[10:41:27.642] 87 packages are looking for funding
+[10:41:27.642]   run `npm fund` for details
+[10:41:27.673] Running "npm run build"
+[10:41:27.782] 
+[10:41:27.782] > ghost-job-detector-dashboard@1.0.0 build
+[10:41:27.782] > tsc && vite build
+[10:41:27.782] 
+[10:41:29.395] src/components/JobReportModal.tsx(254,12): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+[10:41:29.396] src/components/JobReportModal.tsx(422,9): error TS1005: ')' expected.
+[10:41:29.416] Error: Command "npm run build" exited with 2

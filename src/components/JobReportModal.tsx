@@ -141,113 +141,114 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
             <div className="space-y-6">
               {/* Algorithm Assessment */}
               <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Algorithm Assessment</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-700 mb-3">{getRiskDescription(analysis.ghostProbability)}</p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Algorithm Assessment</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700 mb-3">{getRiskDescription(analysis.ghostProbability)}</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">Ghost Probability:</span>
+                      <span className="ml-2 font-semibold">{Math.round(analysis.ghostProbability * 100)}%</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Model Confidence:</span>
+                      <span className="ml-2 font-semibold">{getConfidenceDescription(analysis.confidence)} ({Math.round(analysis.confidence * 100)}%)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Factors Analysis */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Risk Factors Analysis</h3>
+                <div className="space-y-4">
+                  {redFlags.length > 0 && (
+                    <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <XCircle className="w-5 h-5 text-red-600" />
+                        <h4 className="font-semibold text-red-800">Red Flags ({redFlags.length})</h4>
+                      </div>
+                      <ul className="space-y-2">
+                        {redFlags.map((flag, index) => (
+                          <li key={index} className="flex items-start space-x-2">
+                            <span className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-red-700 text-sm">{flag}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {yellowFlags.length > 0 && (
+                    <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                        <h4 className="font-semibold text-yellow-800">Warning Signs ({yellowFlags.length})</h4>
+                      </div>
+                      <ul className="space-y-2">
+                        {yellowFlags.map((flag, index) => (
+                          <li key={index} className="flex items-start space-x-2">
+                            <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-yellow-700 text-sm">{flag}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {greenFlags.length > 0 && (
+                    <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <h4 className="font-semibold text-green-800">Positive Indicators ({greenFlags.length})</h4>
+                      </div>
+                      <ul className="space-y-2">
+                        {greenFlags.map((flag, index) => (
+                          <li key={index} className="flex items-start space-x-2">
+                            <span className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-green-700 text-sm">{flag}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Recommendation */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Recommendation</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-blue-800 text-sm">
+                    {analysis.ghostProbability >= 0.67 
+                      ? "⚠️ High risk of ghost job. We recommend avoiding this application unless you have inside information about the role's legitimacy."
+                      : analysis.ghostProbability >= 0.34
+                      ? "⚡ Mixed signals detected. Research the company thoroughly and consider reaching out to current employees before applying."
+                      : "✅ This appears to be a legitimate opportunity. Consider applying if it matches your qualifications and career goals."
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Model Information */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Analysis Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                   <div>
-                    <span className="font-medium text-gray-600">Ghost Probability:</span>
-                    <span className="ml-2 font-semibold">{Math.round(analysis.ghostProbability * 100)}%</span>
+                    <span className="font-medium">Analysis ID:</span>
+                    <span className="ml-2 font-mono">{analysis.id}</span>
                   </div>
                   <div>
-                    <span className="font-medium text-gray-600">Model Confidence:</span>
-                    <span className="ml-2 font-semibold">{getConfidenceDescription(analysis.confidence)} ({Math.round(analysis.confidence * 100)}%)</span>
+                    <span className="font-medium">Model Version:</span>
+                    <span className="ml-2">v1.2.3</span>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Risk Factors Analysis */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Risk Factors Analysis</h3>
-              <div className="space-y-4">
-                {redFlags.length > 0 && (
-                  <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <XCircle className="w-5 h-5 text-red-600" />
-                      <h4 className="font-semibold text-red-800">Red Flags ({redFlags.length})</h4>
-                    </div>
-                    <ul className="space-y-2">
-                      {redFlags.map((flag, index) => (
-                        <li key={index} className="flex items-start space-x-2">
-                          <span className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0" />
-                          <span className="text-red-700 text-sm">{flag}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div>
+                    <span className="font-medium">Processing Time:</span>
+                    <span className="ml-2">~850ms</span>
                   </div>
-                )}
-
-                {yellowFlags.length > 0 && (
-                  <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                      <h4 className="font-semibold text-yellow-800">Warning Signs ({yellowFlags.length})</h4>
-                    </div>
-                    <ul className="space-y-2">
-                      {yellowFlags.map((flag, index) => (
-                        <li key={index} className="flex items-start space-x-2">
-                          <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0" />
-                          <span className="text-yellow-700 text-sm">{flag}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div>
+                    <span className="font-medium">Analysis Date:</span>
+                    <span className="ml-2">{analysis.analyzedAt.toLocaleString()}</span>
                   </div>
-                )}
-
-                {greenFlags.length > 0 && (
-                  <div className="border border-green-200 rounded-lg p-4 bg-green-50">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <h4 className="font-semibold text-green-800">Positive Indicators ({greenFlags.length})</h4>
-                    </div>
-                    <ul className="space-y-2">
-                      {greenFlags.map((flag, index) => (
-                        <li key={index} className="flex items-start space-x-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                          <span className="text-green-700 text-sm">{flag}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recommendation */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Recommendation</h3>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
-                  {analysis.ghostProbability >= 0.67 
-                    ? "⚠️ High risk of ghost job. We recommend avoiding this application unless you have inside information about the role's legitimacy."
-                    : analysis.ghostProbability >= 0.34
-                    ? "⚡ Mixed signals detected. Research the company thoroughly and consider reaching out to current employees before applying."
-                    : "✅ This appears to be a legitimate opportunity. Consider applying if it matches your qualifications and career goals."
-                  }
-                </p>
-              </div>
-            </div>
-
-            {/* Model Information */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Analysis Details</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                <div>
-                  <span className="font-medium">Analysis ID:</span>
-                  <span className="ml-2 font-mono">{analysis.id}</span>
-                </div>
-                <div>
-                  <span className="font-medium">Model Version:</span>
-                  <span className="ml-2">v1.2.3</span>
-                </div>
-                <div>
-                  <span className="font-medium">Processing Time:</span>
-                  <span className="ml-2">~850ms</span>
-                </div>
-                <div>
-                  <span className="font-medium">Analysis Date:</span>
-                  <span className="ml-2">{analysis.analyzedAt.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -418,7 +419,6 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
             </div>
           )}
-          </div>
         </div>
       </div>
     </div>

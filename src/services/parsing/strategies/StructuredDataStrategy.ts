@@ -6,7 +6,7 @@ export class StructuredDataStrategy implements ExtractionStrategy {
   
   constructor(private config: ParserConfig) {}
 
-  async extract(html: string, url: string): Promise<Partial<ParsedJob>> {
+  async extract(html: string, _url: string): Promise<Partial<ParsedJob>> {
     const result: Partial<ParsedJob> = {}
 
     // Extract JSON-LD structured data

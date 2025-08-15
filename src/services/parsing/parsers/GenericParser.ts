@@ -9,7 +9,7 @@ export class GenericParser extends BaseParser {
     super(GenericParser.createConfig())
   }
 
-  canHandle(url: string): boolean {
+  canHandle(_url: string): boolean {
     // Generic parser can handle any URL as fallback
     return true
   }

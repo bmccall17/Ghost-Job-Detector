@@ -17,7 +17,7 @@ export abstract class BaseParser implements JobParser {
   abstract name: string
   abstract version: string
   protected config: ParserConfig
-  protected strategies: ExtractionStrategy[]
+  protected strategies: ExtractionStrategy[] = []
   protected validator: DataValidator
 
   constructor(config: ParserConfig) {
@@ -37,7 +37,6 @@ export abstract class BaseParser implements JobParser {
   abstract canHandle(url: string): boolean
 
   public async extract(url: string, html: string): Promise<ParsedJob> {
-    const startTime = Date.now()
     let bestResult: Partial<ParsedJob> = {}
     let usedMethod = ExtractionMethod.MANUAL_FALLBACK
     let allValidationResults: ValidationResult[] = []
@@ -99,7 +98,7 @@ export abstract class BaseParser implements JobParser {
     }
   }
 
-  protected applyFallbacks(result: Partial<ParsedJob>, html: string, url: string): Partial<ParsedJob> {
+  protected applyFallbacks(result: Partial<ParsedJob>, _html: string, url: string): Partial<ParsedJob> {
     // Apply domain-based company fallback
     if (!result.company || result.company === 'Unknown Company') {
       result.company = this.extractCompanyFromDomain(url)
