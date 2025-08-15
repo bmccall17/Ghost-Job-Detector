@@ -112,55 +112,103 @@ export const RiskTooltip: React.FC<RiskTooltipProps> = ({ factors, probability, 
               </div>
             </div>
 
-            {redFlags.length > 0 && (
-              <div>
-                <div className="flex items-center space-x-1 text-red-600 text-sm font-medium mb-1">
-                  <XCircle className="w-3 h-3" />
-                  <span>Red Flags</span>
-                </div>
-                <ul className="space-y-1">
-                  {redFlags.map((flag, index) => (
-                    <li key={index} className="text-xs text-gray-700 flex items-start">
-                      <span className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
-                      {flag}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {/* Show flags based on probability level */}
+            {probability >= 0.67 && (
+              <>
+                {/* High Risk: Show all red flags */}
+                {redFlags.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-1 text-red-600 text-sm font-medium mb-1">
+                      <XCircle className="w-3 h-3" />
+                      <span>Red Flags</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {redFlags.map((flag, index) => (
+                        <li key={index} className="text-xs text-gray-700 flex items-start">
+                          <span className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
 
-            {yellowFlags.length > 0 && (
-              <div>
-                <div className="flex items-center space-x-1 text-yellow-600 text-sm font-medium mb-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  <span>Warning Signs</span>
-                </div>
-                <ul className="space-y-1">
-                  {yellowFlags.map((flag, index) => (
-                    <li key={index} className="text-xs text-gray-700 flex items-start">
-                      <span className="w-2 h-2 bg-yellow-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
-                      {flag}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {probability >= 0.34 && probability < 0.67 && (
+              <>
+                {/* Medium Risk: Show yellow and red flags */}
+                {redFlags.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-1 text-red-600 text-sm font-medium mb-1">
+                      <XCircle className="w-3 h-3" />
+                      <span>Red Flags</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {redFlags.map((flag, index) => (
+                        <li key={index} className="text-xs text-gray-700 flex items-start">
+                          <span className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {yellowFlags.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-1 text-yellow-600 text-sm font-medium mb-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Warning Signs</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {yellowFlags.map((flag, index) => (
+                        <li key={index} className="text-xs text-gray-700 flex items-start">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
 
-            {greenFlags.length > 0 && (
-              <div>
-                <div className="flex items-center space-x-1 text-green-600 text-sm font-medium mb-1">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>Positive Indicators</span>
-                </div>
-                <ul className="space-y-1">
-                  {greenFlags.map((flag, index) => (
-                    <li key={index} className="text-xs text-gray-700 flex items-start">
-                      <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
-                      {flag}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {probability < 0.34 && (
+              <>
+                {/* Low Risk: Show yellow and green flags */}
+                {yellowFlags.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-1 text-yellow-600 text-sm font-medium mb-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Warning Signs</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {yellowFlags.map((flag, index) => (
+                        <li key={index} className="text-xs text-gray-700 flex items-start">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {greenFlags.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-1 text-green-600 text-sm font-medium mb-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>Positive Indicators</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {greenFlags.map((flag, index) => (
+                        <li key={index} className="text-xs text-gray-700 flex items-start">
+                          <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0" />
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
