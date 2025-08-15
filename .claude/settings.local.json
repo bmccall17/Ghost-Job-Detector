@@ -18,7 +18,10 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(cd:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(python:*)",
+      "Bash(cd:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

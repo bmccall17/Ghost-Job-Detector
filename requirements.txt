@@ -1,0 +1,2 @@
+# Ghost Job Detector - Vercel Python Function Requirements
+requests==2.31.0

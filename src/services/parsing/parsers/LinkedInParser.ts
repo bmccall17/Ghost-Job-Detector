@@ -70,11 +70,16 @@ export class LinkedInParser extends BaseParser {
       },
       textPatterns: {
         title: [
+          // LinkedIn specific title patterns
+          /(.+?)\s+hiring\s+(.+?)\s+in\s+.+/i, // "Company hiring Job Title in Location" -> extract job title part
+          /(.+?)\s+(?:is\s+)?hiring(?:\s+for)?\s+(.+)/i, // "Company hiring Job Title" -> extract job title part
           /data-job-title="([^"]+)"/i,
           /<h1[^>]*>([^<]*(?:engineer|developer|manager|analyst|specialist|coordinator|director|lead)[^<]*)<\/h1>/i,
           /job.?title["\s]*[:=]["\s]*([^"<\n]+)/i
         ],
         company: [
+          // LinkedIn specific company patterns
+          /(.+?)\s+hiring\s+.+/i, // "Company hiring Job Title" -> extract company part
           /data-company[^=]*="([^"]+)"/i,
           /company["\s]*[:=]["\s]*"([^"]+)"/i,
           /hiringOrganization[^}]*name["\s]*[:=]["\s]*"([^"]+)"/i
@@ -109,6 +114,22 @@ export class LinkedInParser extends BaseParser {
   }
 
   private extractLinkedInTitleFromHtml(html: string): string {
+    // First try to extract from page title which often has "Company hiring Job Title" format
+    const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
+    if (titleMatch) {
+      const pageTitle = titleMatch[1].trim()
+      const cleaned = pageTitle.replace(/\s*\|\s*LinkedIn.*$/i, '').trim()
+      
+      // Check for LinkedIn "Company hiring Job Title" format
+      const hiringMatch = cleaned.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+)?$/i)
+      if (hiringMatch && hiringMatch[2]) {
+        let jobTitle = hiringMatch[2].trim()
+        // Clean location information from the title
+        jobTitle = this.cleanLocationFromTitle(jobTitle)
+        return jobTitle
+      }
+    }
+    
     // Try multiple LinkedIn-specific patterns
     const patterns = [
       // Modern LinkedIn job pages
@@ -131,6 +152,19 @@ export class LinkedInParser extends BaseParser {
   }
 
   private extractLinkedInCompanyFromHtml(html: string): string {
+    // First try to extract from page title which often has "Company hiring Job Title" format
+    const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
+    if (titleMatch) {
+      const pageTitle = titleMatch[1].trim()
+      const cleaned = pageTitle.replace(/\s*\|\s*LinkedIn.*$/i, '').trim()
+      
+      // Check for LinkedIn "Company hiring Job Title" format
+      const hiringMatch = cleaned.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+)?$/i)
+      if (hiringMatch && hiringMatch[1] && hiringMatch[1].trim().length > 1) {
+        return hiringMatch[1].trim() // Return the company part
+      }
+    }
+    
     // Try multiple LinkedIn-specific patterns
     const patterns = [
       // Modern LinkedIn structure
@@ -171,6 +205,17 @@ export class LinkedInParser extends BaseParser {
       .replace(/\s*[-–|]\s*LinkedIn.*$/i, '')
       .replace(/\s*\|\s*LinkedIn.*$/i, '')
       .replace(/\s*on\s+LinkedIn$/i, '')
+      .trim()
+  }
+
+  private cleanLocationFromTitle(title: string): string {
+    // Remove common location patterns from job titles
+    return title
+      .replace(/\s+in\s+[A-Z]{2,}$/i, '') // Remove "in NAMER", "in USA", "in UK", etc.
+      .replace(/\s+in\s+[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?$/i, '') // Remove "in London", "in New York, NY"
+      .replace(/\s+in\s+.+$/i, '') // Remove any remaining "in Location" patterns
+      .replace(/\s+-\s+[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?$/i, '') // Remove "- Location" patterns
+      .replace(/\s*\([^)]*(?:remote|hybrid|onsite|location)[^)]*\)$/i, '') // Remove location parentheticals
       .trim()
   }
 }

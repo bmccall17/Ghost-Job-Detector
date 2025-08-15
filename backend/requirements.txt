@@ -1,0 +1,36 @@
+# Ghost Job Detector Backend Requirements
+# Core framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlite3  # Built into Python
+sqlalchemy==2.0.23
+alembic==1.12.1
+
+# Data validation and serialization
+pydantic==2.5.0
+pydantic-settings==2.0.3
+
+# HTTP client for external requests
+httpx==0.25.2
+requests==2.31.0
+
+# CORS middleware
+python-multipart==0.0.6
+
+# Date/time handling
+python-dateutil==2.8.2
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2  # For testing API endpoints
+
+# Development
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+
+# Production
+gunicorn==21.2.0
