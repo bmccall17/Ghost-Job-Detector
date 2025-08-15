@@ -1,0 +1,21 @@
+[00:32:56.094] Running build in Washington, D.C., USA (East) – iad1
+[00:32:56.095] Build machine configuration: 2 cores, 8 GB
+[00:32:56.119] Cloning github.com/bmccall17/Ghost-Job-Detector (Branch: main, Commit: f0d6b95)
+[00:32:56.389] Cloning completed: 269.000ms
+[00:32:56.826] Restored build cache from previous deployment (ABzeZW4rGnu24a6Yj7DYWNnf2bac)
+[00:32:59.552] Running "vercel build"
+[00:32:59.978] Vercel CLI 45.0.9
+[00:33:00.985] Installing dependencies...
+[00:33:02.341] 
+[00:33:02.342] up to date in 946ms
+[00:33:02.343] 
+[00:33:02.343] 85 packages are looking for funding
+[00:33:02.343]   run `npm fund` for details
+[00:33:02.374] Running "npm run build"
+[00:33:02.485] 
+[00:33:02.485] > ghost-job-detector-dashboard@1.0.0 build
+[00:33:02.485] > tsc && vite build
+[00:33:02.485] 
+[00:33:06.319] src/services/analysisService.ts(131,43): error TS6133: 'url' is declared but its value is never read.
+[00:33:06.319] src/services/analysisService.ts(291,26): error TS6133: 'e' is declared but its value is never read.
+[00:33:06.343] Error: Command "npm run build" exited with 2

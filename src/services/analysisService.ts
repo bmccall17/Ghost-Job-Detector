@@ -128,7 +128,7 @@ export class AnalysisService {
     }
   }
 
-  private static async extractLinkedInJob(url: URL, jobUrl: string): Promise<{title: string, company: string}> {
+  private static async extractLinkedInJob(_url: URL, jobUrl: string): Promise<{title: string, company: string}> {
     try {
       // LinkedIn requires different approach due to dynamic content
       // Try to extract from URL parameters or page title
@@ -288,7 +288,7 @@ export class AnalysisService {
       // Simulate reading PDF content (in production, use PDF.js or similar)
       const reader = new FileReader()
       const fileContent = await new Promise<string>((resolve) => {
-        reader.onload = (e) => {
+        reader.onload = (_e) => {
           // For demo, we'll return a simulated job posting content
           resolve(`
             Job Title: ${title}
