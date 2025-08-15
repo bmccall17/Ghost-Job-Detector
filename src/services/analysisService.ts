@@ -1,4 +1,5 @@
 import { AnalysisResult, BulkAnalysisJob } from '@/types'
+import { ParserRegistry } from './parsing/ParserRegistry'
 
 export class AnalysisService {
   private static readonly API_BASE = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || 'http://localhost:8000/api/v1'
@@ -64,7 +65,55 @@ export class AnalysisService {
     return response.blob()
   }
 
-  static async extractJobData(jobUrl: string): Promise<{title: string, company: string}> {
+  static async extractJobData(jobUrl: string): Promise<{title: string, company: string, parsingMetadata?: any}> {
+    try {
+      // Use the new parser registry system
+      const parserRegistry = ParserRegistry.getInstance()
+      const parsedJob = await parserRegistry.parseJob(jobUrl)
+      
+      return {
+        title: parsedJob.title,
+        company: parsedJob.company,
+        parsingMetadata: {
+          parserUsed: parsedJob.metadata.parserUsed,
+          parserVersion: parsedJob.metadata.parserVersion,
+          extractionMethod: parsedJob.metadata.extractionMethod,
+          confidence: parsedJob.metadata.confidence,
+          validationResults: parsedJob.metadata.validationResults,
+          extractionTimestamp: parsedJob.metadata.extractionTimestamp,
+          rawData: parsedJob.metadata.rawData
+        }
+      }
+    } catch (error) {
+      console.error('Job extraction error:', error)
+      
+      // Fallback to legacy system if new parser fails
+      try {
+        const legacyResult = await this.extractJobDataLegacy(jobUrl)
+        return {
+          title: legacyResult.title,
+          company: legacyResult.company,
+          parsingMetadata: {
+            parserUsed: 'LegacyParser',
+            parserVersion: '1.0.0',
+            extractionMethod: 'manual_fallback',
+            confidence: { overall: 0.3, title: 0.3, company: 0.3 },
+            validationResults: [],
+            extractionTimestamp: new Date(),
+            rawData: {}
+          }
+        }
+      } catch {
+        return {
+          title: 'Unknown Position',
+          company: 'Unknown Company'
+        }
+      }
+    }
+  }
+
+  // Legacy extraction method for fallback
+  private static async extractJobDataLegacy(jobUrl: string): Promise<{title: string, company: string}> {
     try {
       const url = new URL(jobUrl)
       const hostname = url.hostname.toLowerCase().replace('www.', '')
@@ -92,7 +141,7 @@ export class AnalysisService {
       // Generic fallback - try to scrape any job posting
       return this.extractGenericJob(url, jobUrl)
     } catch (error) {
-      console.error('Job extraction error:', error)
+      console.error('Legacy job extraction error:', error)
       return {
         title: 'Unknown Position',
         company: 'Unknown Company'

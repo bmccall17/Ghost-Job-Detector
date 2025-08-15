@@ -84,7 +84,8 @@ export const JobAnalysisDashboard: React.FC = () => {
         factors: result.factors.map(f => f.description),
         analyzedAt: new Date(),
         status: 'completed',
-        isNewContribution: true
+        isNewContribution: true,
+        parsingMetadata: jobData.parsingMetadata
       }
 
       setCurrentAnalysis(analysis)

@@ -17,8 +17,10 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(cd:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(cp:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

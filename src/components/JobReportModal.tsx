@@ -1,5 +1,5 @@
-import React from 'react'
-import { X, ExternalLink, Calendar, Building, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, ExternalLink, Calendar, Building, AlertTriangle, CheckCircle, XCircle, Code, Database, Search } from 'lucide-react'
 import { JobAnalysis } from '@/types'
 import { GhostJobBadge } from './GhostJobBadge'
 
@@ -10,6 +10,8 @@ interface JobReportModalProps {
 }
 
 export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'analysis' | 'parsing'>('analysis')
+  
   if (!isOpen || !analysis) return null
 
   const categorizeFactors = (factors: string[]) => {
@@ -99,11 +101,46 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="border-b">
+          <div className="flex space-x-8 px-6">
+            <button
+              onClick={() => setActiveTab('analysis')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'analysis'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Search className="w-4 h-4" />
+                <span>Ghost Analysis</span>
+              </div>
+            </button>
+            {analysis.parsingMetadata && (
+              <button
+                onClick={() => setActiveTab('parsing')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'parsing'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Code className="w-4 h-4" />
+                  <span>Parsing Intelligence</span>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          <div className="space-y-6">
-            {/* Algorithm Assessment */}
-            <div>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+          {activeTab === 'analysis' && (
+            <div className="space-y-6">
+              {/* Algorithm Assessment */}
+              <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Algorithm Assessment</h3>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-700 mb-3">{getRiskDescription(analysis.ghostProbability)}</p>
@@ -214,6 +251,173 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'parsing' && analysis.parsingMetadata && (
+            <div className="space-y-6">
+              {/* Parser Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Parser Information</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">Parser Used:</span>
+                      <span className="ml-2 font-semibold">{analysis.parsingMetadata.parserUsed}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Parser Version:</span>
+                      <span className="ml-2 font-mono">{analysis.parsingMetadata.parserVersion}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Extraction Method:</span>
+                      <span className="ml-2 capitalize">{analysis.parsingMetadata.extractionMethod.replace('_', ' ')}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Extraction Time:</span>
+                      <span className="ml-2">{analysis.parsingMetadata.extractionTimestamp.toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extraction Confidence Scores */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Data Quality Scores</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">Title</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {Math.round(analysis.parsingMetadata.confidence.title * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          analysis.parsingMetadata.confidence.title >= 0.8 ? 'bg-green-500' :
+                          analysis.parsingMetadata.confidence.title >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${analysis.parsingMetadata.confidence.title * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">Company</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {Math.round(analysis.parsingMetadata.confidence.company * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          analysis.parsingMetadata.confidence.company >= 0.8 ? 'bg-green-500' :
+                          analysis.parsingMetadata.confidence.company >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${analysis.parsingMetadata.confidence.company * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">Overall</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {Math.round(analysis.parsingMetadata.confidence.overall * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          analysis.parsingMetadata.confidence.overall >= 0.8 ? 'bg-green-500' :
+                          analysis.parsingMetadata.confidence.overall >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${analysis.parsingMetadata.confidence.overall * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Validation Results */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Validation Results</h3>
+                <div className="space-y-3">
+                  {analysis.parsingMetadata.validationResults.map((result, index) => (
+                    <div key={index} className={`border rounded-lg p-3 ${
+                      result.passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center space-x-2">
+                          {result.passed ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          )}
+                          <span className="font-medium text-sm capitalize">{result.field}</span>
+                          <span className="text-xs text-gray-500">({result.rule.replace('_', ' ')})</span>
+                        </div>
+                        <span className="text-sm font-semibold">
+                          {Math.round(result.score * 100)}%
+                        </span>
+                      </div>
+                      {result.message && (
+                        <p className="text-xs text-gray-600 ml-6">{result.message}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Raw Data Preview */}
+              {analysis.parsingMetadata.rawData && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Raw Data Preview</h3>
+                  <div className="space-y-3">
+                    {analysis.parsingMetadata.rawData.htmlTitle && (
+                      <div className="bg-white border rounded-lg p-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Database className="w-4 h-4 text-gray-600" />
+                          <span className="font-medium text-sm">HTML Title</span>
+                        </div>
+                        <p className="text-xs font-mono text-gray-700 bg-gray-100 p-2 rounded">
+                          {analysis.parsingMetadata.rawData.htmlTitle}
+                        </p>
+                      </div>
+                    )}
+                    {analysis.parsingMetadata.rawData.structuredData && (
+                      <div className="bg-white border rounded-lg p-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Database className="w-4 h-4 text-gray-600" />
+                          <span className="font-medium text-sm">Structured Data Found</span>
+                        </div>
+                        <p className="text-xs text-green-600">
+                          ✓ JSON-LD or Schema.org data detected
+                        </p>
+                      </div>
+                    )}
+                    {analysis.parsingMetadata.rawData.htmlMetaTags && Object.keys(analysis.parsingMetadata.rawData.htmlMetaTags).length > 0 && (
+                      <div className="bg-white border rounded-lg p-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Database className="w-4 h-4 text-gray-600" />
+                          <span className="font-medium text-sm">Meta Tags ({Object.keys(analysis.parsingMetadata.rawData.htmlMetaTags).length})</span>
+                        </div>
+                        <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                          {Object.entries(analysis.parsingMetadata.rawData.htmlMetaTags).slice(0, 5).map(([key, value]) => (
+                            <div key={key} className="font-mono text-gray-600">
+                              <span className="text-blue-600">{key}:</span> {value.substring(0, 50)}{value.length > 50 ? '...' : ''}
+                            </div>
+                          ))}
+                          {Object.keys(analysis.parsingMetadata.rawData.htmlMetaTags).length > 5 && (
+                            <p className="text-gray-500 italic">... and {Object.keys(analysis.parsingMetadata.rawData.htmlMetaTags).length - 5} more</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </div>
       </div>

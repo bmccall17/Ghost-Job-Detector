@@ -1,5 +1,5 @@
 # Ghost Job Detector - Product Requirements Document
-**Version:** 0.091 | **Status:** Development Ready | **Last Updated:** August 2025
+**Version:** 0.09 | **Status:** Development Ready | **Last Updated:** August 2025
 
 ## 1. Introduction
 The Ghost Job Detector is a machine learning-powered platform that identifies fake job postings with 95%+ accuracy. The system helps job seekers avoid wasting time on non-existent opportunities while helping recruiters maintain authentic hiring practices.
@@ -410,53 +410,3 @@ A dual-interface platform combining:
 - **Data Quality Issues:** Implement multiple validation layers and human oversight
 - **Customer Support Load:** Create comprehensive documentation and automated support tools
 - **Regulatory Changes:** Monitor legal landscape and maintain compliance flexibility
-
-## 18. Enhanced Job Data Parsing Architecture (v0.091)
-
-### P1: Multi-Stage Parser Architecture
-**Problem:** Current parsing relies on hardcoded selectors leading to inaccurate job title and company extraction across different job boards.
-
-**Solution:** Implement comprehensive parser registry with multi-stage extraction pipeline:
-
-#### Stage 1: Parser Registry System
-- **JobParser Interface**: Standardized interface for all job board parsers
-- **Source Detection**: Automatic parser selection based on URL patterns
-- **Version Management**: Parser versioning for maintainability and rollback capability
-- **Confidence Scoring**: Each parser provides extraction confidence (0-1)
-
-#### Stage 2: Extraction Pipeline (Priority Order)
-1. **Structured Data Extraction**: JSON-LD, Schema.org, OpenGraph metadata
-2. **CSS Selector Parsing**: Source-specific selectors with fallback chains
-3. **Text Pattern Recognition**: Regex patterns for common title/company formats
-4. **NLP-Based Extraction**: Machine learning fallback for complex structures
-5. **Validation & Quality Scoring**: Data integrity checks and confidence assessment
-
-#### Stage 3: Source-Specific Parsers
-- **LinkedInParser**: Handle dynamic content, multiple title formats, company extraction
-- **IndeedParser**: Indeed-specific structure and data patterns
-- **CompanyCareerParser**: Generic patterns for direct company career pages
-- **GreenhouseParser**: ATS-specific structured data extraction
-- **GenericParser**: Universal fallback for unknown job board sources
-
-#### Stage 4: Data Quality System
-- **Field Validation**: Title length, company format, content quality checks
-- **Cross-Validation**: Compare extraction methods for consistency
-- **Confidence Thresholds**: Minimum quality requirements before database storage
-- **Manual Review Queue**: Low-confidence extractions flagged for human review
-
-### P2: Enhanced Job Analysis Interface
-**Job Report Modal Enhancement**: Display comprehensive parsing metadata for transparency:
-
-#### Parsing Intelligence Tab
-- **Extraction Method Used**: Which parser and extraction stage succeeded
-- **Confidence Scores**: Individual scores for title, company, description extraction
-- **Data Source**: Original HTML structure analysis and metadata found
-- **Validation Results**: Quality checks passed/failed with specific details
-- **Parser Version**: Version info for debugging and consistency tracking
-
-#### Benefits
-- **95%+ Parsing Accuracy**: Multi-stage approach ensures reliable data extraction
-- **Transparency**: Users can see how data was extracted and validated
-- **Maintainability**: Easy to update parsers without affecting entire system
-- **Debugging**: Clear visibility into parsing process for issue resolution
-- **Scalability**: Simple addition of new job board sources
