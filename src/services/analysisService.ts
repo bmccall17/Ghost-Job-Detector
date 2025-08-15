@@ -131,7 +131,6 @@ export class AnalysisService {
   private static async extractLinkedInJob(_url: URL, jobUrl: string): Promise<{title: string, company: string}> {
     try {
       // LinkedIn requires different approach due to dynamic content
-      // Try to extract from URL parameters or page title
       const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(jobUrl)}`)
       const data = await response.json()
       const html = data.contents
@@ -143,11 +142,40 @@ export class AnalysisService {
       
       if (titleMatch) {
         const fullTitle = titleMatch[1].trim()
-        // LinkedIn titles are usually "Job Title - Company Name | LinkedIn"
-        const parts = fullTitle.split(' - ')
-        if (parts.length >= 2) {
-          title = parts[0].trim()
-          company = parts[1].replace(' | LinkedIn', '').trim()
+        
+        // Try multiple LinkedIn title formats:
+        // 1. "Job Title - Company Name | LinkedIn"
+        // 2. "Job Title at Company Name | LinkedIn" 
+        // 3. "Company Name: Job Title | LinkedIn"
+        
+        if (fullTitle.includes(' - ') && fullTitle.includes(' | LinkedIn')) {
+          const parts = fullTitle.replace(' | LinkedIn', '').split(' - ')
+          if (parts.length >= 2) {
+            title = parts[0].trim()
+            company = parts[1].trim()
+          }
+        } else if (fullTitle.includes(' at ') && fullTitle.includes(' | LinkedIn')) {
+          const parts = fullTitle.replace(' | LinkedIn', '').split(' at ')
+          if (parts.length >= 2) {
+            title = parts[0].trim()
+            company = parts[1].trim()
+          }
+        } else if (fullTitle.includes(': ') && fullTitle.includes(' | LinkedIn')) {
+          const parts = fullTitle.replace(' | LinkedIn', '').split(': ')
+          if (parts.length >= 2) {
+            company = parts[0].trim()
+            title = parts[1].trim()
+          }
+        }
+        
+        // Fallback: try to extract from JSON-LD or meta tags
+        if (company === 'LinkedIn Company') {
+          const companyMatch = html.match(/"hiringOrganization"[^}]*"name"\s*:\s*"([^"]+)"/i) ||
+                              html.match(/property="og:site_name"[^>]*content="([^"]+)"/i) ||
+                              html.match(/"companyName"\s*:\s*"([^"]+)"/i)
+          if (companyMatch) {
+            company = companyMatch[1].trim()
+          }
         }
       }
       
@@ -186,18 +214,31 @@ export class AnalysisService {
       }
       
       // Extract company name from hostname or page content
-      let company = url.hostname.replace('careers.', '').replace('.com', '').replace(/\./g, ' ')
+      let company = url.hostname.replace('careers.', '').replace('.com', '').split('.')[0]
       company = company.charAt(0).toUpperCase() + company.slice(1)
       
-      // Try to find company name in content
-      const companyMatch = html.match(/(?:company|organization)[":\s]*([^<"'\n]+)/i)
-      if (companyMatch && companyMatch[1].trim().length > 0) {
-        company = companyMatch[1].trim()
+      // Try to find company name in structured data or meta tags
+      const companyPatterns = [
+        /"name"\s*:\s*"([^"]+)"/i,  // JSON-LD company name
+        /property="og:site_name"[^>]*content="([^"]+)"/i,  // Open Graph
+        /<title[^>]*>([^<]*?)\s*[-|]\s*Careers/i,  // Title with "Careers"
+        /class="[^"]*company[^"]*"[^>]*>([^<]+)</i  // Company class
+      ]
+      
+      for (const pattern of companyPatterns) {
+        const match = html.match(pattern)
+        if (match && match[1].trim().length > 1 && !match[1].includes('{')) {
+          const extractedCompany = match[1].trim()
+          if (extractedCompany.toLowerCase() !== 'careers') {
+            company = extractedCompany
+            break
+          }
+        }
       }
       
       return { title, company }
     } catch (error) {
-      const company = url.hostname.replace('careers.', '').replace('.com', '').replace(/\./g, ' ')
+      const company = url.hostname.replace('careers.', '').replace('.com', '').split('.')[0]
       return {
         title: 'Unknown Position',
         company: company.charAt(0).toUpperCase() + company.slice(1)
