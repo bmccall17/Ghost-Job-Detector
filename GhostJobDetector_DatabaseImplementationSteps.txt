@@ -1,0 +1,58 @@
+# Ghost Job Detector - Database Implementation Steps
+TOP-LEVEL GOAL
+Persist every job analysis, expose history/statistics via APIs, surface company insights, and allow export/backup—then ship a basic History page that matches the app’s existing style.
+
+## Step 1: Database Schema Design: Think of the database like a giant digital binder with different sections.
+**Prompt:**
+```
+Create a SQLite database schema for the Ghost Job Detector. Include tables for:
+- job_searches (id, url, platform, job_title, company, analysis_date, ghost_probability, status)
+- key_factors (search_id, factor_type, description, severity)  
+- companies (company_name, total_posts, avg_ghost_probability, last_updated)
+Create the database file and initialization script.
+```
+
+## Step 2: Database Connection Module: This is like making a special “librarian”.
+**Prompt:**
+```
+Create a database manager class that handles connections, CRUD operations, and transactions for the Ghost Job Detector. Include methods for inserting search results, retrieving analysis history, and updating company statistics.
+```
+
+## Step 3: Integrate Database with Analysis Pipeline: automatically tells the librarian to save it
+**Prompt:**
+```
+Modify the existing job analysis functions to save results to the database after each analysis. Ensure URL, platform detection, ghost job probability, and key factors are all stored with timestamps.
+```
+
+## Step 4: Analysis History Page Backend: the behind-the-scenes part for a webpage that shows all past job checks across all sessions
+**Prompt:**
+```
+Create API endpoints for the Analysis History page:
+- GET /api/history - return paginated search results
+- GET /api/history/stats - return summary statistics
+- DELETE /api/history/{id} - delete specific analysis
+Include filters for date range, platform, and ghost probability.
+```
+
+## Step 5: Analysis History Frontend: design the page
+**Prompt:**
+```
+Build the Analysis History page UI showing:
+- Searchable table of all analyses (date, company, job title, platform, ghost %)
+- Summary cards (total searches, avg ghost %, top ghost companies)
+- Filter controls and export functionality
+Match the existing app design.
+```
+
+## Step 6: Company Tracking Enhancement
+**Prompt:**
+```
+Add company intelligence features:
+- Track posting frequency per company
+- Calculate company ghost job trends over time  
+- Flag companies with consistently high ghost job rates
+- Display company insights in analysis results
+```
+
+
+
