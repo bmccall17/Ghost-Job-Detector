@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BarChart3, History as HistoryIcon, Shield } from 'lucide-react'
+import { Analytics } from '@vercel/analytics/react'
 import { JobAnalysisDashboard } from '@/features/detection/JobAnalysisDashboard'
 import { AnalysisHistory } from '@/features/detection/AnalysisHistory'
 
@@ -68,6 +69,7 @@ function App() {
           </div>
         </div>
       </footer>
+      <Analytics />
     </div>
   )
 }
