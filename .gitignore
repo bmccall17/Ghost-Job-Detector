@@ -44,3 +44,4 @@ temp/
 
 # Sample files (keep for reference but don't commit)
 sample-jobs.csv
+.vercel
