@@ -87,9 +87,9 @@ export default async function handler(req, res) {
             });
         }
 
-        // Generate normalized key for job listing
+        // Generate normalized key for job listing (include URL for uniqueness)
         const normalizedKey = crypto.createHash('sha256')
-            .update(`${(company || 'unknown').toLowerCase()}:${(title || 'unknown').toLowerCase()}`)
+            .update(`${url}:${(company || 'unknown').toLowerCase()}:${(title || 'unknown').toLowerCase()}`)
             .digest('hex');
 
         // Create job listing
