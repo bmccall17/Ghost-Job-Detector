@@ -1,38 +1,85 @@
-import { get } from '@vercel/edge-config';
+import { prisma } from '../lib/db.js';
 
-// Get analysis history from Edge Config
+// Get analysis history from Postgres
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // Get job searches from Edge Config
-        const jobSearches = await get('job_searches') || {};
-        
-        // Convert to array and sort by timestamp (newest first)
-        const analyses = Object.values(jobSearches)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Get query parameters
+        const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+        const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+        const company = req.query.company;
+        const verdict = req.query.verdict;
 
-        // Apply limit if specified
-        const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
-        const limitedAnalyses = limit ? analyses.slice(0, limit) : analyses;
+        // Build where clause
+        const where = {};
+        if (company) {
+            where.jobListing = { company: { contains: company, mode: 'insensitive' } };
+        }
+        if (verdict) {
+            where.verdict = verdict;
+        }
+
+        // Get analyses from database
+        const analyses = await prisma.analysis.findMany({
+            where,
+            include: {
+                jobListing: {
+                    include: {
+                        source: true,
+                        keyFactors: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset
+        });
 
         // Format for frontend
-        const formattedAnalyses = limitedAnalyses.map(analysis => ({
-            id: analysis.id,
-            url: analysis.url,
-            title: analysis.title,
-            company: analysis.company,
-            ghostProbability: analysis.ghostProbability,
-            riskLevel: analysis.ghostProbability >= 0.7 ? 'high' : 
-                      analysis.ghostProbability >= 0.4 ? 'medium' : 'low',
-            timestamp: analysis.timestamp,
-            riskFactors: analysis.riskFactors || [],
-            keyFactors: analysis.keyFactors || []
-        }));
+        const formattedAnalyses = analyses.map(analysis => {
+            const jobListing = analysis.jobListing;
+            const source = jobListing.source;
+            
+            return {
+                id: analysis.id,
+                url: source.url,
+                title: jobListing.title,
+                company: jobListing.company,
+                location: jobListing.location,
+                remote: jobListing.remoteFlag,
+                ghostProbability: Number(analysis.score),
+                riskLevel: analysis.verdict,
+                timestamp: analysis.createdAt,
+                riskFactors: analysis.reasonsJson?.riskFactors || [],
+                keyFactors: analysis.reasonsJson?.keyFactors || [],
+                modelVersion: analysis.modelVersion,
+                processingTime: analysis.processingTimeMs,
+                metadata: {
+                    storage: 'postgres',
+                    version: '2.0',
+                    sourceType: source.kind,
+                    analysisDate: analysis.createdAt,
+                    jobListingId: jobListing.id,
+                    sourceId: source.id
+                }
+            };
+        });
 
-        return res.status(200).json(formattedAnalyses);
+        // Get total count for pagination
+        const totalCount = await prisma.analysis.count({ where });
+
+        return res.status(200).json({
+            analyses: formattedAnalyses,
+            pagination: {
+                total: totalCount,
+                limit,
+                offset,
+                hasMore: offset + limit < totalCount
+            }
+        });
 
     } catch (error) {
         console.error('History fetch error:', error);

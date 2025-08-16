@@ -1,6 +1,9 @@
-import { get, set, getAll } from '@vercel/edge-config';
+import { prisma } from '../lib/db.js';
+import { QueueManager } from '../lib/queue.js';
+import { BlobStorage } from '../lib/storage.js';
+import crypto from 'crypto';
 
-// Ghost Job Analysis Service for Vercel
+// Ghost Job Analysis Service for Vercel (Production)
 export default async function handler(req, res) {
     // Only allow POST requests
     if (req.method !== 'POST') {
@@ -8,81 +11,250 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { url, title, company, description } = req.body;
+        const { url, title, company, description, sourceType = 'url' } = req.body;
 
         if (!url) {
             return res.status(400).json({ error: 'URL is required' });
         }
 
-        // Simple ghost job analysis (placeholder logic)
-        const analysis = analyzeJob({ url, title, company, description });
-        
-        // Generate unique ID
-        const analysisId = `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Prepare job search data
-        const jobSearchData = {
-            id: analysisId,
-            url,
-            title: title || 'Unknown Position',
-            company: company || 'Unknown Company',
-            description: description || '',
-            ghostProbability: analysis.ghostProbability,
-            riskFactors: analysis.riskFactors,
-            keyFactors: analysis.keyFactors,
-            timestamp: new Date().toISOString(),
-            metadata: {
-                storage: 'vercel-edge-config',
-                version: '1.0'
-            }
-        };
+        // Generate content hash for deduplication
+        const contentString = `${url}${title || ''}${company || ''}${description || ''}`;
+        const contentSha256 = crypto.createHash('sha256').update(contentString).digest('hex');
 
-        // Store in Edge Config
-        try {
-            // Get existing job searches
-            const existingSearches = await get('job_searches') || {};
+        // Check if we've already seen this source
+        const existingSource = await prisma.source.findUnique({
+            where: { contentSha256 },
+            include: {
+                jobListings: {
+                    include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
+                }
+            }
+        });
+
+        if (existingSource && existingSource.jobListings.length > 0) {
+            // Return existing analysis
+            const jobListing = existingSource.jobListings[0];
+            const latestAnalysis = jobListing.analyses[0];
             
-            // Add new search
-            existingSearches[analysisId] = jobSearchData;
-            
-            // Update job searches
-            await set('job_searches', existingSearches);
-            
-            // Update stats
-            const stats = await get('stats') || { total_analyses: 0 };
-            stats.total_analyses = Object.keys(existingSearches).length;
-            stats.last_updated = new Date().toISOString();
-            await set('stats', stats);
-            
-            console.log(`✅ Stored analysis ${analysisId} in Edge Config`);
-            
-        } catch (storeError) {
-            console.error('❌ Failed to store in Edge Config:', storeError);
-            // Still return the analysis even if storage fails
+            return res.status(200).json({
+                id: latestAnalysis?.id || jobListing.id,
+                url: existingSource.url,
+                jobData: {
+                    title: jobListing.title,
+                    company: jobListing.company,
+                    description: jobListing.rawParsedJson?.description || '',
+                    location: jobListing.location,
+                    remote: jobListing.remoteFlag
+                },
+                ghostProbability: latestAnalysis ? Number(latestAnalysis.score) : 0,
+                riskLevel: latestAnalysis?.verdict || 'uncertain',
+                riskFactors: latestAnalysis?.reasonsJson?.riskFactors || [],
+                keyFactors: latestAnalysis?.reasonsJson?.keyFactors || [],
+                metadata: {
+                    storage: 'postgres',
+                    version: '2.0',
+                    cached: true,
+                    analysisDate: latestAnalysis?.createdAt
+                }
+            });
         }
+
+        // Create new source record
+        const source = await prisma.source.create({
+            data: {
+                kind: sourceType,
+                url: sourceType === 'url' ? url : undefined,
+                contentSha256,
+                httpStatus: sourceType === 'url' ? 200 : undefined
+            }
+        });
+
+        // Store HTML snapshot if URL source
+        let storageUrl = null;
+        if (sourceType === 'url' && description) {
+            const blob = await BlobStorage.storeHTML(description, url);
+            storageUrl = blob.url;
+            
+            // Create raw document record
+            await prisma.rawDocument.create({
+                data: {
+                    sourceId: source.id,
+                    storageUrl: blob.url,
+                    mimeType: 'text/html',
+                    textContent: description,
+                    textSha256: BlobStorage.generateContentHash(description)
+                }
+            });
+        }
+
+        // Generate normalized key for job listing
+        const normalizedKey = crypto.createHash('sha256')
+            .update(`${(company || 'unknown').toLowerCase()}:${(title || 'unknown').toLowerCase()}`)
+            .digest('hex');
+
+        // Create job listing
+        const jobListing = await prisma.jobListing.create({
+            data: {
+                sourceId: source.id,
+                title: title || 'Unknown Position',
+                company: company || 'Unknown Company',
+                location: null, // TODO: Extract from description
+                remoteFlag: description?.toLowerCase().includes('remote') || false,
+                canonicalUrl: url,
+                rawParsedJson: {
+                    originalTitle: title,
+                    originalCompany: company,
+                    originalDescription: description,
+                    extractedAt: new Date().toISOString()
+                },
+                normalizedKey
+            }
+        });
+
+        // Perform simple analysis
+        const analysis = analyzeJob({ url, title, company, description });
+
+        // Create analysis record
+        const analysisRecord = await prisma.analysis.create({
+            data: {
+                jobListingId: jobListing.id,
+                score: analysis.ghostProbability,
+                verdict: analysis.riskLevel === 'high' ? 'likely_ghost' : 
+                         analysis.riskLevel === 'low' ? 'likely_real' : 'uncertain',
+                reasonsJson: {
+                    riskFactors: analysis.riskFactors,
+                    keyFactors: analysis.keyFactors,
+                    confidence: analysis.confidence || 0.8
+                },
+                modelVersion: process.env.ML_MODEL_VERSION || 'v1.0.0'
+            }
+        });
+
+        // Create key factors
+        for (const factor of analysis.riskFactors) {
+            await prisma.keyFactor.create({
+                data: {
+                    jobListingId: jobListing.id,
+                    factorType: 'risk',
+                    factorDescription: factor,
+                    impactScore: 0.2 // Default impact
+                }
+            });
+        }
+
+        for (const factor of analysis.keyFactors) {
+            await prisma.keyFactor.create({
+                data: {
+                    jobListingId: jobListing.id,
+                    factorType: 'positive',
+                    factorDescription: factor,
+                    impactScore: 0.1 // Default impact
+                }
+            });
+        }
+
+        // Update company statistics
+        await updateCompanyStats(company || 'Unknown Company', Number(analysis.ghostProbability));
+
+        // Log event
+        await prisma.event.create({
+            data: {
+                kind: 'analysis_completed',
+                refTable: 'job_listings',
+                refId: jobListing.id,
+                meta: {
+                    analysisId: analysisRecord.id,
+                    score: Number(analysis.ghostProbability),
+                    verdict: analysisRecord.verdict
+                }
+            }
+        });
 
         // Return analysis result
         return res.status(200).json({
-            id: analysisId,
+            id: analysisRecord.id,
             url,
             jobData: {
-                title: jobSearchData.title,
-                company: jobSearchData.company,
-                description: jobSearchData.description
+                title: jobListing.title,
+                company: jobListing.company,
+                description: description || '',
+                location: jobListing.location,
+                remote: jobListing.remoteFlag
             },
-            ghostProbability: analysis.ghostProbability,
+            ghostProbability: Number(analysis.ghostProbability),
             riskLevel: analysis.riskLevel,
             riskFactors: analysis.riskFactors,
             keyFactors: analysis.keyFactors,
-            metadata: jobSearchData.metadata
+            metadata: {
+                storage: 'postgres',
+                version: '2.0',
+                cached: false,
+                analysisDate: analysisRecord.createdAt
+            }
         });
 
     } catch (error) {
         console.error('Analysis error:', error);
+        
+        // Log error event
+        try {
+            await prisma.event.create({
+                data: {
+                    kind: 'analysis_failed',
+                    meta: {
+                        error: error.message,
+                        url: req.body.url
+                    }
+                }
+            });
+        } catch (logError) {
+            console.error('Failed to log error:', logError);
+        }
+        
         return res.status(500).json({ 
             error: 'Analysis failed',
             details: error.message 
         });
+    }
+}
+
+// Update company statistics
+async function updateCompanyStats(companyName, ghostProbability) {
+    try {
+        const normalizedName = companyName.toLowerCase().trim();
+        
+        // Get or create company
+        const company = await prisma.company.upsert({
+            where: { normalizedName },
+            update: {},
+            create: {
+                name: companyName,
+                normalizedName
+            }
+        });
+
+        // Recalculate stats from job listings
+        const companyListings = await prisma.jobListing.findMany({
+            where: { company: companyName },
+            include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
+        });
+
+        const totalPostings = companyListings.length;
+        const avgGhostProbability = companyListings.reduce((sum, listing) => {
+            const latestAnalysis = listing.analyses[0];
+            return sum + (latestAnalysis ? Number(latestAnalysis.score) : 0);
+        }, 0) / totalPostings;
+
+        await prisma.company.update({
+            where: { id: company.id },
+            data: {
+                totalPostings,
+                avgGhostProbability,
+                lastAnalyzedAt: new Date()
+            }
+        });
+    } catch (error) {
+        console.error('Failed to update company stats:', error);
     }
 }
 

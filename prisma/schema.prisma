@@ -1,0 +1,202 @@
+// Ghost Job Detector - Prisma Schema
+// Database: ghost-job-postgres
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Job posting sources (URLs or PDFs)
+model Source {
+  id                String   @id @default(cuid())
+  kind              SourceKind // 'url' or 'pdf'
+  url               String?  // Original URL for URL sources
+  blobUrl           String?  // Blob storage URL for PDFs
+  contentSha256     String   @unique // Hash for deduplication
+  httpStatus        Int?     // HTTP response status for URLs
+  firstSeenAt       DateTime @default(now())
+  lastSeenAt        DateTime @updatedAt
+  
+  // Relations
+  rawDocuments      RawDocument[]
+  jobListings       JobListing[]
+  events            Event[]
+  
+  // Indexes
+  @@index([contentSha256])
+  @@index([kind, firstSeenAt])
+  @@map("sources")
+}
+
+// Raw document content from sources
+model RawDocument {
+  id            String   @id @default(cuid())
+  sourceId      String
+  storageUrl    String   // Blob storage URL
+  mimeType      String   // 'text/html', 'application/pdf', etc.
+  textContent   String?  // Extracted text content
+  textSha256    String?  // Hash of extracted text
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  source        Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([sourceId])
+  @@index([textSha256])
+  @@map("raw_documents")
+}
+
+// Normalized job posting data
+model JobListing {
+  id                String   @id @default(cuid())
+  sourceId          String
+  title             String
+  company           String
+  location          String?
+  remoteFlag        Boolean  @default(false)
+  postedAt          DateTime?
+  canonicalUrl      String?  // Canonical job URL
+  rawParsedJson     Json     // Original parsing results
+  normalizedKey     String   @unique // Unique identifier for deduplication
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  source            Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  analyses          Analysis[]
+  keyFactors        KeyFactor[]
+  
+  // Indexes
+  @@index([sourceId])
+  @@index([company])
+  @@index([normalizedKey])
+  @@index([postedAt])
+  @@map("job_listings")
+}
+
+// Analysis results and scoring
+model Analysis {
+  id                String   @id @default(cuid())
+  jobListingId      String
+  score             Decimal  @db.Decimal(5,4) // 0.0000 to 1.0000
+  verdict           AnalysisVerdict
+  reasonsJson       Json     // Detailed reason codes and factors
+  modelVersion      String
+  processingTimeMs  Int?     // Analysis duration
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  jobListing        JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([jobListingId, createdAt(sort: Desc)])
+  @@index([verdict])
+  @@index([modelVersion])
+  @@map("analyses")
+}
+
+// Risk and positive factors for each job
+model KeyFactor {
+  id                String     @id @default(cuid())
+  jobListingId      String
+  factorType        FactorType // 'risk' or 'positive'
+  factorDescription String
+  impactScore       Decimal    @db.Decimal(5,4) // Impact weight
+  createdAt         DateTime   @default(now())
+  
+  // Relations
+  jobListing        JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([jobListingId])
+  @@index([factorType])
+  @@map("key_factors")
+}
+
+// Company intelligence and metrics
+model Company {
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  normalizedName        String   // Cleaned company name
+  totalPostings         Int      @default(0)
+  avgGhostProbability   Decimal  @db.Decimal(5,4) @default(0)
+  lastAnalyzedAt        DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Indexes
+  @@index([normalizedName])
+  @@index([totalPostings])
+  @@map("companies")
+}
+
+// System events and audit trail
+model Event {
+  id          String     @id @default(cuid())
+  kind        EventKind
+  refTable    String?    // Referenced table name
+  refId       String?    // Referenced record ID
+  meta        Json?      // Event metadata
+  createdAt   DateTime   @default(now())
+  
+  // Relations
+  source      Source?    @relation(fields: [refId], references: [id])
+  
+  // Indexes
+  @@index([kind, createdAt])
+  @@index([refTable, refId])
+  @@map("events")
+}
+
+// User accounts and authentication
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  role          UserRole @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  
+  // Indexes
+  @@index([email])
+  @@map("users")
+}
+
+// Enums
+enum SourceKind {
+  url
+  pdf
+}
+
+enum AnalysisVerdict {
+  likely_real
+  uncertain  
+  likely_ghost
+}
+
+enum FactorType {
+  risk
+  positive
+}
+
+enum EventKind {
+  source_submitted
+  document_processed
+  analysis_completed
+  analysis_failed
+  queue_processed
+  admin_action
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  ENTERPRISE
+}
