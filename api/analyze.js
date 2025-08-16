@@ -156,14 +156,15 @@ export default async function handler(req, res) {
         // Update company statistics
         await updateCompanyStats(company || 'Unknown Company', Number(analysis.ghostProbability));
 
-        // Log event
+        // Log event (use Source ID for foreign key relationship)
         await prisma.event.create({
             data: {
                 kind: 'analysis_completed',
                 refTable: 'job_listings',
-                refId: jobListing.id,
+                refId: source.id,
                 meta: {
                     analysisId: analysisRecord.id,
+                    jobListingId: jobListing.id,
                     score: Number(analysis.ghostProbability),
                     verdict: analysisRecord.verdict
                 }
