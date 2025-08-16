@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/ingest/tick",
-      "schedule": "* * * * *"
+      "schedule": "1 * * * *"
     },
     {
       "path": "/api/analysis/tick", 
-      "schedule": "* * * * *"
+      "schedule": "1 * * * *"
     }
   ]
 }
