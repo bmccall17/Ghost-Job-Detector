@@ -196,20 +196,8 @@ export default async function handler(req, res) {
     } catch (error) {
         console.error('Analysis error:', error);
         
-        // Log error event
-        try {
-            await prisma.event.create({
-                data: {
-                    kind: 'analysis_failed',
-                    meta: {
-                        error: error.message,
-                        url: req.body.url
-                    }
-                }
-            });
-        } catch (logError) {
-            console.error('Failed to log error:', logError);
-        }
+        // Skip error logging to avoid foreign key issues for now
+        console.error('Skipping error event logging due to schema constraints');
         
         return res.status(500).json({ 
             error: 'Analysis failed',
