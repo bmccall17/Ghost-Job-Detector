@@ -37,6 +37,11 @@
       "Bash(sudo apt:*)",
       "Bash(sudo apt install:*)",
       "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
       "Bash(cd:*)"
     ],
     "deny": [],
