@@ -1,11 +1,53 @@
-import React, { useState } from 'react'
-import { Clock, TrendingUp, Download, Trash2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Clock, TrendingUp, Download, Trash2, Loader2 } from 'lucide-react'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { AnalysisService } from '@/services/analysisService'
 import { AnalysisResultsTable } from '@/components/AnalysisResultsTable'
+import { JobAnalysis } from '@/types'
 
 export const AnalysisHistory: React.FC = () => {
   const { analysisHistory, bulkJobs, clearHistory } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState<'individual' | 'bulk'>('individual')
+  const [databaseAnalyses, setDatabaseAnalyses] = useState<JobAnalysis[]>([])
+  const [databaseStats, setDatabaseStats] = useState<{ total: number; highRisk: number; mediumRisk: number; lowRisk: number }>({ total: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0 })
+  const [isLoadingDatabase, setIsLoadingDatabase] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Load analysis history from database on component mount
+  useEffect(() => {
+    const loadDatabaseHistory = async () => {
+      try {
+        setIsLoadingDatabase(true)
+        setLoadError(null)
+        
+        const result = await AnalysisService.getAnalysisHistory()
+        
+        // Convert API response to JobAnalysis format
+        const convertedAnalyses: JobAnalysis[] = result.analyses.map(analysis => ({
+          id: analysis.id,
+          jobUrl: analysis.jobUrl,
+          title: analysis.jobData.title,
+          company: analysis.jobData.company,
+          ghostProbability: analysis.ghostProbability,
+          confidence: 0.8, // Default confidence
+          factors: [...(analysis.riskFactors || []), ...(analysis.keyFactors || [])],
+          analyzedAt: new Date(analysis.timestamp),
+          status: 'completed' as const,
+          isNewContribution: analysis.isNewContribution || false
+        }))
+        
+        setDatabaseAnalyses(convertedAnalyses)
+        setDatabaseStats(result.stats)
+      } catch (error) {
+        console.error('Failed to load analysis history:', error)
+        setLoadError('Failed to load analysis history from database')
+      } finally {
+        setIsLoadingDatabase(false)
+      }
+    }
+
+    loadDatabaseHistory()
+  }, [])
 
   const handleClearHistory = () => {
     if (window.confirm('Are you sure you want to clear all analysis history? This action cannot be undone.')) {
@@ -13,11 +55,36 @@ export const AnalysisHistory: React.FC = () => {
     }
   }
 
+  // Combine local and database analyses, removing duplicates by URL
+  const combinedAnalyses = React.useMemo(() => {
+    const allAnalyses = [...databaseAnalyses]
+    
+    // Add local analyses that aren't in the database
+    analysisHistory.forEach(localAnalysis => {
+      const existsInDatabase = databaseAnalyses.some(dbAnalysis => 
+        dbAnalysis.jobUrl === localAnalysis.jobUrl
+      )
+      if (!existsInDatabase) {
+        allAnalyses.push(localAnalysis)
+      }
+    })
+    
+    // Sort by analyzedAt date, newest first
+    return allAnalyses.sort((a, b) => 
+      new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime()
+    )
+  }, [databaseAnalyses, analysisHistory])
+
   const getAnalysisStats = () => {
-    const total = analysisHistory.length
-    const highRisk = analysisHistory.filter(a => a.ghostProbability >= 0.67).length
-    const mediumRisk = analysisHistory.filter(a => a.ghostProbability >= 0.34 && a.ghostProbability < 0.67).length
-    const lowRisk = analysisHistory.filter(a => a.ghostProbability < 0.34).length
+    // Use database stats if available, otherwise calculate from combined data
+    if (!isLoadingDatabase && databaseStats.total > 0) {
+      return databaseStats
+    }
+    
+    const total = combinedAnalyses.length
+    const highRisk = combinedAnalyses.filter(a => a.ghostProbability >= 0.67).length
+    const mediumRisk = combinedAnalyses.filter(a => a.ghostProbability >= 0.34 && a.ghostProbability < 0.67).length
+    const lowRisk = combinedAnalyses.filter(a => a.ghostProbability < 0.34).length
 
     return { total, highRisk, mediumRisk, lowRisk }
   }
@@ -32,7 +99,7 @@ export const AnalysisHistory: React.FC = () => {
           <p className="text-gray-600">Track and export your job analysis results</p>
         </div>
         
-        {(analysisHistory.length > 0 || bulkJobs.length > 0) && (
+        {(combinedAnalyses.length > 0 || bulkJobs.length > 0) && (
           <button
             onClick={handleClearHistory}
             className="flex items-center space-x-2 px-4 py-2 text-red-600 border border-red-200 rounded-md hover:bg-red-50"
@@ -43,7 +110,23 @@ export const AnalysisHistory: React.FC = () => {
         )}
       </div>
 
-      {analysisHistory.length > 0 && (
+      {/* Loading State */}
+      {isLoadingDatabase && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+          <span className="text-gray-600">Loading analysis history...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">{loadError}</p>
+          <p className="text-sm text-red-600 mt-1">Showing local data only.</p>
+        </div>
+      )}
+
+      {!isLoadingDatabase && combinedAnalyses.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow-sm border p-4">
             <div className="flex items-center space-x-3">
@@ -105,7 +188,7 @@ export const AnalysisHistory: React.FC = () => {
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Individual Analysis ({analysisHistory.length})</span>
+          <span>Individual Analysis ({combinedAnalyses.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('bulk')}
@@ -121,7 +204,7 @@ export const AnalysisHistory: React.FC = () => {
       </div>
 
       {activeTab === 'individual' && (
-        <AnalysisResultsTable results={analysisHistory} />
+        <AnalysisResultsTable results={combinedAnalyses} />
       )}
 
       {activeTab === 'bulk' && (
@@ -193,6 +276,17 @@ export const AnalysisHistory: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* No Results State */}
+      {!isLoadingDatabase && combinedAnalyses.length === 0 && bulkJobs.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+            <Clock className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No analysis results yet</h3>
+          <p className="text-gray-600">Analyze some jobs to see results here</p>
         </div>
       )}
     </div>

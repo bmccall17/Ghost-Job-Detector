@@ -70,6 +70,24 @@ export class AnalysisService {
     return response.json()
   }
 
+  static async getAnalysisHistory(): Promise<{
+    analyses: any[];
+    stats: { total: number; highRisk: number; mediumRisk: number; lowRisk: number };
+  }> {
+    const response = await fetch(`${this.API_BASE}/analysis-history`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch analysis history: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
   static async exportAnalysisResults(
     analysisIds: string[],
     format: 'csv' | 'pdf'
