@@ -4,13 +4,37 @@ import { ParserRegistry } from './parsing/ParserRegistry'
 export class AnalysisService {
   private static readonly API_BASE = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || '/api'
 
-  static async analyzeJob(jobUrl: string): Promise<AnalysisResult> {
+  static async analyzeJob(jobUrl: string, jobData?: {title: string, company: string, description?: string}): Promise<AnalysisResult> {
+    // If job data is not provided, extract it first
+    if (!jobData) {
+      try {
+        const extracted = await this.extractJobData(jobUrl);
+        jobData = {
+          title: extracted.title,
+          company: extracted.company,
+          description: '' // We don't have description from basic extraction
+        };
+      } catch (error) {
+        // If extraction fails, use fallback data
+        jobData = {
+          title: 'Unknown Position',
+          company: 'Unknown Company',
+          description: ''
+        };
+      }
+    }
+
     const response = await fetch(`${this.API_BASE}/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ jobUrl }),
+      body: JSON.stringify({ 
+        url: jobUrl,
+        title: jobData.title,
+        company: jobData.company,
+        description: jobData.description || ''
+      }),
     })
 
     if (!response.ok) {
@@ -510,27 +534,21 @@ export class AnalysisService {
         resolve({
           id: Math.random().toString(36).substr(2, 9),
           ghostProbability: Math.random(),
-          confidence: 0.8 + Math.random() * 0.2,
-          factors: [
-            {
-              factor: 'Job posting age',
-              weight: 0.3,
-              description: 'Job has been posted for 45+ days'
-            },
-            {
-              factor: 'Generic job description',
-              weight: 0.25,
-              description: 'Description contains minimal specific requirements'
-            },
-            {
-              factor: 'Company hiring patterns',
-              weight: 0.2,
-              description: 'Company has unusual posting frequency'
-            }
+          riskLevel: Math.random() > 0.5 ? 'high' : 'low',
+          riskFactors: [
+            'Job has been posted for 45+ days',
+            'Description contains minimal specific requirements',
+            'Company has unusual posting frequency'
+          ],
+          keyFactors: [
+            'LinkedIn posting',
+            'Remote position'
           ],
           metadata: {
-            processingTime: 850,
-            modelVersion: 'v1.2.3'
+            storage: 'mock',
+            version: 'v1.2.3',
+            cached: false,
+            analysisDate: new Date().toISOString()
           }
         })
       }, 1500)

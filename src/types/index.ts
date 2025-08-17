@@ -37,16 +37,23 @@ export interface JobAnalysis {
 
 export interface AnalysisResult {
   id: string
-  ghostProbability: number
-  confidence: number
-  factors: {
-    factor: string
-    weight: number
+  url?: string
+  jobData?: {
+    title: string
+    company: string
     description: string
-  }[]
+    location: string | null
+    remote: boolean
+  }
+  ghostProbability: number
+  riskLevel: string
+  riskFactors: string[]
+  keyFactors: string[]
   metadata: {
-    processingTime: number
-    modelVersion: string
+    storage: string
+    version: string
+    cached: boolean
+    analysisDate: string
   }
 }
 

@@ -69,19 +69,21 @@ export const JobAnalysisDashboard: React.FC = () => {
       }
 
       // New job - extract data and run analysis
-      const [jobData, result] = await Promise.all([
-        AnalysisService.extractJobData(data.jobUrl),
-        AnalysisService.mockAnalyzeJob(data.jobUrl)
-      ])
+      const jobData = await AnalysisService.extractJobData(data.jobUrl);
+      const result = await AnalysisService.analyzeJob(data.jobUrl, {
+        title: jobData.title,
+        company: jobData.company,
+        description: '' // We don't have full description from basic extraction
+      });
 
       const analysis: JobAnalysis = {
         id: result.id,
         jobUrl: data.jobUrl,
-        title: jobData.title,
-        company: jobData.company,
+        title: result.jobData?.title || jobData.title,
+        company: result.jobData?.company || jobData.company,
         ghostProbability: result.ghostProbability,
-        confidence: result.confidence,
-        factors: result.factors.map(f => f.description),
+        confidence: 0.8, // Default confidence since API doesn't return it
+        factors: [...(result.riskFactors || []), ...(result.keyFactors || [])],
         analyzedAt: new Date(),
         status: 'completed',
         isNewContribution: true,
@@ -119,19 +121,21 @@ export const JobAnalysisDashboard: React.FC = () => {
       }
 
       // New job - extract data from PDF and run analysis
-      const [jobData, result] = await Promise.all([
-        AnalysisService.extractJobDataFromPDF(selectedPdf, data.sourceUrl),
-        AnalysisService.mockAnalyzeJob(data.sourceUrl)
-      ])
+      const jobData = await AnalysisService.extractJobDataFromPDF(selectedPdf, data.sourceUrl);
+      const result = await AnalysisService.analyzeJob(data.sourceUrl, {
+        title: jobData.title,
+        company: jobData.company,
+        description: jobData.content || '' // Use PDF content as description
+      });
 
       const analysis: JobAnalysis = {
         id: result.id,
         jobUrl: data.sourceUrl,
-        title: jobData.title,
-        company: jobData.company,
+        title: result.jobData?.title || jobData.title,
+        company: result.jobData?.company || jobData.company,
         ghostProbability: result.ghostProbability,
-        confidence: result.confidence,
-        factors: result.factors.map(f => f.description),
+        confidence: 0.8, // Default confidence since API doesn't return it
+        factors: [...(result.riskFactors || []), ...(result.keyFactors || [])],
         analyzedAt: new Date(),
         status: 'completed',
         isNewContribution: true
