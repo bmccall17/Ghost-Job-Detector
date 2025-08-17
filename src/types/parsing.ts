@@ -45,14 +45,20 @@ export enum ExtractionMethod {
   CSS_SELECTORS = 'css_selectors',
   TEXT_PATTERNS = 'text_patterns',
   NLP_EXTRACTION = 'nlp_extraction',
-  MANUAL_FALLBACK = 'manual_fallback'
+  MANUAL_FALLBACK = 'manual_fallback',
+  DOMAIN_INTELLIGENCE = 'domain_intelligence',
+  STRUCTURED_DATA_WITH_LEARNING = 'structured_data_with_learning',
+  CSS_SELECTORS_WITH_LEARNING = 'css_selectors_with_learning',
+  TEXT_PATTERNS_WITH_LEARNING = 'text_patterns_with_learning',
+  NLP_EXTRACTION_WITH_LEARNING = 'nlp_extraction_with_learning',
+  MANUAL_FALLBACK_WITH_LEARNING = 'manual_fallback_with_learning'
 }
 
 export interface JobParser {
   name: string
   version: string
-  canHandle(url: string): boolean
-  extract(url: string, html: string): Promise<ParsedJob>
+  canHandle(_url: string): boolean
+  extract(_url: string, _html: string): Promise<ParsedJob>
   getConfidence(): number
   getSupportedMethods(): ExtractionMethod[]
 }
@@ -60,8 +66,8 @@ export interface JobParser {
 export interface ExtractionStrategy {
   method: ExtractionMethod
   priority: number
-  extract(html: string, url: string): Promise<Partial<ParsedJob>>
-  validate(data: Partial<ParsedJob>): ValidationResult[]
+  extract(_html: string, _url: string): Promise<Partial<ParsedJob>>
+  validate(_data: Partial<ParsedJob>): ValidationResult[]
 }
 
 export interface ParserConfig {
@@ -89,5 +95,5 @@ export interface ParserConfig {
 export interface ValidationRule {
   field: string
   rule: string
-  validate: (value: string) => { passed: boolean; score: number; message?: string }
+  validate: (_value: string) => { passed: boolean; score: number; message?: string }
 }

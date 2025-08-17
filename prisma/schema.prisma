@@ -136,6 +136,34 @@ model Company {
   @@map("companies")
 }
 
+// Parsing corrections for machine learning
+model ParsingCorrection {
+  id                String   @id @default(cuid())
+  sourceUrl         String   
+  originalTitle     String?  // What the parser extracted
+  correctTitle      String?  // What it should have been
+  originalCompany   String?  // What the parser extracted
+  correctCompany    String?  // What it should have been
+  parserUsed        String   // Which parser was used
+  parserVersion     String   // Version of the parser
+  correctionReason  String?  // Why correction was needed
+  domainPattern     String?  // Domain pattern for learning
+  urlPattern        String?  // URL pattern for learning
+  confidence        Decimal  @db.Decimal(3,2) @default(1.0) // Confidence in correction
+  correctedBy       String?  // User or system that made correction
+  isVerified        Boolean  @default(false) // Whether correction has been verified
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Indexes for learning queries
+  @@index([sourceUrl])
+  @@index([parserUsed, parserVersion])
+  @@index([domainPattern])
+  @@index([correctedBy])
+  @@index([isVerified])
+  @@map("parsing_corrections")
+}
+
 // System events and audit trail
 model Event {
   id          String     @id @default(cuid())

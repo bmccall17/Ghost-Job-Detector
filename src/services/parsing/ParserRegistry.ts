@@ -1,18 +1,30 @@
-import { JobParser, ParsedJob } from '@/types/parsing'
+import { JobParser, ParsedJob, ExtractionMethod } from '@/types/parsing'
 import { LinkedInParser } from './parsers/LinkedInParser'
 import { IndeedParser } from './parsers/IndeedParser'
 import { CompanyCareerParser } from './parsers/CompanyCareerParser'
 import { GreenhouseParser } from './parsers/GreenhouseParser'
 import { GenericParser } from './parsers/GenericParser'
+import { ParsingLearningService, initializeParsingLearning } from './ParsingLearningService'
 
 export class ParserRegistry {
   private static instance: ParserRegistry
   private parsers: JobParser[] = []
   private fallbackParser: JobParser
+  private learningService: ParsingLearningService
 
   private constructor() {
     this.initializeParsers()
     this.fallbackParser = new GenericParser()
+    this.learningService = ParsingLearningService.getInstance()
+    this.initializeLearning()
+  }
+
+  private async initializeLearning(): Promise<void> {
+    try {
+      await initializeParsingLearning()
+    } catch (error) {
+      console.warn('Failed to initialize parsing learning:', error)
+    }
   }
 
   public static getInstance(): ParserRegistry {
@@ -42,7 +54,44 @@ export class ParserRegistry {
 
     try {
       // Attempt parsing with the selected parser
-      const result = await parser.extract(url, html)
+      let result = await parser.extract(url, html)
+      
+      // Apply learned patterns to improve the result
+      const improvements = this.learningService.applyLearnedPatterns(
+        { title: result.title, company: result.company },
+        url,
+        parser.name
+      )
+      
+      if (improvements.improvements.length > 0) {
+        console.log(`🎓 Applied ${improvements.improvements.length} learned improvements:`, improvements.improvements)
+        result.title = improvements.title
+        result.company = improvements.company
+        
+        // Update confidence if we made improvements
+        result.metadata.confidence.overall = Math.min(0.95, result.metadata.confidence.overall + 0.1)
+        // Update extraction method to indicate learning was applied
+        switch (result.metadata.extractionMethod) {
+          case ExtractionMethod.STRUCTURED_DATA:
+            result.metadata.extractionMethod = ExtractionMethod.STRUCTURED_DATA_WITH_LEARNING
+            break
+          case ExtractionMethod.CSS_SELECTORS:
+            result.metadata.extractionMethod = ExtractionMethod.CSS_SELECTORS_WITH_LEARNING
+            break
+          case ExtractionMethod.TEXT_PATTERNS:
+            result.metadata.extractionMethod = ExtractionMethod.TEXT_PATTERNS_WITH_LEARNING
+            break
+          case ExtractionMethod.NLP_EXTRACTION:
+            result.metadata.extractionMethod = ExtractionMethod.NLP_EXTRACTION_WITH_LEARNING
+            break
+          case ExtractionMethod.MANUAL_FALLBACK:
+            result.metadata.extractionMethod = ExtractionMethod.MANUAL_FALLBACK_WITH_LEARNING
+            break
+          case ExtractionMethod.DOMAIN_INTELLIGENCE:
+            result.metadata.extractionMethod = ExtractionMethod.DOMAIN_INTELLIGENCE
+            break
+        }
+      }
       
       // Validate the result quality
       const isHighQuality = this.validateResult(result)
@@ -52,7 +101,21 @@ export class ParserRegistry {
       } else {
         // If quality is poor, try the fallback parser
         console.warn(`Parser ${parser.name} produced low quality result, trying fallback`)
-        return await this.fallbackParser.extract(url, html)
+        const fallbackResult = await this.fallbackParser.extract(url, html)
+        
+        // Apply learning to fallback result too
+        const fallbackImprovements = this.learningService.applyLearnedPatterns(
+          { title: fallbackResult.title, company: fallbackResult.company },
+          url,
+          this.fallbackParser.name
+        )
+        
+        if (fallbackImprovements.improvements.length > 0) {
+          fallbackResult.title = fallbackImprovements.title
+          fallbackResult.company = fallbackImprovements.company
+        }
+        
+        return fallbackResult
       }
     } catch (error) {
       console.error(`Parser ${parser.name} failed:`, error)
@@ -114,5 +177,38 @@ export class ParserRegistry {
 
   public getParserForUrl(url: string): JobParser {
     return this.findBestParser(url)
+  }
+
+  /**
+   * Record a parsing correction to improve future results
+   */
+  public async recordCorrection(correction: {
+    sourceUrl: string
+    originalTitle?: string
+    correctTitle?: string
+    originalCompany?: string
+    correctCompany?: string
+    correctionReason?: string
+  }): Promise<void> {
+    const parser = this.findBestParser(correction.sourceUrl)
+    
+    await this.learningService.recordCorrection({
+      sourceUrl: correction.sourceUrl,
+      originalTitle: correction.originalTitle,
+      correctTitle: correction.correctTitle,
+      originalCompany: correction.originalCompany,
+      correctCompany: correction.correctCompany,
+      parserUsed: parser.name,
+      parserVersion: parser.version,
+      correctionReason: correction.correctionReason,
+      correctedBy: 'manual_correction'
+    })
+  }
+
+  /**
+   * Get learning statistics
+   */
+  public getLearningStats() {
+    return this.learningService.getLearningStats()
   }
 }

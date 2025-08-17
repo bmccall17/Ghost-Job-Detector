@@ -2,8 +2,8 @@ import { BaseParser } from '../BaseParser'
 import { ParserConfig } from '@/types/parsing'
 
 export class LinkedInParser extends BaseParser {
-  name = 'LinkedInParser'
-  version = '1.0.0'
+  name = 'LinkedInParser'  
+  version = '2.0.0' // Enhanced version with better company extraction
 
   constructor() {
     super(LinkedInParser.createConfig())
@@ -152,41 +152,118 @@ export class LinkedInParser extends BaseParser {
   }
 
   private extractLinkedInCompanyFromHtml(html: string): string {
-    // First try to extract from page title which often has "Company hiring Job Title" format
+    // Enhanced company extraction with multiple strategies
+    
+    // Strategy 1: Extract from page title with "Company hiring Job Title" format
     const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
     if (titleMatch) {
       const pageTitle = titleMatch[1].trim()
       const cleaned = pageTitle.replace(/\s*\|\s*LinkedIn.*$/i, '').trim()
       
       // Check for LinkedIn "Company hiring Job Title" format
-      const hiringMatch = cleaned.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+)?$/i)
+      const hiringMatch = cleaned.match(/^(.+?)\s+(?:is\s+)?hiring\s+(.+?)(?:\s+in\s+.+)?$/i)
       if (hiringMatch && hiringMatch[1] && hiringMatch[1].trim().length > 1) {
-        return hiringMatch[1].trim() // Return the company part
-      }
-    }
-    
-    // Try multiple LinkedIn-specific patterns
-    const patterns = [
-      // Modern LinkedIn structure
-      /"companyName"\s*:\s*"([^"]+)"/i,
-      /"hiringOrganization"[^}]*"name"\s*:\s*"([^"]+)"/i,
-      // Embedded company data
-      /"company"[^}]*"name"\s*:\s*"([^"]+)"/i,
-      // Meta property
-      /property="og:site_name"[^>]*content="([^"]+)"/i
-    ]
-
-    for (const pattern of patterns) {
-      const match = html.match(pattern)
-      if (match && match[1] && match[1].trim().length > 1) {
-        const company = match[1].trim()
-        if (!company.toLowerCase().includes('linkedin')) {
+        const company = hiringMatch[1].trim()
+        if (!this.isGenericCompanyName(company)) {
           return company
         }
       }
     }
+    
+    // Strategy 2: Enhanced JSON-LD and structured data patterns
+    const enhancedPatterns = [
+      // Modern LinkedIn API responses
+      /"companyName"\s*:\s*"([^"]+)"/i,
+      /"hiringOrganization"[^}]*"name"\s*:\s*"([^"]+)"/i,
+      /"company"[^}]*"name"\s*:\s*"([^"]+)"/i,
+      
+      // LinkedIn-specific data attributes
+      /data-company-name="([^"]+)"/i,
+      /data-test-company-name="([^"]+)"/i,
+      
+      // JSON-LD structured data
+      /@type[":\s]*"JobPosting"[^}]*"hiringOrganization"[^}]*"name"[:\s]*"([^"]+)"/i,
+      
+      // Meta properties
+      /property="og:site_name"[^>]*content="([^"]+)"/i,
+      /<meta[^>]*name="company"[^>]*content="([^"]+)"/i,
+      
+      // LinkedIn specific selectors in text
+      /company-name[^>]*>([^<]+)</i,
+      /employer-name[^>]*>([^<]+)</i,
+      
+      // Alternative patterns for different LinkedIn layouts
+      /"jobTitle"[^}]*"hiringOrganization"[^}]*"name"[:\s]*"([^"]+)"/i,
+      /hiring organization[^:]*:\s*"([^"]+)"/i
+    ]
+
+    for (const pattern of enhancedPatterns) {
+      const match = html.match(pattern)
+      if (match && match[1] && match[1].trim().length > 1) {
+        const company = match[1].trim()
+        
+        // Filter out LinkedIn and generic names
+        if (!this.isGenericCompanyName(company)) {
+          return this.cleanLinkedInCompany(company)
+        }
+      }
+    }
+
+    // Strategy 3: Look for company mentions in job description context
+    const contextualCompany = this.extractCompanyFromContext(html)
+    if (contextualCompany) {
+      return contextualCompany
+    }
 
     return 'Unknown Company'
+  }
+
+  private isGenericCompanyName(company: string): boolean {
+    const generic = company.toLowerCase()
+    const genericNames = [
+      'linkedin', 'unknown', 'company', 'employer', 'organization',
+      'hiring', 'careers', 'jobs', 'recruitment', 'staffing'
+    ]
+    
+    return genericNames.some(name => generic.includes(name)) || generic.length < 2
+  }
+
+  private extractCompanyFromContext(html: string): string | null {
+    // Look for company mentions near job-related keywords
+    const contextPatterns = [
+      // Look for "at Company" patterns
+      /(?:working|position|role|job)\s+at\s+([A-Z][A-Za-z\s&.,'-]+?)(?:\s|<|$)/gi,
+      
+      // Look for "Company is hiring" patterns  
+      /([A-Z][A-Za-z\s&.,'-]+?)\s+(?:is\s+)?(?:currently\s+)?hiring/gi,
+      
+      // Look for "Join Company" patterns
+      /join\s+([A-Z][A-Za-z\s&.,'-]+?)(?:\s|<|$)/gi,
+      
+      // Look for company descriptions
+      /about\s+([A-Z][A-Za-z\s&.,'-]+?)[\s:]/gi
+    ]
+
+    for (const pattern of contextPatterns) {
+      const matches = html.matchAll(pattern)
+      for (const match of matches) {
+        if (match[1] && match[1].trim().length > 2) {
+          const company = match[1].trim()
+          
+          // Clean and validate the extracted company name
+          const cleaned = company
+            .replace(/\s*[,.;:!?]\s*$/, '') // Remove trailing punctuation
+            .replace(/\s+$/, '') // Remove trailing spaces
+            .trim()
+          
+          if (cleaned.length > 2 && !this.isGenericCompanyName(cleaned)) {
+            return cleaned
+          }
+        }
+      }
+    }
+
+    return null
   }
 
   private cleanLinkedInTitle(title: string): string {
