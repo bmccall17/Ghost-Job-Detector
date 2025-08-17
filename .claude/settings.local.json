@@ -44,7 +44,17 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(touch:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
