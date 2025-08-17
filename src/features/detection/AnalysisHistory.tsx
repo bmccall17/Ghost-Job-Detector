@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { Clock, TrendingUp, Download, Trash2, Loader2 } from 'lucide-react'
+import { Clock, TrendingUp, Loader2, Download } from 'lucide-react'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { AnalysisService } from '@/services/analysisService'
 import { AnalysisResultsTable } from '@/components/AnalysisResultsTable'
 import { JobAnalysis } from '@/types'
 
 export const AnalysisHistory: React.FC = () => {
-  const { analysisHistory, bulkJobs, clearHistory } = useAnalysisStore()
-  const [activeTab, setActiveTab] = useState<'individual' | 'bulk'>('individual')
+  const { analysisHistory, bulkJobs } = useAnalysisStore()
   const [databaseAnalyses, setDatabaseAnalyses] = useState<JobAnalysis[]>([])
   const [databaseStats, setDatabaseStats] = useState<{ total: number; highRisk: number; mediumRisk: number; lowRisk: number }>({ total: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0 })
   const [isLoadingDatabase, setIsLoadingDatabase] = useState(true)
@@ -48,12 +47,6 @@ export const AnalysisHistory: React.FC = () => {
 
     loadDatabaseHistory()
   }, [])
-
-  const handleClearHistory = () => {
-    if (window.confirm('Are you sure you want to clear all analysis history? This action cannot be undone.')) {
-      clearHistory()
-    }
-  }
 
   // Combine local and database analyses, removing duplicates by URL
   const combinedAnalyses = React.useMemo(() => {
@@ -98,16 +91,6 @@ export const AnalysisHistory: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Analysis History</h1>
           <p className="text-gray-600">Track and export your job analysis results</p>
         </div>
-        
-        {(combinedAnalyses.length > 0 || bulkJobs.length > 0) && (
-          <button
-            onClick={handleClearHistory}
-            className="flex items-center space-x-2 px-4 py-2 text-red-600 border border-red-200 rounded-md hover:bg-red-50"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Clear History</span>
-          </button>
-        )}
       </div>
 
       {/* Loading State */}
@@ -178,36 +161,10 @@ export const AnalysisHistory: React.FC = () => {
         </div>
       )}
 
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-        <button
-          onClick={() => setActiveTab('individual')}
-          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'individual'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Individual Analysis ({combinedAnalyses.length})</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('bulk')}
-          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'bulk'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Download className="w-4 h-4" />
-          <span>Bulk Analysis ({bulkJobs.length})</span>
-        </button>
-      </div>
+      <AnalysisResultsTable results={combinedAnalyses} />
 
-      {activeTab === 'individual' && (
-        <AnalysisResultsTable results={combinedAnalyses} />
-      )}
-
-      {activeTab === 'bulk' && (
+      {/* Bulk analysis section hidden for v0.1 */}
+      {false && (
         <div className="bg-white rounded-lg shadow-sm border">
           {bulkJobs.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

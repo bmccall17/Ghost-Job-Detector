@@ -26,7 +26,7 @@ type UrlAnalysisForm = z.infer<typeof urlAnalysisSchema>
 type PdfAnalysisForm = z.infer<typeof pdfAnalysisSchema>
 
 export const JobAnalysisDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'url' | 'pdf' | 'bulk'>('url')
+  const [activeTab, setActiveTab] = useState<'url' | 'pdf'>('url')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null)
   const [linkedInSearchUrl, setLinkedInSearchUrl] = useState('')
@@ -261,17 +261,6 @@ export const JobAnalysisDashboard: React.FC = () => {
           <Upload className="w-4 h-4" />
           <span>PDF Upload</span>
         </button>
-        <button
-          onClick={() => setActiveTab('bulk')}
-          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'bulk'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>Bulk Analysis</span>
-        </button>
       </div>
 
       {activeTab === 'url' && (
@@ -447,7 +436,8 @@ export const JobAnalysisDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'bulk' && (
+      {/* Bulk analysis section hidden for v0.1 */}
+      {false && (
         <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Bulk Job Analysis</h3>
@@ -511,7 +501,7 @@ export const JobAnalysisDashboard: React.FC = () => {
           {uploadedFile && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>File uploaded:</strong> {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                <strong>File uploaded:</strong> {uploadedFile!.name} ({(uploadedFile!.size / 1024).toFixed(1)} KB)
               </p>
               <p className="text-xs text-blue-600 mt-1">
                 Processing will begin automatically. You can monitor progress in the history section.
