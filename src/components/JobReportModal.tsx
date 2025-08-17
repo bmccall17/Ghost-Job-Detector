@@ -239,7 +239,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                   </div>
                   <div>
                     <span className="font-medium">Model Version:</span>
-                    <span className="ml-2">v1.2.3</span>
+                    <span className="ml-2">v0.1.0</span>
                   </div>
                   <div>
                     <span className="font-medium">Processing Time:</span>
