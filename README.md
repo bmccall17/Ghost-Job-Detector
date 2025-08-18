@@ -1,16 +1,31 @@
-# Ghost Job Detector v0.1.1 🚀 August 18, 2025
+# Ghost Job Detector v0.1.5 🚀 August 18, 2025
 
-**ENHANCED MILESTONE:** Advanced intelligent parsing system with company normalization, duplicate detection, and location extraction improvements. Version 0.1.1 delivers significant enhancements to parsing accuracy, intelligent learning systems, and data quality.
+**MAJOR RELEASE:** AI Thinking Terminal with real-time analysis transparency, WebLLM integration, and enhanced duplicate detection. Version 0.1.5 delivers breakthrough features including live AI reasoning visibility, client-side processing, and comprehensive analysis workflows.
 
-**MILESTONE ACHIEVED:** A production-ready web application for detecting fake job postings with intelligent analysis and universal data persistence. Version 0.1 successfully delivers bi-directional database integration, cross-browser synchronization, and real-time analysis capabilities.
+**MILESTONE ACHIEVED:** A production-ready web application for detecting fake job postings with intelligent analysis, universal data persistence, and complete AI transparency. Version 0.1.5 successfully delivers AI thinking terminal, WebLLM processing, and real-time analysis logging.
 
-## 🎯 v0.1.1 Features Delivered
+## 🎯 v0.1.5 Features Delivered
+
+### ✅ **AI Thinking Terminal - NEW**
+- **Real-time AI reasoning**: Live terminal showing step-by-step analysis thoughts
+- **Authentic terminal styling**: macOS-like terminal with interactive controls
+- **Color-coded logging**: Info, process, analysis, warning, success, and error logs
+- **Interactive features**: Minimize, fullscreen, copy logs, download logs
+- **Educational transparency**: Complete visibility into AI decision-making process
+
+### ✅ **WebLLM Integration - NEW**
+- **Client-side AI processing**: WebGPU-powered local analysis with WebLLM
+- **Server fallback**: Groq API integration when WebLLM unavailable
+- **Advanced analysis structure**: Detailed thought process and verification tracking
+- **External verification simulation**: Company research and link checking
+- **Cross-platform detection**: Enhanced duplicate recognition across platforms
 
 ### ✅ **Enhanced Intelligent Parsing System**
-- **Company Normalization**: Advanced AI-powered company name matching and consolidation
-- **Duplicate Detection**: Intelligent job posting deduplication with 80% similarity threshold
-- **Location Extraction**: Enhanced LinkedIn parser with 20+ extraction patterns
-- **Learning System**: Continuous improvement through pattern recognition and user feedback
+- **Advanced Duplicate Detection**: Cross-platform recognition with smart similarity thresholds
+- **Company Normalization**: AI-powered company name matching and canonicalization
+- **Title Normalization**: Intelligent handling of punctuation and formatting variations
+- **Source Platform Tracking**: Multi-platform support (LinkedIn, company career sites)
+- **Update-only Logic**: Existing jobs updated rather than creating duplicates
 
 ### ✅ **Core Analysis Engine**
 - **URL-based Analysis**: Submit job posting URLs for instant intelligent analysis
@@ -46,6 +61,8 @@
 - **Icons**: Lucide React
 - **Build Tool**: Vite
 - **Testing**: Jest + Testing Library
+- **AI Processing**: WebLLM + Groq API fallback
+- **Database**: PostgreSQL with Prisma ORM
 
 ## 📋 Prerequisites
 
@@ -124,26 +141,41 @@ src/
 
 ## 🎯 Usage Guide
 
-### Individual Job Analysis
+### Individual Job Analysis with AI Thinking Terminal
 
-1. Click the "Single Job Analysis" tab
-2. Paste a LinkedIn job URL
+1. Navigate to the "URL Analysis" tab
+2. Paste a job URL (LinkedIn, company career sites, Indeed, etc.)
 3. Click "Analyze Job"
-4. View results with risk assessment and key factors
+4. **NEW**: Watch the AI Thinking Terminal appear showing real-time analysis
+5. View detailed results with three-tab analysis:
+   - **Ghost Analysis**: Risk assessment and probability scores
+   - **AI Investigative Analysis**: Complete AI reasoning and verification steps
+   - **Parsing Intelligence**: Technical metadata and parsing details
 
-### Bulk Analysis
+### PDF Analysis
 
-1. Click the "Bulk Analysis" tab
-2. Upload a CSV file with job URLs
-3. Monitor processing progress
-4. Export results when complete
+1. Navigate to the "PDF Upload" tab
+2. Upload a job posting PDF (must include URL in header/footer)
+3. Click "Analyze PDF" 
+4. View extracted data and analysis results
 
-### CSV Format for Bulk Upload
+### AI Thinking Terminal Features
 
-```csv
-job_url,title,company
-https://linkedin.com/jobs/view/123,Software Engineer,Tech Corp
-https://linkedin.com/jobs/view/456,Data Scientist,AI Startup
+- **Real-time logs**: Watch AI reasoning unfold step-by-step
+- **Color-coded messages**: Info (blue), Process (yellow), Analysis (purple), Success (green), Error (red)
+- **Interactive controls**: Minimize, fullscreen, copy logs, download as file
+- **Educational value**: Learn how ghost job detection algorithms work
+
+### Environment Variables
+
+Set these in your `.env.local` file:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+AGENT_ENABLED=true
+NEXT_PUBLIC_AGENT_ENABLED=true
+AGENT_USE_SERVER_FALLBACK=true
+GROQ_API_KEY=your_groq_api_key
 ```
 
 ## 🔧 API Integration

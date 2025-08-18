@@ -367,26 +367,28 @@ export const JobAnalysisDashboard: React.FC = () => {
             </button>
           </form>
 
-          {/* Debug Button - Remove in production */}
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-medium text-yellow-800">Debug: Test Terminal</h4>
-                <p className="text-xs text-yellow-600">Click to test if terminal logging works</p>
+          {/* Debug Button - Only in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-800">Debug: Test Terminal</h4>
+                  <p className="text-xs text-yellow-600">Development mode - Test terminal logging</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTerminal(true);
+                    addLog('info', '🧪 Development test log');
+                    addLog('process', '🔧 Testing terminal functionality');
+                    addLog('success', '✅ Terminal logging working correctly!');
+                  }}
+                  className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                >
+                  Test Logs
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setShowTerminal(true);
-                  addLog('info', '🧪 Manual test log added');
-                  addLog('process', '🔧 Testing terminal functionality');
-                  addLog('success', '✅ If you see this, logging works!');
-                }}
-                className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
-              >
-                Test Logs
-              </button>
             </div>
-          </div>
+          )}
 
           {/* AI Thinking Terminal */}
           {showTerminal && (
