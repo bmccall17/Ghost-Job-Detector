@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Link as LinkIcon, Upload, BarChart3 } from 'lucide-react'
+import { Loader2, Link as LinkIcon, Upload, BarChart3, MessageSquare } from 'lucide-react'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { AnalysisService } from '@/services/analysisService'
 import { FileUpload } from '@/components/FileUpload'
@@ -10,8 +10,10 @@ import { PDFUpload } from '@/components/PDFUpload'
 import { GhostJobBadge } from '@/components/GhostJobBadge'
 import { NewContributionBadge } from '@/components/NewContributionBadge'
 import { AIThinkingTerminal } from '@/components/AIThinkingTerminal'
+import { ParsingFeedbackModal } from '@/components/ParsingFeedbackModal'
 import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
+import { ParsingLearningService } from '@/services/parsing/ParsingLearningService'
 
 const urlAnalysisSchema = z.object({
   jobUrl: z.string().url('Please enter a valid job URL')
@@ -35,6 +37,13 @@ export const JobAnalysisDashboard: React.FC = () => {
   const [careerSiteUrl, setCareerSiteUrl] = useState('')
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false)
   const [showTerminal, setShowTerminal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [feedbackData, setFeedbackData] = useState<{
+    title: string
+    company: string
+    location?: string
+    url: string
+  } | null>(null)
   
   const { logs, clearLogs, simulateAnalysis, addLog } = useAnalysisLogger()
   
@@ -295,6 +304,68 @@ export const JobAnalysisDashboard: React.FC = () => {
     }
   }
 
+  const handleShowFeedback = (analysis: JobAnalysis) => {
+    setFeedbackData({
+      title: analysis.title,
+      company: analysis.company,
+      location: undefined, // We don't have location in JobAnalysis type yet
+      url: analysis.jobUrl
+    })
+    setShowFeedbackModal(true)
+  }
+
+  const handleSubmitFeedback = async (feedback: {
+    correctTitle?: string
+    correctCompany?: string
+    correctLocation?: string
+    feedbackType: 'correction' | 'confirmation'
+    notes?: string
+  }) => {
+    if (!feedbackData) return
+
+    const learningService = ParsingLearningService.getInstance()
+
+    if (feedback.feedbackType === 'correction') {
+      // User provided corrections - learn from them
+      const improvements = await learningService.learnFromFailedParse(
+        feedbackData.url,
+        '', // We don't have HTML here, but the method can work without it for user feedback
+        {
+          title: feedbackData.title,
+          company: feedbackData.company,
+          location: feedbackData.location
+        },
+        {
+          correctTitle: feedback.correctTitle,
+          correctCompany: feedback.correctCompany,
+          correctLocation: feedback.correctLocation
+        }
+      )
+
+      console.log('🎓 User feedback learning result:', improvements)
+
+      // Show success message
+      addLog('success', `✅ Feedback received! ${improvements.improvements.length} improvements learned`)
+      
+      // Update current analysis with corrected data if it matches
+      if (currentAnalysis && currentAnalysis.jobUrl === feedbackData.url) {
+        const updatedAnalysis = { ...currentAnalysis }
+        if (feedback.correctTitle) updatedAnalysis.title = feedback.correctTitle
+        if (feedback.correctCompany) updatedAnalysis.company = feedback.correctCompany
+        
+        setCurrentAnalysis(updatedAnalysis)
+        addToHistory(updatedAnalysis)
+      }
+    } else {
+      // User confirmed the data is correct - record as positive feedback
+      console.log('✅ User confirmed parsing accuracy for:', feedbackData.url)
+      addLog('success', '✅ Thank you for confirming our parsing accuracy!')
+    }
+
+    setShowFeedbackModal(false)
+    setFeedbackData(null)
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
@@ -405,9 +476,18 @@ export const JobAnalysisDashboard: React.FC = () => {
 
           {currentAnalysis && (
             <div className="border-t pt-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
-                <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
+                  <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+                </div>
+                <button
+                  onClick={() => handleShowFeedback(currentAnalysis)}
+                  className="flex items-center space-x-2 px-3 py-1 text-sm bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Improve Parsing</span>
+                </button>
               </div>
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
@@ -492,9 +572,18 @@ export const JobAnalysisDashboard: React.FC = () => {
 
           {currentAnalysis && (
             <div className="border-t pt-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
-                <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
+                  <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+                </div>
+                <button
+                  onClick={() => handleShowFeedback(currentAnalysis)}
+                  className="flex items-center space-x-2 px-3 py-1 text-sm bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Improve Parsing</span>
+                </button>
               </div>
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
@@ -598,6 +687,19 @@ export const JobAnalysisDashboard: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Parsing Feedback Modal */}
+      {feedbackData && (
+        <ParsingFeedbackModal
+          isVisible={showFeedbackModal}
+          onClose={() => {
+            setShowFeedbackModal(false)
+            setFeedbackData(null)
+          }}
+          originalData={feedbackData}
+          onSubmitFeedback={handleSubmitFeedback}
+        />
       )}
     </div>
   )

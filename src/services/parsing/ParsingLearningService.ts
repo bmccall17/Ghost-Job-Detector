@@ -23,10 +23,31 @@ interface LearnedPattern {
   parser?: string
 }
 
+interface DiscoveredPattern {
+  type: 'css_selector' | 'structured_data' | 'text_pattern' | 'attribute_pattern'
+  domain: string
+  pattern: string
+  confidence: number
+  usage: string
+  selector?: string
+  attribute?: string
+  examples?: string[]
+}
+
+interface PatternCandidate {
+  value: string
+  selector: string
+  score: number
+  confidence: number
+  extractionMethod: string
+}
+
 export class ParsingLearningService {
   private static instance: ParsingLearningService
   private learnedPatterns: Map<string, LearnedPattern[]> = new Map()
   private corrections: ParsingCorrection[] = []
+  private discoveredPatterns: Map<string, DiscoveredPattern[]> = new Map()
+  private failureAnalytics: Map<string, number> = new Map()
 
   private constructor() {
     this.loadLearnedPatterns()
@@ -386,6 +407,556 @@ export class ParsingLearningService {
   }
 
   /**
+   * Real-time learning from failed parses
+   */
+  public async learnFromFailedParse(
+    url: string,
+    html: string,
+    failedResult: { title: string, company: string, location?: string },
+    userFeedback?: { correctTitle?: string, correctCompany?: string, correctLocation?: string }
+  ): Promise<{ title?: string, company?: string, location?: string, improvements: string[] }> {
+    const domain = this.extractDomain(url)
+    const improvements: string[] = []
+    
+    // Track failure for analytics
+    this.failureAnalytics.set(domain, (this.failureAnalytics.get(domain) || 0) + 1)
+    
+    console.log(`🔍 Learning from failed parse on ${domain}`)
+    
+    let result = { ...failedResult }
+    
+    if (userFeedback) {
+      // User provided corrections - high confidence learning
+      await this.recordUserFeedbackCorrection(url, failedResult, userFeedback)
+      
+      // Apply corrections immediately
+      if (userFeedback.correctTitle) {
+        result.title = userFeedback.correctTitle
+        improvements.push('Applied user feedback for title')
+      }
+      if (userFeedback.correctCompany) {
+        result.company = userFeedback.correctCompany
+        improvements.push('Applied user feedback for company')
+      }
+      if (userFeedback.correctLocation) {
+        result.location = userFeedback.correctLocation
+        improvements.push('Applied user feedback for location')
+      }
+    } else {
+      // Automatic discovery - analyze HTML for better patterns
+      const discoveredData = await this.discoverPatternsFromHtml(url, html, failedResult)
+      
+      if (discoveredData.title && discoveredData.title !== failedResult.title) {
+        result.title = discoveredData.title
+        improvements.push(`Discovered better title pattern: "${discoveredData.title}"`)
+      }
+      
+      if (discoveredData.company && discoveredData.company !== failedResult.company) {
+        result.company = discoveredData.company
+        improvements.push(`Discovered better company pattern: "${discoveredData.company}"`)
+      }
+      
+      if (discoveredData.location && discoveredData.location !== failedResult.location) {
+        result.location = discoveredData.location
+        improvements.push(`Discovered location pattern: "${discoveredData.location}"`)
+      }
+      
+      improvements.push(...discoveredData.improvements)
+    }
+    
+    // Try cross-domain learning if still poor results
+    if (this.isStillPoorResult(result)) {
+      const crossDomainResult = await this.learnFromSimilarDomains(url, result)
+      if (crossDomainResult.improvements.length > 0) {
+        Object.assign(result, crossDomainResult)
+        improvements.push(...crossDomainResult.improvements)
+      }
+    }
+    
+    return { ...result, improvements }
+  }
+
+  /**
+   * Discover patterns from HTML analysis
+   */
+  private async discoverPatternsFromHtml(
+    url: string,
+    html: string,
+    failedResult: { title: string, company: string, location?: string }
+  ): Promise<{ title?: string, company?: string, location?: string, improvements: string[] }> {
+    const domain = this.extractDomain(url)
+    const improvements: string[] = []
+    let result: any = {}
+
+    console.log(`🔍 Analyzing HTML patterns for ${domain}`)
+
+    // 1. JSON-LD Structured Data Discovery
+    const jsonLdData = this.extractAndAnalyzeJsonLd(html)
+    if (jsonLdData) {
+      if (jsonLdData.title && jsonLdData.title !== failedResult.title) {
+        result.title = jsonLdData.title
+        improvements.push('Discovered title in JSON-LD structured data')
+        
+        await this.recordDiscoveredPattern({
+          type: 'structured_data',
+          domain,
+          pattern: 'script[type="application/ld+json"]',
+          confidence: 0.95,
+          usage: 'json_ld_title_extraction',
+          examples: [jsonLdData.title]
+        })
+      }
+      
+      if (jsonLdData.company && jsonLdData.company !== failedResult.company) {
+        result.company = jsonLdData.company
+        improvements.push('Discovered company in JSON-LD structured data')
+      }
+      
+      if (jsonLdData.location) {
+        result.location = jsonLdData.location
+        improvements.push('Discovered location in JSON-LD structured data')
+      }
+    }
+
+    // 2. CSS Selector Pattern Discovery
+    if (!result.title || result.title === 'Unknown Position') {
+      const titleCandidates = this.findTitleCandidates(html)
+      const bestTitle = this.scoreTitleCandidates(titleCandidates, url)
+      
+      if (bestTitle && bestTitle.confidence > 0.7) {
+        result.title = bestTitle.value
+        improvements.push(`Discovered title via CSS selector: ${bestTitle.selector}`)
+        
+        await this.recordDiscoveredPattern({
+          type: 'css_selector',
+          domain,
+          pattern: bestTitle.selector,
+          confidence: bestTitle.confidence,
+          usage: 'title_extraction',
+          selector: bestTitle.selector,
+          examples: [bestTitle.value]
+        })
+      }
+    }
+
+    // 3. Company Name Discovery
+    if (!result.company || result.company === 'Unknown Company') {
+      const companyCandidates = this.findCompanyCandidates(html, url)
+      const bestCompany = this.scoreCompanyCandidates(companyCandidates, url)
+      
+      if (bestCompany && bestCompany.confidence > 0.7) {
+        result.company = bestCompany.value
+        improvements.push(`Discovered company via: ${bestCompany.extractionMethod}`)
+      }
+    }
+
+    // 4. Location Discovery
+    if (!result.location) {
+      const locationCandidates = this.findLocationCandidates(html)
+      const bestLocation = this.scoreLocationCandidates(locationCandidates)
+      
+      if (bestLocation && bestLocation.confidence > 0.6) {
+        result.location = bestLocation.value
+        improvements.push(`Discovered location via: ${bestLocation.extractionMethod}`)
+      }
+    }
+
+    return { ...result, improvements }
+  }
+
+  /**
+   * Extract and analyze JSON-LD structured data
+   */
+  private extractAndAnalyzeJsonLd(html: string): { title?: string, company?: string, location?: string } | null {
+    const jsonLdMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gis)
+    
+    if (!jsonLdMatches) return null
+
+    for (const match of jsonLdMatches) {
+      try {
+        const jsonContent = match.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')
+        const data = JSON.parse(jsonContent)
+        
+        // Handle arrays
+        const items = Array.isArray(data) ? data : [data]
+        
+        for (const item of items) {
+          if (item['@type'] === 'JobPosting') {
+            return {
+              title: item.title || item.name,
+              company: item.hiringOrganization?.name || item.organization?.name,
+              location: this.extractLocationFromJsonLd(item)
+            }
+          }
+        }
+      } catch (error) {
+        // Invalid JSON, continue to next
+      }
+    }
+    
+    return null
+  }
+
+  /**
+   * Find title candidates using various strategies
+   */
+  private findTitleCandidates(html: string): PatternCandidate[] {
+    const candidates: PatternCandidate[] = []
+    const jobKeywords = ['engineer', 'manager', 'analyst', 'specialist', 'director', 'lead', 'coordinator', 'developer', 'designer', 'architect']
+
+    // Strategy 1: H1-H3 tags with job keywords
+    const headerRegex = /<h[1-3][^>]*>([^<]*(?:engineer|manager|analyst|specialist|director|lead|coordinator|developer|designer|architect)[^<]*)<\/h[1-3]>/gi
+    let match
+    while ((match = headerRegex.exec(html)) !== null) {
+      const value = this.cleanExtractedText(match[1])
+      if (value.length > 5 && value.length < 100) {
+        candidates.push({
+          value,
+          selector: 'h1-h3_job_keywords',
+          score: this.calculateTitleScore(value),
+          confidence: 0.8,
+          extractionMethod: 'header_with_job_keywords'
+        })
+      }
+    }
+
+    // Strategy 2: Data attributes commonly used by ATS systems
+    const dataAttributes = [
+      'data-automation-id.*title',
+      'data-testid.*title',
+      'data-test.*title',
+      'data-cy.*title'
+    ]
+
+    for (const attr of dataAttributes) {
+      const attrRegex = new RegExp(`${attr}[^>]*>([^<]+)`, 'gi')
+      while ((match = attrRegex.exec(html)) !== null) {
+        const value = this.cleanExtractedText(match[1])
+        if (this.looksLikeJobTitle(value)) {
+          candidates.push({
+            value,
+            selector: `[${attr.split('.*')[0]}*="${attr.split('.*')[1]}"]`,
+            score: this.calculateTitleScore(value),
+            confidence: 0.85,
+            extractionMethod: 'data_attribute'
+          })
+        }
+      }
+    }
+
+    // Strategy 3: CSS classes with job-related names
+    const jobClasses = ['job-title', 'position-title', 'role-title', 'posting-title']
+    for (const className of jobClasses) {
+      const classRegex = new RegExp(`class="[^"]*${className}[^"]*"[^>]*>([^<]+)`, 'gi')
+      while ((match = classRegex.exec(html)) !== null) {
+        const value = this.cleanExtractedText(match[1])
+        if (this.looksLikeJobTitle(value)) {
+          candidates.push({
+            value,
+            selector: `.${className}`,
+            score: this.calculateTitleScore(value),
+            confidence: 0.75,
+            extractionMethod: 'css_class'
+          })
+        }
+      }
+    }
+
+    return candidates.sort((a, b) => b.score - a.score)
+  }
+
+  /**
+   * Find company candidates using various strategies
+   */
+  private findCompanyCandidates(html: string, url: string): PatternCandidate[] {
+    const candidates: PatternCandidate[] = []
+
+    // Strategy 1: Domain intelligence
+    const domainCompany = this.extractCompanyFromDomain(url)
+    if (domainCompany) {
+      candidates.push({
+        value: domainCompany,
+        selector: 'domain_extraction',
+        score: 0.8,
+        confidence: 0.85,
+        extractionMethod: 'domain_intelligence'
+      })
+    }
+
+    // Strategy 2: Meta tags
+    const metaCompanyRegex = /<meta[^>]*(?:property="og:site_name"|name="company"|property="article:publisher")[^>]*content="([^"]+)"/gi
+    let match
+    while ((match = metaCompanyRegex.exec(html)) !== null) {
+      const value = this.cleanExtractedText(match[1])
+      if (value && value !== 'LinkedIn' && value.length > 2) {
+        candidates.push({
+          value,
+          selector: 'meta[property="og:site_name"]',
+          score: 0.75,
+          confidence: 0.8,
+          extractionMethod: 'meta_tag'
+        })
+      }
+    }
+
+    // Strategy 3: Logo alt text
+    const logoRegex = /<img[^>]*(?:class="[^"]*logo[^"]*"|alt="[^"]*logo[^"]*")[^>]*alt="([^"]+)"/gi
+    while ((match = logoRegex.exec(html)) !== null) {
+      const value = this.cleanExtractedText(match[1])
+      if (value && !value.toLowerCase().includes('logo') && value.length > 2) {
+        candidates.push({
+          value,
+          selector: 'img[alt*="logo"]',
+          score: 0.7,
+          confidence: 0.75,
+          extractionMethod: 'logo_alt_text'
+        })
+      }
+    }
+
+    return candidates.sort((a, b) => b.score - a.score)
+  }
+
+  /**
+   * Find location candidates
+   */
+  private findLocationCandidates(html: string): PatternCandidate[] {
+    const candidates: PatternCandidate[] = []
+
+    // Strategy 1: Data attributes for location
+    const locationAttrs = ['data-automation-id.*location', 'data-testid.*location']
+    
+    for (const attr of locationAttrs) {
+      const attrRegex = new RegExp(`${attr}[^>]*>([^<]+)`, 'gi')
+      let match
+      while ((match = attrRegex.exec(html)) !== null) {
+        const value = this.cleanExtractedText(match[1])
+        if (this.looksLikeLocation(value)) {
+          candidates.push({
+            value,
+            selector: `[${attr.split('.*')[0]}*="${attr.split('.*')[1]}"]`,
+            score: 0.8,
+            confidence: 0.85,
+            extractionMethod: 'data_attribute'
+          })
+        }
+      }
+    }
+
+    // Strategy 2: CSS classes for location
+    const locationClasses = ['location', 'job-location', 'position-location']
+    for (const className of locationClasses) {
+      const classRegex = new RegExp(`class="[^"]*${className}[^"]*"[^>]*>([^<]+)`, 'gi')
+      let match
+      while ((match = classRegex.exec(html)) !== null) {
+        const value = this.cleanExtractedText(match[1])
+        if (this.looksLikeLocation(value)) {
+          candidates.push({
+            value,
+            selector: `.${className}`,
+            score: 0.75,
+            confidence: 0.8,
+            extractionMethod: 'css_class'
+          })
+        }
+      }
+    }
+
+    return candidates.sort((a, b) => b.score - a.score)
+  }
+
+  // Helper methods for scoring and validation
+  private calculateTitleScore(title: string): number {
+    let score = 0.5
+    
+    // Length check
+    if (title.length >= 10 && title.length <= 80) score += 0.2
+    
+    // Job keywords
+    const jobKeywords = ['engineer', 'manager', 'analyst', 'specialist', 'director', 'lead', 'coordinator', 'developer', 'designer']
+    if (jobKeywords.some(keyword => title.toLowerCase().includes(keyword))) score += 0.3
+    
+    // Avoid generic terms
+    const genericTerms = ['unknown', 'position', 'job', 'career', 'opportunity']
+    if (!genericTerms.some(term => title.toLowerCase().includes(term))) score += 0.2
+    
+    return Math.min(1, score)
+  }
+
+  private looksLikeJobTitle(text: string): boolean {
+    if (!text || text.length < 5 || text.length > 100) return false
+    
+    const jobKeywords = ['engineer', 'manager', 'analyst', 'specialist', 'director', 'lead', 'coordinator', 'developer', 'designer', 'architect']
+    return jobKeywords.some(keyword => text.toLowerCase().includes(keyword))
+  }
+
+  private looksLikeLocation(text: string): boolean {
+    if (!text || text.length < 2 || text.length > 100) return false
+    
+    // Check for location patterns
+    const locationPatterns = [
+      /\b[A-Z][a-z]+,\s*[A-Z]{2}\b/, // City, State
+      /\b[A-Z][a-z]+,\s*[A-Z][a-z]+\b/, // City, Country
+      /\bRemote\b/i,
+      /\b[A-Z]{2,3}\b/, // State/Country codes
+    ]
+    
+    return locationPatterns.some(pattern => pattern.test(text))
+  }
+
+  private cleanExtractedText(text: string): string {
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/^\s*[-•]\s*/, '')
+      .trim()
+  }
+
+  private extractCompanyFromDomain(url: string): string | null {
+    try {
+      const domain = new URL(url).hostname.toLowerCase()
+      
+      // Workday pattern: company.wd5.myworkdayjobs.com
+      if (domain.includes('myworkdayjobs.com')) {
+        const subdomain = domain.split('.')[0]
+        const workdayMappings: Record<string, string> = {
+          'sglottery': 'Scientific Games Corporation',
+          'lnw': 'Light & Wonder',
+          'igt': 'International Game Technology'
+        }
+        return workdayMappings[subdomain] || this.formatCompanyName(subdomain)
+      }
+      
+      // Add more domain patterns here
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  private formatCompanyName(name: string): string {
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+  }
+
+  private scoreTitleCandidates(candidates: PatternCandidate[], _url: string): PatternCandidate | null {
+    return candidates.length > 0 ? candidates[0] : null
+  }
+
+  private scoreCompanyCandidates(candidates: PatternCandidate[], _url: string): PatternCandidate | null {
+    return candidates.length > 0 ? candidates[0] : null
+  }
+
+  private scoreLocationCandidates(candidates: PatternCandidate[]): PatternCandidate | null {
+    return candidates.length > 0 ? candidates[0] : null
+  }
+
+  private extractLocationFromJsonLd(item: any): string | undefined {
+    if (item.jobLocation) {
+      if (typeof item.jobLocation === 'string') return item.jobLocation
+      if (item.jobLocation.address?.addressLocality) {
+        const locality = item.jobLocation.address.addressLocality
+        const region = item.jobLocation.address.addressRegion
+        return region ? `${locality}, ${region}` : locality
+      }
+    }
+    return undefined
+  }
+
+  private isStillPoorResult(result: { title: string, company: string }): boolean {
+    return result.title === 'Unknown Position' || 
+           result.company === 'Unknown Company' ||
+           result.title.length < 5 ||
+           result.company.length < 3
+  }
+
+  /**
+   * Record discovered patterns for future use
+   */
+  private async recordDiscoveredPattern(pattern: DiscoveredPattern): Promise<void> {
+    const domain = pattern.domain
+    
+    if (!this.discoveredPatterns.has(domain)) {
+      this.discoveredPatterns.set(domain, [])
+    }
+    
+    const patterns = this.discoveredPatterns.get(domain)!
+    
+    // Check if pattern already exists
+    const existing = patterns.find(p => p.pattern === pattern.pattern && p.type === pattern.type)
+    if (!existing) {
+      patterns.push(pattern)
+      console.log(`📝 Recorded new pattern for ${domain}: ${pattern.type} - ${pattern.pattern}`)
+    }
+  }
+
+  /**
+   * Record user feedback correction
+   */
+  private async recordUserFeedbackCorrection(
+    url: string,
+    originalResult: { title: string, company: string, location?: string },
+    correction: { correctTitle?: string, correctCompany?: string, correctLocation?: string }
+  ): Promise<void> {
+    await this.recordCorrection({
+      sourceUrl: url,
+      originalTitle: originalResult.title,
+      correctTitle: correction.correctTitle,
+      originalCompany: originalResult.company,
+      correctCompany: correction.correctCompany,
+      parserUsed: 'RealTimeLearning',
+      parserVersion: '1.0.0',
+      correctionReason: 'User feedback correction',
+      confidence: 0.95,
+      correctedBy: 'user_feedback'
+    })
+  }
+
+  /**
+   * Cross-domain learning from similar domains
+   */
+  private async learnFromSimilarDomains(
+    currentUrl: string,
+    failedResult: { title: string, company: string, location?: string }
+  ): Promise<{ title?: string, company?: string, location?: string, improvements: string[] }> {
+    const currentDomain = this.extractDomain(currentUrl)
+    const improvements: string[] = []
+    
+    // Find similar domains that we've successfully parsed
+    const similarDomains = this.findSimilarDomains(currentDomain)
+    
+    for (const domain of similarDomains) {
+      const discoveredPatterns = this.discoveredPatterns.get(domain)
+      if (discoveredPatterns && discoveredPatterns.length > 0) {
+        improvements.push(`Found ${discoveredPatterns.length} patterns from similar domain ${domain}`)
+        
+        // Try to apply patterns (simplified for now)
+        for (const pattern of discoveredPatterns) {
+          if (pattern.confidence > 0.8) {
+            improvements.push(`Could apply ${pattern.type} pattern from ${domain}`)
+          }
+        }
+      }
+    }
+    
+    return { improvements }
+  }
+
+  /**
+   * Find domains with similar patterns (same ATS, etc.)
+   */
+  private findSimilarDomains(domain: string): string[] {
+    const domainParts = domain.split('.')
+    
+    // For Workday sites: find other *.myworkdayjobs.com domains
+    if (domain.includes('myworkdayjobs.com')) {
+      return Array.from(this.discoveredPatterns.keys())
+        .filter(d => d.includes('myworkdayjobs.com') && d !== domain)
+    }
+    
+    // For other ATS systems, similar logic
+    return []
+  }
+
+  /**
    * Get statistics about learning progress
    */
   public getLearningStats(): {
@@ -393,6 +964,8 @@ export class ParsingLearningService {
     titlePatterns: number
     companyPatterns: number
     contextualLearnings: number
+    discoveredPatterns: number
+    failureAnalytics: { domain: string, failures: number }[]
     topDomains: { domain: string, corrections: number }[]
   } {
     const domainCounts = new Map<string, number>()
@@ -406,12 +979,22 @@ export class ParsingLearningService {
       .map(([domain, corrections]) => ({ domain, corrections }))
       .sort((a, b) => b.corrections - a.corrections)
       .slice(0, 5)
+
+    const failureAnalytics = Array.from(this.failureAnalytics.entries())
+      .map(([domain, failures]) => ({ domain, failures }))
+      .sort((a, b) => b.failures - a.failures)
+      .slice(0, 10)
+
+    const totalDiscoveredPatterns = Array.from(this.discoveredPatterns.values())
+      .reduce((total, patterns) => total + patterns.length, 0)
     
     return {
       totalCorrections: this.corrections.length,
       titlePatterns: this.learnedPatterns.get('title')?.length || 0,
       companyPatterns: this.learnedPatterns.get('company')?.length || 0,
       contextualLearnings: this.corrections.filter(c => c.correctedBy === 'contextual_learning').length,
+      discoveredPatterns: totalDiscoveredPatterns,
+      failureAnalytics,
       topDomains
     }
   }

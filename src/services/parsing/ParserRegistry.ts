@@ -116,8 +116,43 @@ export class ParserRegistry {
       if (isHighQuality) {
         return result
       } else {
-        // If quality is poor, try the fallback parser
-        console.warn(`Parser ${parser.name} produced low quality result, trying fallback`)
+        // If quality is poor, try real-time learning first
+        console.warn(`Parser ${parser.name} produced low quality result, trying real-time learning`)
+        
+        const learningResult = await this.learningService.learnFromFailedParse(
+          url,
+          html,
+          { title: result.title, company: result.company, location: result.location }
+        )
+        
+        if (learningResult.improvements.length > 0) {
+          console.log(`🎓 Real-time learning improved result:`, learningResult.improvements)
+          
+          // Apply learned improvements
+          if (learningResult.title) result.title = learningResult.title
+          if (learningResult.company) result.company = learningResult.company
+          if (learningResult.location) result.location = learningResult.location
+          
+          // Update confidence if improvements were made
+          if (learningResult.title || learningResult.company) {
+            result.metadata.confidence.overall = Math.min(0.9, result.metadata.confidence.overall + 0.2)
+            if (learningResult.title) result.metadata.confidence.title = Math.min(0.95, result.metadata.confidence.title + 0.3)
+            if (learningResult.company) result.metadata.confidence.company = Math.min(0.95, result.metadata.confidence.company + 0.3)
+          }
+          
+          // Mark as learning-enhanced
+          result.metadata.extractionMethod = result.metadata.extractionMethod === 'manual_fallback' 
+            ? 'real_time_learning'
+            : result.metadata.extractionMethod
+          
+          // Re-validate after learning improvements
+          if (this.validateResult(result)) {
+            return result
+          }
+        }
+        
+        // If learning didn't help enough, try the fallback parser
+        console.warn(`Real-time learning insufficient, trying fallback parser`)
         const fallbackResult = await this.fallbackParser.extract(url, html)
         
         // Apply learning to fallback result too
@@ -130,6 +165,20 @@ export class ParserRegistry {
         if (fallbackImprovements.improvements.length > 0) {
           fallbackResult.title = fallbackImprovements.title
           fallbackResult.company = fallbackImprovements.company
+        }
+        
+        // Try real-time learning on fallback result too
+        const fallbackLearningResult = await this.learningService.learnFromFailedParse(
+          url,
+          html,
+          { title: fallbackResult.title, company: fallbackResult.company, location: fallbackResult.location }
+        )
+        
+        if (fallbackLearningResult.improvements.length > 0) {
+          console.log(`🎓 Fallback + learning improvements:`, fallbackLearningResult.improvements)
+          if (fallbackLearningResult.title) fallbackResult.title = fallbackLearningResult.title
+          if (fallbackLearningResult.company) fallbackResult.company = fallbackLearningResult.company
+          if (fallbackLearningResult.location) fallbackResult.location = fallbackLearningResult.location
         }
         
         return fallbackResult

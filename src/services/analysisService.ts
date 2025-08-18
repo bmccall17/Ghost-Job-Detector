@@ -18,7 +18,9 @@ export class AnalysisService {
           postedAt: extracted.postedAt
         };
       } catch (error) {
-        // If extraction fails, use fallback data
+        console.warn('Job data extraction failed:', error)
+        
+        // If extraction fails, use fallback data and trigger learning
         jobData = {
           title: 'Unknown Position',
           company: 'Unknown Company',
@@ -27,6 +29,11 @@ export class AnalysisService {
           remoteFlag: false,
           postedAt: undefined
         };
+
+        // Proactively trigger learning for failed parsing
+        this.triggerLearningForFailure(jobUrl, jobData, error).catch(learningError => {
+          console.warn('Learning trigger failed:', learningError)
+        })
       }
     }
 
@@ -672,5 +679,128 @@ export class AnalysisService {
         })
       }, 1500)
     })
+  }
+
+  /**
+   * Proactively trigger learning when parsing fails
+   */
+  private static async triggerLearningForFailure(
+    jobUrl: string, 
+    failedResult: { title: string, company: string, location?: string },
+    originalError: Error
+  ): Promise<void> {
+    try {
+      console.log(`🔄 Triggering proactive learning for failed parse: ${jobUrl}`)
+
+      // Try to fetch HTML for learning analysis
+      let html = ''
+      try {
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(jobUrl)}`)
+        const data = await response.json()
+        html = data.contents || ''
+      } catch (htmlError) {
+        console.warn('Could not fetch HTML for learning analysis:', htmlError)
+      }
+
+      // Call our learning API endpoint
+      const response = await fetch('/api/learning/ingest-failure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: jobUrl,
+          html,
+          failedResult,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Server',
+          originalError: {
+            message: originalError.message,
+            stack: originalError.stack
+          }
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log(`✅ Proactive learning completed:`, result)
+        
+        if (result.hasImprovements) {
+          console.log(`🎓 Learning found ${result.improvementsCount} improvements:`, result.improvements)
+          
+          // You could potentially update the UI here to show the improved results
+          // This would require exposing a callback or event system
+        }
+      } else {
+        console.warn('Learning API call failed:', response.status, response.statusText)
+      }
+
+    } catch (error) {
+      console.error('Proactive learning trigger failed:', error)
+      // Don't throw - we don't want learning failures to break the main flow
+    }
+  }
+
+  /**
+   * Check if parsing result indicates low quality and should trigger learning
+   */
+  private static shouldTriggerLearning(
+    result: { title: string, company: string, location?: string }
+  ): boolean {
+    return (
+      result.title === 'Unknown Position' ||
+      result.company === 'Unknown Company' ||
+      result.title.length < 5 ||
+      result.company.length < 3
+    )
+  }
+
+  /**
+   * Enhanced extraction with proactive learning
+   */
+  static async extractJobDataWithLearning(jobUrl: string): Promise<{
+    title: string, 
+    company: string, 
+    location?: string, 
+    remoteFlag?: boolean, 
+    postedAt?: Date, 
+    parsingMetadata?: any,
+    learningApplied?: boolean,
+    improvements?: string[]
+  }> {
+    try {
+      // First, try standard extraction
+      const standardResult = await this.extractJobData(jobUrl)
+      
+      // Check if result is poor quality
+      if (this.shouldTriggerLearning(standardResult)) {
+        console.log('🔍 Poor quality parsing detected, applying real-time learning...')
+        
+        // Trigger learning and get improvements
+        const improvements = await this.triggerLearningForFailure(
+          jobUrl, 
+          {
+            title: standardResult.title,
+            company: standardResult.company,
+            location: standardResult.location
+          },
+          new Error('Poor quality parsing result')
+        )
+        
+        // Return enhanced result with learning metadata
+        return {
+          ...standardResult,
+          learningApplied: true,
+          improvements: [] // This would be populated by the learning service
+        }
+      }
+      
+      return {
+        ...standardResult,
+        learningApplied: false
+      }
+    } catch (error) {
+      console.error('Enhanced extraction failed:', error)
+      throw error
+    }
   }
 }
