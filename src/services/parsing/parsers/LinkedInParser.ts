@@ -62,7 +62,19 @@ export class LinkedInParser extends BaseParser {
           '.jobs-unified-top-card__subtitle-secondary',
           '.job-location',
           '.jobs-unified-top-card__subtitle-secondary .jobs-unified-top-card__bullet',
-          '.job-details-jobs-unified-top-card__primary-description-container'
+          '.job-details-jobs-unified-top-card__primary-description-container',
+          // Enhanced LinkedIn location selectors
+          '.job-details-jobs-unified-top-card__primary-description-text',
+          '.jobs-unified-top-card__subtitle-secondary-grouping',
+          '.jobs-poster__location',
+          '.job-details__location',
+          '.jobs-top-card__job-details .tvm__text',
+          '.jobs-details__main-content .jobs-details__location',
+          'span[class*="job-location"]',
+          'span[class*="location"]',
+          '.jobs-unified-top-card__job-insight span:last-child',
+          '.jobs-details-top-card__location',
+          '.job-details-jobs-unified-top-card__job-insight-text'
         ],
         postedDate: [
           '[data-test-id="job-posted-date"]',
@@ -95,11 +107,23 @@ export class LinkedInParser extends BaseParser {
           /hiringOrganization[^}]*name["\s]*[:=]["\s]*"([^"]+)"/i
         ],
         location: [
-          // LinkedIn location patterns
+          // Enhanced LinkedIn location patterns
           /(?:location|jobLocation)["\s]*[:=]["\s]*"([^"]+)"/i,
           /(?:addressLocality|city)["\s]*[:=]["\s]*"([^"]+)"/i,
           /posting.?location["\s]*[:=]["\s]*"([^"]+)"/i,
-          /"location"\s*:\s*"([^"]+)"/i
+          /"location"\s*:\s*"([^"]+)"/i,
+          // Location from job posting structured data
+          /"jobLocation"[^}]*"name"["\s]*[:=]["\s]*"([^"]+)"/i,
+          /"jobLocation"[^}]*"addressLocality"["\s]*[:=]["\s]*"([^"]+)"/i,
+          /"workLocation"["\s]*[:=]["\s]*"([^"]+)"/i,
+          // Location in meta tags
+          /<meta[^>]*property="job:location"[^>]*content="([^"]+)"/i,
+          /<meta[^>]*name="location"[^>]*content="([^"]+)"/i,
+          // LinkedIn breadcrumb/header patterns
+          /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:·|•|\||$)/i,
+          /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+ [A-Z]{2,3})\s*(?:·|•|\||$)/i,
+          // Location near job details
+          /job.?details[^<]*<[^>]*>([^<]*(?:[A-Z]{2,3}|City|State|Province)[^<]*)</i
         ],
         postedDate: [
           // LinkedIn posting date patterns
@@ -350,53 +374,185 @@ export class LinkedInParser extends BaseParser {
   }
 
   private extractLinkedInLocationFromHtml(html: string): string | undefined {
-    // LinkedIn location extraction patterns
-    const locationPatterns = [
-      // JSON-LD structured data
+    console.log('LinkedIn Location Extraction: Starting location extraction...')
+    
+    // Strategy 1: Enhanced JSON-LD and structured data patterns
+    const structuredDataPatterns = [
+      // Modern LinkedIn JSON structures
       /"jobLocation"\s*:\s*"([^"]+)"/i,
       /"addressLocality"\s*:\s*"([^"]+)"/i,
       /"location"\s*:\s*"([^"]+)"/i,
+      /"workLocation"\s*:\s*"([^"]+)"/i,
+      /"jobLocation"[^}]*"name"["\s]*[:=]["\s]*"([^"]+)"/i,
+      /"jobLocation"[^}]*"addressLocality"["\s]*[:=]["\s]*"([^"]+)"/i,
+      /"geoLocationName"\s*:\s*"([^"]+)"/i,
       
-      // LinkedIn specific data attributes
-      /data-location="([^"]+)"/i,
-      /data-job-location="([^"]+)"/i,
-      
-      // Meta properties
-      /property="og:location"[^>]*content="([^"]+)"/i,
-      /<meta[^>]*name="location"[^>]*content="([^"]+)"/i,
-      
-      // Text patterns in HTML
-      /location[^:]*:\s*([^<\n]+)/i,
-      /job.?location[^:]*:\s*([^<\n]+)/i,
-      
-      // Extract from job title context (e.g., "Job Title in New York")
-      /hiring\s+.+?\s+in\s+([^"<\n]+)/i,
-      
-      // Extract from common LinkedIn layout patterns
-      /<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)/i
+      // LinkedIn API response patterns
+      /"locationName"\s*:\s*"([^"]+)"/i,
+      /"primaryLocation"\s*:\s*"([^"]+)"/i,
+      /"companyLocation"\s*:\s*"([^"]+)"/i
     ]
 
-    for (const pattern of locationPatterns) {
+    console.log('LinkedIn Location Extraction: Trying structured data patterns...')
+    for (const pattern of structuredDataPatterns) {
       const match = html.match(pattern)
       if (match && match[1] && match[1].trim().length > 1) {
-        const location = match[1].trim()
-        
-        // Clean up common artifacts
-        const cleaned = location
-          .replace(/\s*\|\s*LinkedIn.*$/i, '')
-          .replace(/\s*·\s*LinkedIn.*$/i, '')
-          .replace(/\s*-\s*LinkedIn.*$/i, '')
-          .replace(/\s*<[^>]*>.*$/i, '') // Remove HTML tags and everything after
-          .replace(/\s*[\(\[\{].*$/, '') // Remove content in parentheses/brackets
-          .trim()
-
-        if (cleaned.length > 1 && !cleaned.toLowerCase().includes('unknown')) {
-          return cleaned
+        const location = this.cleanLocationText(match[1])
+        console.log('LinkedIn Location Extraction: Found in structured data:', location)
+        if (this.isValidLocation(location)) {
+          return location
         }
       }
     }
 
+    // Strategy 2: LinkedIn header/breadcrumb patterns (where "Seattle, WA" would appear)
+    const headerPatterns = [
+      // Common LinkedIn job header patterns with separators
+      /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:·|•|\||<|$)/i,
+      /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+ [A-Z]{2,3})\s*(?:·|•|\||<|$)/i,
+      /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+\s+[A-Z][A-Za-z]+)\s*(?:·|•|\||<|$)/i,
+      
+      // Location in job details area (common pattern)
+      />([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})<\/[^>]*>\s*(?:·|•|\||$)/i,
+      /<[^>]*>([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})<\/[^>]*>/i,
+      
+      // Location with time zone or additional info
+      /([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:\([^)]*\))?(?:\s*·|\s*\||$)/i,
+      
+      // Location in span or div elements
+      /<(?:span|div)[^>]*>([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})<\/(?:span|div)>/i,
+      
+      // Location patterns for international locations
+      /(?:·|•|\|)\s*([A-Z][A-Za-z\s]+,\s*[A-Z][A-Za-z\s]+)\s*(?:·|•|\||<|$)/i
+    ]
+
+    console.log('LinkedIn Location Extraction: Trying header/breadcrumb patterns...')
+    for (const pattern of headerPatterns) {
+      const match = html.match(pattern)
+      if (match && match[1] && match[1].trim().length > 1) {
+        const location = this.cleanLocationText(match[1])
+        console.log('LinkedIn Location Extraction: Found in header:', location)
+        if (this.isValidLocation(location)) {
+          return location
+        }
+      }
+    }
+
+    // Strategy 3: Look for location in specific LinkedIn layout areas
+    const layoutPatterns = [
+      // Location in job posting meta area
+      /job.?details[^<]*<[^>]*>([^<]*(?:[A-Z]{2,3}|City|State|Province)[^<]*)</i,
+      /job.?info[^<]*<[^>]*>([^<]*(?:[A-Z]{2,3}|City|State|Province)[^<]*)</i,
+      
+      // Location in job header/title area
+      /(?:posted|located|position)\s+in\s+([A-Z][A-Za-z\s,]+(?:[A-Z]{2,3}|[A-Z][A-Za-z]+))/i,
+      /(?:based|located)\s+in\s+([A-Z][A-Za-z\s,]+(?:[A-Z]{2,3}|[A-Z][A-Za-z]+))/i,
+      
+      // Meta tags and data attributes
+      /<meta[^>]*(?:property|name)="(?:job:)?location"[^>]*content="([^"]+)"/i,
+      /data-(?:job-)?location="([^"]+)"/i,
+      /data-(?:geo-)?location="([^"]+)"/i,
+      
+      // Common location keywords followed by city/state
+      /(?:office|headquarters|location|workplace)(?:\s+in)?\s*[:]\s*([A-Z][A-Za-z\s,]+(?:[A-Z]{2,3}|[A-Z][A-Za-z]+))/i
+    ]
+
+    console.log('LinkedIn Location Extraction: Trying layout-specific patterns...')
+    for (const pattern of layoutPatterns) {
+      const match = html.match(pattern)
+      if (match && match[1] && match[1].trim().length > 1) {
+        const location = this.cleanLocationText(match[1])
+        console.log('LinkedIn Location Extraction: Found in layout:', location)
+        if (this.isValidLocation(location)) {
+          return location
+        }
+      }
+    }
+
+    // Strategy 4: Extract from page title (e.g., "Job Title - Company - Location")
+    const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
+    if (titleMatch) {
+      const pageTitle = titleMatch[1].trim()
+      console.log('LinkedIn Location Extraction: Checking page title:', pageTitle)
+      
+      // Look for location patterns in title
+      const titleLocationPatterns = [
+        /\s+-\s+([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:\||$)/i,
+        /\s+in\s+([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:\||$)/i,
+        /,\s*([A-Z][A-Za-z\s]+,\s*[A-Z]{2,3})\s*(?:\||$)/i
+      ]
+      
+      for (const pattern of titleLocationPatterns) {
+        const match = pageTitle.match(pattern)
+        if (match && match[1]) {
+          const location = this.cleanLocationText(match[1])
+          console.log('LinkedIn Location Extraction: Found in title:', location)
+          if (this.isValidLocation(location)) {
+            return location
+          }
+        }
+      }
+    }
+
+    console.log('LinkedIn Location Extraction: No valid location found')
     return undefined
+  }
+
+  private cleanLocationText(location: string): string {
+    return location
+      .replace(/\s*\|\s*LinkedIn.*$/i, '')
+      .replace(/\s*·\s*LinkedIn.*$/i, '')
+      .replace(/\s*-\s*LinkedIn.*$/i, '')
+      .replace(/\s*<[^>]*>.*$/i, '') // Remove HTML tags and everything after
+      .replace(/\s*[\(\[\{].*$/, '') // Remove content in parentheses/brackets
+      .replace(/\s*[,;:]\s*$/, '') // Remove trailing punctuation
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+  }
+
+  private isValidLocation(location: string): boolean {
+    if (!location || location.length < 2) return false
+    
+    // Reject HTML content (common issue with current parser)
+    if (location.includes('<') || location.includes('>') || 
+        location.includes('class=') || location.includes('data-') ||
+        location.includes('placeholder') || location.includes('input') ||
+        location.includes('role=') || location.includes('maxlength')) {
+      console.log('LinkedIn Location Extraction: Rejected HTML content:', location.substring(0, 100));
+      return false;
+    }
+    
+    const invalidKeywords = [
+      'unknown', 'linkedin', 'company', 'job', 'position', 'hiring',
+      'career', 'opportunity', 'apply', 'remote only', 'not specified',
+      'search', 'filter', 'button', 'control', 'tracking'
+    ]
+    
+    const locationLower = location.toLowerCase()
+    if (invalidKeywords.some(keyword => locationLower.includes(keyword))) {
+      console.log('LinkedIn Location Extraction: Rejected invalid keyword:', location);
+      return false
+    }
+    
+    // Valid location should have at least one pattern:
+    // - City, State (e.g., "Seattle, WA")
+    // - City State (e.g., "New York NY") 
+    // - International city (e.g., "London", "Toronto")
+    // - Has geographic indicators
+    const validPatterns = [
+      /^[A-Z][A-Za-z\s]+,\s*[A-Z]{2,3}$/, // City, State/Country abbreviation
+      /^[A-Z][A-Za-z\s]+ [A-Z]{2,3}$/, // City State
+      /^[A-Z][A-Za-z\s]+,\s*[A-Z][A-Za-z\s]+$/, // City, Country/State
+      /^[A-Z][A-Za-z\s]{3,}$/ // Simple city name (minimum 3 chars after first letter)
+    ]
+    
+    const isValid = validPatterns.some(pattern => pattern.test(location))
+    
+    if (!isValid) {
+      console.log('LinkedIn Location Extraction: Rejected invalid format:', location);
+    }
+    
+    return isValid
   }
 
   private extractLinkedInPostedDateFromHtml(html: string): Date | undefined {
