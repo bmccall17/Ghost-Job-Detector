@@ -192,8 +192,6 @@ export const JobAnalysisDashboard: React.FC = () => {
           riskFactorsAnalysis: result.metadata?.riskFactorsAnalysis,
           recommendation: result.metadata?.recommendation,
           analysisDetails: result.metadata?.analysisDetails,
-          processingTimeMs: result.metadata?.processingTimeMs,
-          analysisId: result.metadata?.analysisId,
 
           // Legacy detailed analysis for fallback
           rawData: {
