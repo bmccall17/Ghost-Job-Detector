@@ -9,6 +9,8 @@ import { FileUpload } from '@/components/FileUpload'
 import { PDFUpload } from '@/components/PDFUpload'
 import { GhostJobBadge } from '@/components/GhostJobBadge'
 import { NewContributionBadge } from '@/components/NewContributionBadge'
+import { AIThinkingTerminal } from '@/components/AIThinkingTerminal'
+import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
 
 const urlAnalysisSchema = z.object({
@@ -32,6 +34,9 @@ export const JobAnalysisDashboard: React.FC = () => {
   const [linkedInSearchUrl, setLinkedInSearchUrl] = useState('')
   const [careerSiteUrl, setCareerSiteUrl] = useState('')
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false)
+  const [showTerminal, setShowTerminal] = useState(false)
+  
+  const { logs, clearLogs, simulateAnalysis } = useAnalysisLogger()
   
   const {
     currentAnalysis,
@@ -54,6 +59,7 @@ export const JobAnalysisDashboard: React.FC = () => {
   const onSubmitUrl = async (data: UrlAnalysisForm) => {
     setIsAnalyzing(true)
     setCurrentAnalysis(null)
+    setShowTerminal(true) // Show terminal when analysis starts
 
     try {
       // Check if this job has already been analyzed
@@ -70,6 +76,10 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       // New job - extract data and run analysis
       const jobData = await AnalysisService.extractJobData(data.jobUrl);
+      
+      // Run AI simulation in parallel with real analysis
+      const simulationPromise = simulateAnalysis(data.jobUrl, jobData);
+      
       const result = await AnalysisService.analyzeJob(data.jobUrl, {
         title: jobData.title,
         company: jobData.company,
@@ -79,18 +89,31 @@ export const JobAnalysisDashboard: React.FC = () => {
         postedAt: jobData.postedAt
       });
 
+      // Wait for simulation to complete
+      const simulationResult = await simulationPromise;
+
       const analysis: JobAnalysis = {
         id: result.id,
         jobUrl: data.jobUrl,
         title: result.jobData?.title || jobData.title,
         company: result.jobData?.company || jobData.company,
         ghostProbability: result.ghostProbability,
-        confidence: 0.8, // Default confidence since API doesn't return it
+        confidence: simulationResult.confidence,
         factors: [...(result.riskFactors || []), ...(result.keyFactors || [])],
         analyzedAt: new Date(),
         status: 'completed',
         isNewContribution: true,
-        parsingMetadata: jobData.parsingMetadata
+        parsingMetadata: jobData.parsingMetadata,
+        metadata: {
+          rawData: {
+            detailedAnalysis: {
+              thoughtProcess: logs.filter(log => log.type === 'analysis').map(log => log.message),
+              riskFactors: simulationResult.riskFactors,
+              legitimacyIndicators: simulationResult.legitimacyIndicators,
+              finalAssessment: `Analysis completed with ${Math.round(simulationResult.confidence * 100)}% confidence. Ghost probability: ${Math.round(result.ghostProbability * 100)}%`
+            }
+          }
+        }
       }
 
       setCurrentAnalysis(analysis)
@@ -315,6 +338,19 @@ export const JobAnalysisDashboard: React.FC = () => {
               )}
             </button>
           </form>
+
+          {/* AI Thinking Terminal */}
+          {showTerminal && (
+            <div className="mt-6">
+              <AIThinkingTerminal
+                isVisible={showTerminal}
+                isAnalyzing={isAnalyzing}
+                logs={logs}
+                onClear={clearLogs}
+                onClose={() => setShowTerminal(false)}
+              />
+            </div>
+          )}
 
           {currentAnalysis && (
             <div className="border-t pt-6">
