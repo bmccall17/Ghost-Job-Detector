@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node server.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "build": "prisma generate && tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -21,6 +23,8 @@
     "@vercel/analytics": "^1.5.0",
     "@vercel/blob": "^1.1.1",
     "@vercel/kv": "^3.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
     "lucide-react": "^0.288.0",
     "prisma": "^6.14.0",
     "react": "^18.2.0",

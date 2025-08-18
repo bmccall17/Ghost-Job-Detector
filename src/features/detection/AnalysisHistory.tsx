@@ -24,15 +24,24 @@ export const AnalysisHistory: React.FC = () => {
         // Convert API response to JobAnalysis format
         const convertedAnalyses: JobAnalysis[] = result.analyses.map(analysis => ({
           id: analysis.id,
-          jobUrl: analysis.jobUrl,
-          title: analysis.jobData.title,
-          company: analysis.jobData.company,
+          jobUrl: analysis.jobUrl || analysis.url, // Handle both formats
+          title: analysis.jobData?.title || analysis.title, // Handle both formats
+          company: analysis.jobData?.company || analysis.company, // Handle both formats
           ghostProbability: analysis.ghostProbability,
           confidence: 0.8, // Default confidence
           factors: [...(analysis.riskFactors || []), ...(analysis.keyFactors || [])],
           analyzedAt: new Date(analysis.timestamp),
           status: 'completed' as const,
-          isNewContribution: analysis.isNewContribution || false
+          isNewContribution: analysis.isNewContribution || false,
+          // Include metadata if available
+          metadata: {
+            algorithmAssessment: analysis.metadata?.algorithmAssessment,
+            riskFactorsAnalysis: analysis.metadata?.riskFactorsAnalysis,
+            recommendation: analysis.metadata?.recommendation,
+            analysisDetails: analysis.metadata?.analysisDetails,
+            processingTimeMs: analysis.metadata?.processingTimeMs,
+            analysisId: analysis.metadata?.analysisId
+          }
         }))
         
         setDatabaseAnalyses(convertedAnalyses)

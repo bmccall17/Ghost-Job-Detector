@@ -8,6 +8,8 @@ export default async function handler(req, res) {
     }
 
     try {
+        console.log('Analysis History API called:', { method: req.method, query: req.query });
+        
         // Get query parameters (for legacy history.js compatibility)
         const limit = req.query.limit ? parseInt(req.query.limit) : 50;
         const offset = req.query.offset ? parseInt(req.query.offset) : 0;
@@ -101,6 +103,7 @@ export default async function handler(req, res) {
         }
 
         // Fetch job listings with their latest analysis
+        console.log('Fetching job listings from database...');
         const jobListings = await prisma.jobListing.findMany({
             where: jobWhere,
             include: {
@@ -115,6 +118,18 @@ export default async function handler(req, res) {
             take: limit,
             skip: offset
         });
+        
+        console.log(`Found ${jobListings.length} job listings`);
+        jobListings.forEach((job, index) => {
+            console.log(`Job ${index + 1}:`, {
+                id: job.id,
+                title: job.title,
+                company: job.company,
+                analysesCount: job.analyses.length,
+                sourceUrl: job.source?.url,
+                canonicalUrl: job.canonicalUrl
+            });
+        });
 
         // Filter out job listings without analyses if verdict filter is applied
         const filteredJobListings = verdict 
@@ -126,8 +141,8 @@ export default async function handler(req, res) {
             const analysis = job.analyses[0];
             return {
                 id: analysis?.id || job.id,
-                jobUrl: job.canonicalUrl || job.source.url,
-                url: job.canonicalUrl || job.source.url, // Legacy compatibility
+                jobUrl: job.canonicalUrl || job.source?.url,
+                url: job.canonicalUrl || job.source?.url, // Legacy compatibility
                 jobData: {
                     title: job.title,
                     company: job.company,
@@ -145,7 +160,24 @@ export default async function handler(req, res) {
                 riskFactors: analysis?.reasonsJson?.riskFactors || [],
                 keyFactors: analysis?.reasonsJson?.keyFactors || [],
                 timestamp: analysis?.createdAt || job.createdAt,
-                isNewContribution: false
+                isNewContribution: false,
+                // Include detailed analyzer processing data
+                metadata: {
+                    storage: 'postgres',
+                    version: '2.0',
+                    sourceType: job.source?.kind,
+                    analysisDate: analysis?.createdAt || job.createdAt,
+                    jobListingId: job.id,
+                    sourceId: job.source?.id,
+                    
+                    // Include detailed analyzer processing data
+                    algorithmAssessment: analysis?.algorithmAssessment,
+                    riskFactorsAnalysis: analysis?.riskFactorsAnalysis,
+                    recommendation: analysis?.recommendation,
+                    analysisDetails: analysis?.analysisDetails,
+                    processingTimeMs: analysis?.processingTimeMs,
+                    analysisId: analysis?.analysisId
+                }
             };
         });
 
@@ -155,6 +187,11 @@ export default async function handler(req, res) {
         const mediumRisk = analyses.filter(a => a.ghostProbability >= 0.34 && a.ghostProbability < 0.67).length;
         const lowRisk = analyses.filter(a => a.ghostProbability < 0.34).length;
 
+        console.log('Returning response:', {
+            analysesCount: analyses.length,
+            stats: { total, highRisk, mediumRisk, lowRisk }
+        });
+        
         return res.status(200).json({
             analyses,
             stats: { total, highRisk, mediumRisk, lowRisk },
