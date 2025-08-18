@@ -62,11 +62,12 @@ export const useAnalysisLogger = () => {
 
   // Simulation functions for demo purposes
   const simulateAnalysis = useCallback(async (jobUrl: string, jobData: any) => {
+    console.log('🧪 simulateAnalysis called with:', { jobUrl, jobData })
     clearLogs()
     
     // Initial setup
     addLog('info', '🚀 Starting AI-powered job analysis')
-    addLog('info', `📋 Analyzing: ${jobData.title} at ${jobData.company}`)
+    addLog('info', `📋 Analyzing: ${jobData.title || 'Unknown Title'} at ${jobData.company || 'Unknown Company'}`)
     addLog('info', `🔗 Source: ${jobUrl}`)
     
     await new Promise(resolve => setTimeout(resolve, 500))

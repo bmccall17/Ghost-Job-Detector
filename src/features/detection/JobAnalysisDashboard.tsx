@@ -36,7 +36,7 @@ export const JobAnalysisDashboard: React.FC = () => {
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false)
   const [showTerminal, setShowTerminal] = useState(false)
   
-  const { logs, clearLogs, simulateAnalysis } = useAnalysisLogger()
+  const { logs, clearLogs, simulateAnalysis, addLog } = useAnalysisLogger()
   
   const {
     currentAnalysis,
@@ -59,14 +59,33 @@ export const JobAnalysisDashboard: React.FC = () => {
   const onSubmitUrl = async (data: UrlAnalysisForm) => {
     setIsAnalyzing(true)
     setCurrentAnalysis(null)
+    clearLogs() // Clear any previous logs
     setShowTerminal(true) // Show terminal when analysis starts
+    
+    // Add immediate test log to verify logging works
+    addLog('info', '🚀 Analysis process started')
+    console.log('Terminal should now show logs');
 
     try {
       // Check if this job has already been analyzed
       const existingAnalysis = findExistingAnalysis(data.jobUrl)
       
       if (existingAnalysis) {
-        // Job already analyzed - show existing results
+        // Job already analyzed - show existing results but still show thinking logs
+        console.log('📁 Found existing analysis, showing demo logs');
+        
+        // Run a quick demo simulation for existing analysis
+        const demoJobData = {
+          title: existingAnalysis.title,
+          company: existingAnalysis.company
+        };
+        
+        simulateAnalysis(data.jobUrl, demoJobData).then(() => {
+          console.log('Demo simulation completed for existing analysis');
+        }).catch(error => {
+          console.error('Demo simulation failed:', error);
+        });
+        
         setCurrentAnalysis(existingAnalysis)
         addToHistory(existingAnalysis) // This will move it to top without marking as new
         urlForm.reset()
@@ -77,10 +96,12 @@ export const JobAnalysisDashboard: React.FC = () => {
       // New job - extract data and run analysis
       const jobData = await AnalysisService.extractJobData(data.jobUrl);
       
-      // Run AI simulation in parallel with real analysis
+      // Start AI simulation first to show logs immediately
+      console.log('🚀 Starting AI simulation for terminal logs');
       const simulationPromise = simulateAnalysis(data.jobUrl, jobData);
       
-      const result = await AnalysisService.analyzeJob(data.jobUrl, {
+      // Run real analysis in parallel
+      const analysisPromise = AnalysisService.analyzeJob(data.jobUrl, {
         title: jobData.title,
         company: jobData.company,
         description: '', // We don't have full description from basic extraction
@@ -89,8 +110,15 @@ export const JobAnalysisDashboard: React.FC = () => {
         postedAt: jobData.postedAt
       });
 
-      // Wait for simulation to complete
-      const simulationResult = await simulationPromise;
+      // Wait for both to complete
+      let simulationResult, result;
+      try {
+        [simulationResult, result] = await Promise.all([simulationPromise, analysisPromise]);
+        console.log('✅ Both simulation and analysis completed', { simulationResult, result });
+      } catch (error) {
+        console.error('❌ Error in analysis or simulation:', error);
+        throw error;
+      }
 
       const analysis: JobAnalysis = {
         id: result.id,
@@ -338,6 +366,27 @@ export const JobAnalysisDashboard: React.FC = () => {
               )}
             </button>
           </form>
+
+          {/* Debug Button - Remove in production */}
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">Debug: Test Terminal</h4>
+                <p className="text-xs text-yellow-600">Click to test if terminal logging works</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTerminal(true);
+                  addLog('info', '🧪 Manual test log added');
+                  addLog('process', '🔧 Testing terminal functionality');
+                  addLog('success', '✅ If you see this, logging works!');
+                }}
+                className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+              >
+                Test Logs
+              </button>
+            </div>
+          </div>
 
           {/* AI Thinking Terminal */}
           {showTerminal && (
