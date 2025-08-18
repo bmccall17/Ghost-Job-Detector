@@ -1,5 +1,35 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
+## Project Status: v0.1.5 🚀
+
+**Latest Updates:**
+- ✅ Detailed analyzer processing data integration complete
+- ✅ JobReportModal corrections functionality removed (cleaner UI)
+- ✅ TypeScript build errors resolved
+- ✅ Analysis history API with fallback mock data
+- ✅ Text wrapping fixes for job titles and URLs in tables
+- ✅ Terminal animation and analysis flow working properly
+
+## Recent Improvements (v0.1.5)
+
+### UI/UX Enhancements
+- **Detailed Analyzer View**: Complete implementation of analyzer processing details including Algorithm Assessment, Risk Factors Analysis, Recommendation, and Analysis Details
+- **Text Wrapping**: Fixed table cell truncation issues - job titles and URLs now display fully with proper word wrapping
+- **Simplified Interface**: Removed correction functionality from JobReportModal for cleaner user experience
+- **Terminal Animation**: AI thinking process now displays properly with real-time logging during analysis
+
+### Technical Infrastructure
+- **Database Integration**: Extended Prisma schema to support detailed analyzer processing metadata
+- **Fallback System**: Robust error handling with mock data fallback for development and offline scenarios
+- **Type Safety**: Comprehensive TypeScript interface updates for new data structures
+- **Build Process**: All TypeScript compilation errors resolved for clean deployments
+
+### Analysis Features
+- **Mock Analysis System**: Complete simulation-based analysis system working during development
+- **Metadata Storage**: Detailed processing information now properly stored and retrievable
+- **History Integration**: Analysis history properly displays detailed analyzer data
+- **Response Format**: Standardized API response structure with backward compatibility
+
 ## ⚠️ CRITICAL DEPLOYMENT CONSTRAINT ⚠️
 
 **VERCEL FUNCTION LIMIT: 12 functions maximum on Hobby plan**
