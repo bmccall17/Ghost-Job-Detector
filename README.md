@@ -201,6 +201,22 @@ npm run test:coverage
 
 ## 🚀 Deployment
 
+### ⚠️ **CRITICAL: Vercel Function Limit**
+
+**IMPORTANT:** This project is limited to **12 serverless functions** on Vercel Hobby plan.
+
+**Current Status:** 10/12 functions used (2 slots remaining)
+
+**Before adding new API endpoints:**
+1. Run `node scripts/verify-function-count.js` to check current count
+2. If adding new function would exceed limit, consider consolidation
+3. All functions in `/api/` folder count toward this limit
+
+**Function Management:**
+- Monitor with: `npm run verify-functions` 
+- Recent optimizations: Consolidated history endpoints, removed test functions
+- For more functions: Upgrade to Vercel Pro plan
+
 ### Production Build
 
 ```bash

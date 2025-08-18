@@ -1,5 +1,22 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
+## ⚠️ CRITICAL DEPLOYMENT CONSTRAINT ⚠️
+
+**VERCEL FUNCTION LIMIT: 12 functions maximum on Hobby plan**
+
+**Current Status: 10/12 functions used (2 remaining slots)**
+
+**MANDATORY RULE: Before implementing ANY new API endpoints, you MUST:**
+1. Check current function count with: `node scripts/verify-function-count.js`
+2. If adding new functions would exceed 12 total, you MUST warn the user
+3. Present consolidation options or suggest upgrading to Pro plan ($20/month)
+4. Get explicit approval before proceeding
+
+**Function count locations:**
+- Each `.js` file in `/api/` directory = 1 function
+- Subdirectories create nested endpoints (e.g., `/api/agent/ingest.js` = 1 function)
+- Consolidation is preferred over Pro plan upgrade unless business critical
+
 ## Technology Stack
 - **Frontend**: React 18 with TypeScript for all UI components
 - **Backend**: FastAPI with Python 3.11+ for all API services
@@ -22,11 +39,20 @@
 - **Forms**: React Hook Form with Zod validation schemas
 
 ## API Development
+
+### ⚠️ FUNCTION LIMIT CONSTRAINTS
+- **CURRENT**: 10/12 Vercel functions used (only 2 slots remaining)
+- **BEFORE adding ANY new API endpoint:** Check count with `node scripts/verify-function-count.js`
+- **IF over limit:** Must consolidate existing endpoints or upgrade to Pro plan
+- **CONSOLIDATION preferred** over upgrade unless business critical
+
+### API Standards
 - **Routing**: Use FastAPI APIRouter with clear endpoint grouping: `/api/v1/detection/`, `/api/v1/auth/`
 - **Models**: Pydantic models for all request/response schemas
 - **Error Handling**: Consistent HTTPException usage with proper status codes
 - **Authentication**: JWT tokens with 24-hour expiry, refresh token pattern
 - **Rate Limiting**: Implement per-user rate limits: 1000 requests/hour for free tier
+- **Function Consolidation**: Combine related endpoints into single files when possible
 
 ## Machine Learning Standards
 - **Model Pipeline**: Use scikit-learn Pipeline objects for reproducible preprocessing

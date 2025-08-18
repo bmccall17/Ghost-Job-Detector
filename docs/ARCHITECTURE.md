@@ -172,6 +172,24 @@ curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
 
 ---
 
+## ⚠️ **CRITICAL DEPLOYMENT CONSTRAINT**
+
+**VERCEL FUNCTION LIMIT: 12 functions maximum on Hobby plan**
+- **Current Status:** 10/12 functions used (2 remaining slots)
+- **Last Verified:** August 18, 2025 via `scripts/verify-function-count.js`
+
+**⚠️ MANDATORY PRE-DEVELOPMENT CHECK:**
+Before implementing ANY new API endpoint, you MUST:
+1. Run `node scripts/verify-function-count.js` to check current count
+2. If adding new function would exceed 12: consider consolidation or removal
+3. Update function count verification after any API changes
+
+**Function Count History:**
+- **August 18, 2025:** Reduced from 13→10 functions (consolidated `api/history.js`, removed test functions)
+- **Previous Issues:** Deployment blocked due to exceeding 12-function limit
+
+---
+
 ## **Version 0.1 Next Steps & Roadmap**
 
 ### **🎯 Immediate Priorities (v0.2)**

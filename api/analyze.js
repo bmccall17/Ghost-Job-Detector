@@ -101,19 +101,39 @@ export default async function handler(req, res) {
 
         if (duplicateJob) {
             console.log(`🔄 Duplicate job detected! Updating existing job listing ${duplicateJob.id} instead of creating new one`);
+            console.log(`   Original: "${duplicateJob.title}" at "${duplicateJob.company}"`);
+            console.log(`   New source: ${url}`);
             
-            // Update the existing job listing's totalPositions (increment by 1)
+            // Track source platforms for this job
+            const existingSources = duplicateJob.rawParsedJson?.sources || [];
+            const newSourcePlatform = extractSourcePlatform(url);
+            
+            if (!existingSources.some(s => s.url === url)) {
+                existingSources.push({
+                    url: url,
+                    platform: newSourcePlatform,
+                    addedAt: new Date().toISOString(),
+                    postedAt: postedAt || null
+                });
+            }
+            
+            // Update the existing job listing with new source information
             await prisma.jobListing.update({
                 where: { id: duplicateJob.id },
                 data: {
                     rawParsedJson: {
                         ...duplicateJob.rawParsedJson,
+                        sources: existingSources,
                         duplicateUrls: [
                             ...(duplicateJob.rawParsedJson.duplicateUrls || []),
                             url
                         ],
                         totalPositions: (duplicateJob.rawParsedJson.totalPositions || 1) + 1,
-                        lastSeenAt: new Date().toISOString()
+                        lastSeenAt: new Date().toISOString(),
+                        // Update posting date if this source is more recent
+                        latestPostedAt: postedAt && new Date(postedAt) > new Date(duplicateJob.postedAt || duplicateJob.createdAt) 
+                            ? postedAt 
+                            : duplicateJob.rawParsedJson.latestPostedAt || duplicateJob.postedAt
                     }
                 }
             });
@@ -144,6 +164,8 @@ export default async function handler(req, res) {
                     cached: true,
                     duplicate: true,
                     totalPositions: (duplicateJob.rawParsedJson.totalPositions || 1) + 1,
+                    sources: existingSources,
+                    crossPlatform: existingSources.length > 1,
                     analysisDate: existingAnalysis?.createdAt
                 }
             });
@@ -173,7 +195,14 @@ export default async function handler(req, res) {
                     originalPostedAt: postedAt,
                     extractedAt: new Date().toISOString(),
                     totalPositions: 1, // Initialize with 1 position
-                    duplicateUrls: [] // Track duplicate URLs
+                    duplicateUrls: [], // Track duplicate URLs
+                    sources: [{ // Initialize sources array
+                        url: url,
+                        platform: extractSourcePlatform(url),
+                        addedAt: new Date().toISOString(),
+                        postedAt: postedAt || null
+                    }],
+                    latestPostedAt: postedAt || new Date().toISOString()
                 },
                 normalizedKey
             }
@@ -502,8 +531,12 @@ async function detectDuplicateJob(newJob, normalizationService) {
             
             console.log(`🎯 Similarity score for "${candidateJob.title}": ${similarityScore.toFixed(3)}`);
             
-            if (similarityScore > 0.8) { // High similarity threshold
-                console.log(`✅ Found duplicate job! Score: ${similarityScore.toFixed(3)}`);
+            // Use different thresholds based on similarity type
+            const isExactMatch = isExactJobMatch(newJob, candidateJob, normalizationService);
+            const threshold = isExactMatch ? 0.6 : 0.8; // Much lower threshold for exact matches
+            
+            if (similarityScore > threshold) {
+                console.log(`✅ Found duplicate job! Score: ${similarityScore.toFixed(3)} (threshold: ${threshold}, exact match: ${isExactMatch})`);
                 return candidateJob;
             }
         }
@@ -572,4 +605,64 @@ function calculateJobSimilarity(job1, job2, normalizationService) {
     }
 
     return weightSum > 0 ? totalScore / weightSum : 0;
+}
+
+// Check if two jobs are exactly the same (title + company)
+function isExactJobMatch(job1, job2, normalizationService) {
+    // Normalize titles for comparison (remove special chars, extra spaces, etc.)
+    const normalizedTitle1 = normalizeJobTitle(job1.title);
+    const normalizedTitle2 = normalizeJobTitle(job2.title);
+    
+    // Normalize companies using the service
+    const companyNorm1 = normalizationService.normalizeCompanyName(job1.company);
+    const companyNorm2 = normalizationService.normalizeCompanyName(job2.company);
+    
+    // Exact match: same normalized title AND same canonical company
+    const titleMatch = normalizedTitle1 === normalizedTitle2;
+    const companyMatch = companyNorm1.canonical === companyNorm2.canonical;
+    
+    if (titleMatch && companyMatch) {
+        console.log(`🎯 EXACT MATCH detected: "${job1.title}" at "${job1.company}"`);
+        console.log(`   Normalized titles: "${normalizedTitle1}" === "${normalizedTitle2}"`);
+        console.log(`   Canonical companies: "${companyNorm1.canonical}" === "${companyNorm2.canonical}"`);
+        return true;
+    }
+    
+    return false;
+}
+
+// Normalize job title for exact matching
+function normalizeJobTitle(title) {
+    return title
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ')    // Normalize whitespace
+        .trim();
+}
+
+// Extract platform name from URL
+function extractSourcePlatform(url) {
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        
+        if (hostname.includes('linkedin.com')) return 'LinkedIn';
+        if (hostname.includes('indeed.com')) return 'Indeed';
+        if (hostname.includes('glassdoor.com')) return 'Glassdoor';
+        if (hostname.includes('monster.com')) return 'Monster';
+        if (hostname.includes('ziprecruiter.com')) return 'ZipRecruiter';
+        if (hostname.includes('greenhouse.io')) return 'Greenhouse';
+        if (hostname.includes('lever.co')) return 'Lever';
+        if (hostname.includes('careers.') || hostname.includes('jobs.')) return 'Company Career Site';
+        
+        // Extract company domain for career sites
+        const domainParts = hostname.split('.');
+        if (domainParts.length >= 2) {
+            const mainDomain = domainParts[domainParts.length - 2];
+            return `${mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1)} Career Site`;
+        }
+        
+        return 'Other';
+    } catch (error) {
+        return 'Unknown';
+    }
 }
