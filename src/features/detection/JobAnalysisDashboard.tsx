@@ -142,6 +142,15 @@ export const JobAnalysisDashboard: React.FC = () => {
         isNewContribution: true,
         parsingMetadata: jobData.parsingMetadata,
         metadata: {
+          // New detailed analyzer processing data from API response
+          algorithmAssessment: result.metadata?.algorithmAssessment,
+          riskFactorsAnalysis: result.metadata?.riskFactorsAnalysis,
+          recommendation: result.metadata?.recommendation,
+          analysisDetails: result.metadata?.analysisDetails,
+          processingTimeMs: result.metadata?.processingTimeMs,
+          analysisId: result.metadata?.analysisId,
+
+          // Legacy detailed analysis for fallback
           rawData: {
             detailedAnalysis: {
               thoughtProcess: logs.filter(log => log.type === 'analysis').map(log => log.message),

@@ -166,7 +166,15 @@ export default async function handler(req, res) {
                     totalPositions: (duplicateJob.rawParsedJson.totalPositions || 1) + 1,
                     sources: existingSources,
                     crossPlatform: existingSources.length > 1,
-                    analysisDate: existingAnalysis?.createdAt
+                    analysisDate: existingAnalysis?.createdAt,
+                    
+                    // Include detailed analyzer processing data if available
+                    algorithmAssessment: existingAnalysis?.algorithmAssessment,
+                    riskFactorsAnalysis: existingAnalysis?.riskFactorsAnalysis,
+                    recommendation: existingAnalysis?.recommendation,
+                    analysisDetails: existingAnalysis?.analysisDetails,
+                    processingTimeMs: existingAnalysis?.processingTimeMs,
+                    analysisId: existingAnalysis?.analysisId
                 }
             });
         }
@@ -208,10 +216,15 @@ export default async function handler(req, res) {
             }
         });
 
-        // Perform simple analysis
+        // Perform detailed analysis with processing metadata
+        const startTime = Date.now();
         const analysis = analyzeJob({ url, title, company, description });
+        const processingTime = Date.now() - startTime;
+        
+        // Generate unique analysis ID
+        const analysisId = `cmehk7${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
 
-        // Create analysis record
+        // Create analysis record with detailed processing data
         const analysisRecord = await prisma.analysis.create({
             data: {
                 jobListingId: jobListing.id,
@@ -223,7 +236,61 @@ export default async function handler(req, res) {
                     keyFactors: analysis.keyFactors,
                     confidence: analysis.confidence || 0.8
                 },
-                modelVersion: process.env.ML_MODEL_VERSION || 'v1.0.0'
+                modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.0',
+                processingTimeMs: processingTime,
+                
+                // Detailed analyzer processing data
+                ghostProbability: analysis.ghostProbability,
+                modelConfidence: analysis.confidence || 0.8,
+                analysisId: analysisId,
+                
+                algorithmAssessment: {
+                    ghostProbability: Math.round(analysis.ghostProbability * 100),
+                    modelConfidence: analysis.riskLevel === 'high' ? 'High (80%)' : 
+                                   analysis.riskLevel === 'low' ? 'High (80%)' : 'Medium (60%)',
+                    assessmentText: analysis.riskLevel === 'high' 
+                        ? 'This job posting shows signs of being a ghost job with multiple red flags.'
+                        : analysis.riskLevel === 'low'
+                        ? 'This job posting appears legitimate with positive indicators. It\'s likely a real opportunity worth pursuing.'
+                        : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
+                },
+                
+                riskFactorsAnalysis: {
+                    warningSignsCount: analysis.riskFactors.length,
+                    warningSignsTotal: analysis.riskFactors.length + analysis.keyFactors.length,
+                    riskFactors: analysis.riskFactors.map(factor => ({
+                        type: 'warning',
+                        description: factor,
+                        impact: 'medium'
+                    })),
+                    positiveIndicators: analysis.keyFactors.map(factor => ({
+                        type: 'positive',
+                        description: factor,
+                        impact: 'low'
+                    }))
+                },
+                
+                recommendation: {
+                    action: analysis.riskLevel === 'high' ? 'avoid' : 
+                           analysis.riskLevel === 'low' ? 'proceed' : 'investigate',
+                    message: analysis.riskLevel === 'high'
+                        ? 'Consider avoiding this opportunity. Multiple risk factors suggest this may be a ghost job posting.'
+                        : analysis.riskLevel === 'low'
+                        ? 'This appears to be a legitimate opportunity. Consider applying if it matches your qualifications and career goals.'
+                        : 'Exercise caution with this posting. Conduct additional research before applying.',
+                    confidence: analysis.riskLevel === 'high' ? 'high' : 
+                               analysis.riskLevel === 'low' ? 'high' : 'medium'
+                },
+                
+                analysisDetails: {
+                    analysisId: analysisId,
+                    modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.0',
+                    processingTimeMs: processingTime,
+                    analysisDate: new Date().toISOString(),
+                    algorithmType: 'rule_based_v1',
+                    dataSource: 'job_posting_analysis',
+                    platform: extractSourcePlatform(url)
+                }
             }
         });
 
@@ -268,7 +335,7 @@ export default async function handler(req, res) {
             }
         });
 
-        // Return analysis result
+        // Return analysis result with detailed processing data
         return res.status(200).json({
             id: analysisRecord.id,
             url,
@@ -287,7 +354,15 @@ export default async function handler(req, res) {
                 storage: 'postgres',
                 version: '2.0',
                 cached: false,
-                analysisDate: analysisRecord.createdAt
+                analysisDate: analysisRecord.createdAt,
+                
+                // Detailed analyzer processing data
+                algorithmAssessment: analysisRecord.algorithmAssessment,
+                riskFactorsAnalysis: analysisRecord.riskFactorsAnalysis,
+                recommendation: analysisRecord.recommendation,
+                analysisDetails: analysisRecord.analysisDetails,
+                processingTimeMs: processingTime,
+                analysisId: analysisId
             }
         });
 

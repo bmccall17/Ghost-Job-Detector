@@ -92,6 +92,15 @@ model Analysis {
   processingTimeMs  Int?     // Analysis duration
   createdAt         DateTime @default(now())
   
+  // Detailed analyzer processing data
+  algorithmAssessment Json?   // Ghost probability, model confidence, assessment text
+  riskFactorsAnalysis Json?   // Warning signs, positive indicators, detailed factors
+  recommendation      Json?   // Final recommendation and reasoning
+  analysisDetails     Json?   // Analysis ID, processing metadata, technical details
+  modelConfidence     Decimal? @db.Decimal(5,4) // Model confidence score (0-1)
+  ghostProbability    Decimal? @db.Decimal(5,4) // Ghost job probability (0-1)
+  analysisId          String?  // Unique analysis identifier for tracking
+  
   // Relations
   jobListing        JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
   
@@ -99,6 +108,8 @@ model Analysis {
   @@index([jobListingId, createdAt(sort: Desc)])
   @@index([verdict])
   @@index([modelVersion])
+  @@index([ghostProbability])
+  @@index([analysisId])
   @@map("analyses")
 }
 

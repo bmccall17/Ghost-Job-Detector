@@ -10,6 +10,43 @@ export interface JobAnalysis {
   status: 'pending' | 'completed' | 'failed'
   isNewContribution?: boolean
   metadata?: {
+    // New detailed analyzer processing data
+    algorithmAssessment?: {
+      ghostProbability: number
+      modelConfidence: string
+      assessmentText: string
+    }
+    riskFactorsAnalysis?: {
+      warningSignsCount: number
+      warningSignsTotal: number
+      riskFactors: Array<{
+        type: string
+        description: string
+        impact: string
+      }>
+      positiveIndicators: Array<{
+        type: string
+        description: string
+        impact: string
+      }>
+    }
+    recommendation?: {
+      action: string
+      message: string
+      confidence: string
+    }
+    analysisDetails?: {
+      analysisId: string
+      modelVersion: string
+      processingTimeMs: number
+      analysisDate: string
+      algorithmType?: string
+      platform?: string
+    }
+    processingTimeMs?: number
+    analysisId?: string
+
+    // Legacy detailed analysis structure
     rawData?: {
       detailedAnalysis?: {
         thoughtProcess?: string[]

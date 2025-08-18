@@ -3,6 +3,7 @@ import { X, ExternalLink, Calendar, Building, AlertTriangle, CheckCircle, XCircl
 import { JobAnalysis } from '@/types'
 import { GhostJobBadge } from './GhostJobBadge'
 import { JobCorrectionModal } from './JobCorrectionModal'
+import { DetailedAnalyzerView } from './DetailedAnalyzerView'
 
 interface JobReportModalProps {
   analysis: JobAnalysis | null
@@ -155,7 +156,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                 <span>Ghost Analysis</span>
               </div>
             </button>
-            {analysis.metadata?.rawData?.detailedAnalysis && (
+            {(analysis.metadata?.rawData?.detailedAnalysis || analysis.metadata?.algorithmAssessment) && (
               <button
                 onClick={() => setActiveTab('detailed')}
                 className={`py-3 px-1 border-b-2 font-medium text-sm ${
@@ -307,9 +308,21 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
             </div>
           )}
 
-          {activeTab === 'detailed' && analysis.metadata?.rawData?.detailedAnalysis && (
+          {activeTab === 'detailed' && (analysis.metadata?.rawData?.detailedAnalysis || analysis.metadata?.algorithmAssessment) && (
+            <DetailedAnalyzerView 
+              analysisData={{
+                algorithmAssessment: analysis.metadata?.algorithmAssessment,
+                riskFactorsAnalysis: analysis.metadata?.riskFactorsAnalysis,
+                recommendation: analysis.metadata?.recommendation,
+                analysisDetails: analysis.metadata?.analysisDetails
+              }}
+              isVisible={true}
+            />
+            
+            {/* Fallback to old detailed analysis if new format not available */}
+            {!analysis.metadata?.algorithmAssessment && analysis.metadata?.rawData?.detailedAnalysis && (
             <div className="space-y-6">
-              {/* Thought Process */}
+              {/* Legacy Thought Process */}
               {analysis.metadata.rawData.detailedAnalysis.thoughtProcess && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
@@ -572,6 +585,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                 )}
               </div>
             </div>
+            )}
           )}
 
           {activeTab === 'parsing' && analysis.parsingMetadata && (

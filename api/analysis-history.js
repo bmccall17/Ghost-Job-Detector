@@ -66,7 +66,15 @@ export default async function handler(req, res) {
                         sourceType: source.kind,
                         analysisDate: analysis.createdAt,
                         jobListingId: jobListing.id,
-                        sourceId: source.id
+                        sourceId: source.id,
+                        
+                        // Include detailed analyzer processing data
+                        algorithmAssessment: analysis.algorithmAssessment,
+                        riskFactorsAnalysis: analysis.riskFactorsAnalysis,
+                        recommendation: analysis.recommendation,
+                        analysisDetails: analysis.analysisDetails,
+                        processingTimeMs: analysis.processingTimeMs,
+                        analysisId: analysis.analysisId
                     }
                 };
             });
