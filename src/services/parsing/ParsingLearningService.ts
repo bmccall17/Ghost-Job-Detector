@@ -169,6 +169,29 @@ export class ParsingLearningService {
       correctedBy: 'system_initialization'
     })
 
+    // Known Greenhouse parsing issues - SurveyMonkey example
+    await this.recordCorrection({
+      sourceUrl: 'https://job-boards.greenhouse.io/surveymonkey/',
+      originalTitle: 'Unknown Position',
+      correctTitle: 'Pricing Strategy Lead, Principal Product Manager',
+      parserUsed: 'GreenhouseParser',
+      parserVersion: '2.0.0',
+      correctionReason: 'Should extract title from page title or structured data',
+      confidence: 0.95,
+      correctedBy: 'system_initialization'
+    })
+
+    await this.recordCorrection({
+      sourceUrl: 'https://job-boards.greenhouse.io/surveymonkey/',
+      originalCompany: 'Unknown Company',
+      correctCompany: 'SurveyMonkey',
+      parserUsed: 'GreenhouseParser',
+      parserVersion: '2.0.0',
+      correctionReason: 'Should extract company from URL slug for Greenhouse',
+      confidence: 1.0,
+      correctedBy: 'system_initialization'
+    })
+
     console.log(`✅ Initialized ${this.corrections.length} known corrections`)
   }
 
@@ -241,12 +264,135 @@ export class ParsingLearningService {
   }
 
   /**
+   * Learn from contextual similarities between job postings
+   */
+  public async learnFromSimilarPostings(
+    currentJob: { title: string, company: string, url: string },
+    referenceJobs: { title: string, company: string, url: string }[]
+  ): Promise<{ title?: string, company?: string, improvements: string[] }> {
+    const improvements: string[] = []
+    let improvedTitle = currentJob.title
+    let improvedCompany = currentJob.company
+
+    for (const refJob of referenceJobs) {
+      // If current job has unknown/poor data but reference job has good data
+      if ((currentJob.title === 'Unknown Position' || currentJob.title.length < 3) && 
+          refJob.title && refJob.title.length > 3) {
+        
+        // Check if companies match (indicating same job posting)
+        const companiesMatch = this.areCompaniesMatching(currentJob.company, refJob.company)
+        
+        if (companiesMatch) {
+          improvedTitle = refJob.title
+          improvements.push(`Title learned from similar posting: "${refJob.title}"`)
+          
+          // Record this as a learning correction
+          await this.recordCorrection({
+            sourceUrl: currentJob.url,
+            originalTitle: currentJob.title,
+            correctTitle: refJob.title,
+            parserUsed: 'ContextualLearning',
+            parserVersion: '1.0.0',
+            correctionReason: `Learned from similar posting at ${refJob.url}`,
+            confidence: 0.85,
+            correctedBy: 'contextual_learning'
+          })
+        }
+      }
+
+      // Same logic for company names
+      if ((currentJob.company === 'Unknown Company' || currentJob.company.length < 3) && 
+          refJob.company && refJob.company.length > 3) {
+        
+        const titlesMatch = this.areTitlesMatching(currentJob.title, refJob.title)
+        
+        if (titlesMatch) {
+          improvedCompany = refJob.company
+          improvements.push(`Company learned from similar posting: "${refJob.company}"`)
+          
+          await this.recordCorrection({
+            sourceUrl: currentJob.url,
+            originalCompany: currentJob.company,
+            correctCompany: refJob.company,
+            parserUsed: 'ContextualLearning',
+            parserVersion: '1.0.0',
+            correctionReason: `Learned from similar posting at ${refJob.url}`,
+            confidence: 0.85,
+            correctedBy: 'contextual_learning'
+          })
+        }
+      }
+    }
+
+    return { 
+      title: improvedTitle !== currentJob.title ? improvedTitle : undefined,
+      company: improvedCompany !== currentJob.company ? improvedCompany : undefined,
+      improvements 
+    }
+  }
+
+  /**
+   * Check if two companies are likely the same (fuzzy matching)
+   */
+  private areCompaniesMatching(company1: string, company2: string): boolean {
+    if (!company1 || !company2) return false
+    
+    const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const norm1 = normalize(company1)
+    const norm2 = normalize(company2)
+    
+    // Exact match after normalization
+    if (norm1 === norm2) return true
+    
+    // One contains the other (for cases like "SurveyMonkey" vs "Surveymonkey")
+    if (norm1.includes(norm2) || norm2.includes(norm1)) return true
+    
+    // Similarity threshold (simple character overlap)
+    const longer = norm1.length > norm2.length ? norm1 : norm2
+    const shorter = norm1.length <= norm2.length ? norm1 : norm2
+    const overlap = shorter.split('').filter(char => longer.includes(char)).length
+    
+    return overlap / shorter.length > 0.8
+  }
+
+  /**
+   * Check if two job titles are likely the same (fuzzy matching)
+   */
+  private areTitlesMatching(title1: string, title2: string): boolean {
+    if (!title1 || !title2) return false
+    
+    const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+    const norm1 = normalize(title1)
+    const norm2 = normalize(title2)
+    
+    // Exact match
+    if (norm1 === norm2) return true
+    
+    // Extract key terms (words longer than 3 characters)
+    const getKeyTerms = (title: string) => 
+      title.split(' ').filter(word => word.length > 3)
+    
+    const terms1 = getKeyTerms(norm1)
+    const terms2 = getKeyTerms(norm2)
+    
+    if (terms1.length === 0 || terms2.length === 0) return false
+    
+    // Check if most key terms match
+    const matchingTerms = terms1.filter(term => 
+      terms2.some(t => t.includes(term) || term.includes(t))
+    )
+    
+    return matchingTerms.length / Math.max(terms1.length, terms2.length) > 0.6
+  }
+
+  /**
    * Get statistics about learning progress
    */
   public getLearningStats(): {
     totalCorrections: number
     titlePatterns: number
     companyPatterns: number
+    contextualLearnings: number
     topDomains: { domain: string, corrections: number }[]
   } {
     const domainCounts = new Map<string, number>()
@@ -265,6 +411,7 @@ export class ParsingLearningService {
       totalCorrections: this.corrections.length,
       titlePatterns: this.learnedPatterns.get('title')?.length || 0,
       companyPatterns: this.learnedPatterns.get('company')?.length || 0,
+      contextualLearnings: this.corrections.filter(c => c.correctedBy === 'contextual_learning').length,
       topDomains
     }
   }

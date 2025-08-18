@@ -5,17 +5,20 @@ import { CompanyCareerParser } from './parsers/CompanyCareerParser'
 import { GreenhouseParser } from './parsers/GreenhouseParser'
 import { GenericParser } from './parsers/GenericParser'
 import { ParsingLearningService, initializeParsingLearning } from './ParsingLearningService'
+import { DuplicateDetectionService } from '../DuplicateDetectionService'
 
 export class ParserRegistry {
   private static instance: ParserRegistry
   private parsers: JobParser[] = []
   private fallbackParser: JobParser
   private learningService: ParsingLearningService
+  private duplicateDetection: DuplicateDetectionService
 
   private constructor() {
     this.initializeParsers()
     this.fallbackParser = new GenericParser()
     this.learningService = ParsingLearningService.getInstance()
+    this.duplicateDetection = DuplicateDetectionService.getInstance()
     this.initializeLearning()
   }
 
@@ -210,5 +213,22 @@ export class ParserRegistry {
    */
   public getLearningStats() {
     return this.learningService.getLearningStats()
+  }
+
+  /**
+   * Detect duplicates for a parsed job
+   */
+  public async detectDuplicates(
+    newJob: { id: string, url: string, title: string, company: string, location?: string, normalizedKey: string, sourceId: string, createdAt: Date },
+    existingJobs: { id: string, url: string, title: string, company: string, location?: string, normalizedKey: string, sourceId: string, createdAt: Date }[]
+  ) {
+    return this.duplicateDetection.detectDuplicates(newJob, existingJobs)
+  }
+
+  /**
+   * Join/merge duplicate job postings
+   */
+  public async joinDuplicates(duplicateGroup: any) {
+    return this.duplicateDetection.joinDuplicates(duplicateGroup)
   }
 }
