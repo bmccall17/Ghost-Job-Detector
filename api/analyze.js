@@ -252,15 +252,55 @@ async function updateCompanyStats(companyName, ghostProbability) {
 
         console.log(`Company upserted: ${company.id} - ${company.name}`);
 
-        // Recalculate stats from job listings
-        const companyListings = await prisma.jobListing.findMany({
+        // Recalculate stats from job listings - try both cleaned and original name
+        let companyListings = await prisma.jobListing.findMany({
             where: { company: cleanCompanyName },
             include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
         });
 
+        // If no matches with cleaned name, try with original name 
+        if (companyListings.length === 0 && cleanCompanyName !== companyName) {
+            console.log(`No listings found with cleaned name "${cleanCompanyName}", trying original name "${companyName}"`);
+            companyListings = await prisma.jobListing.findMany({
+                where: { company: companyName },
+                include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
+            });
+        }
+
+        // If still no matches, try case-insensitive search
+        if (companyListings.length === 0) {
+            console.log(`No exact matches found, trying case-insensitive search...`);
+            const allListings = await prisma.jobListing.findMany({
+                select: { company: true, id: true },
+                distinct: ['company']
+            });
+            
+            console.log('Available companies in database:', allListings.map(l => l.company));
+            
+            // Try to find a case-insensitive match
+            const matchingCompany = allListings.find(listing => 
+                listing.company.toLowerCase() === cleanCompanyName.toLowerCase() ||
+                listing.company.toLowerCase() === companyName.toLowerCase()
+            );
+            
+            if (matchingCompany) {
+                console.log(`Found case-insensitive match: "${matchingCompany.company}"`);
+                companyListings = await prisma.jobListing.findMany({
+                    where: { company: matchingCompany.company },
+                    include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
+                });
+            }
+        }
+
         console.log(`Found ${companyListings.length} job listings for company: ${cleanCompanyName}`);
 
         const totalPostings = companyListings.length;
+        
+        if (totalPostings === 0) {
+            console.warn(`No job listings found for company "${cleanCompanyName}" - skipping stats update`);
+            return;
+        }
+        
         const avgGhostProbability = companyListings.reduce((sum, listing) => {
             const latestAnalysis = listing.analyses[0];
             return sum + (latestAnalysis ? Number(latestAnalysis.score) : 0);

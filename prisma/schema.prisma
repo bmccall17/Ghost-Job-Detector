@@ -124,7 +124,7 @@ model KeyFactor {
 model Company {
   id                    String   @id @default(cuid())
   name                  String   @unique
-  normalizedName        String   // Cleaned company name
+  normalizedName        String   @unique // Cleaned company name for deduplication
   totalPostings         Int      @default(0)
   avgGhostProbability   Decimal  @db.Decimal(5,4) @default(0)
   lastAnalyzedAt        DateTime?
@@ -132,7 +132,6 @@ model Company {
   updatedAt             DateTime @updatedAt
   
   // Indexes
-  @@index([normalizedName])
   @@index([totalPostings])
   @@map("companies")
 }
