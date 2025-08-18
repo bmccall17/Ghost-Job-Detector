@@ -2,43 +2,13 @@
  * WebLLM Client Library Wrapper
  * Initializes and manages WebLLM engine for client-side AI validation
  */
-// TODO: Install @mlc-ai/web-llm package
-// import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
-
-// Temporary type definitions until package is installed
-interface MLCEngine {
-  chat: {
-    completions: {
-      create: (options: {
-        messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-        temperature?: number;
-        max_tokens?: number;
-      }) => Promise<{
-        choices?: Array<{
-          message?: {
-            content?: string;
-          };
-        }>;
-      }>;
-    };
-  };
-  unload: () => Promise<void>;
-  runtimeStatsText: () => any;
-}
+import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
 
 interface WebGPUNavigator extends Navigator {
   gpu?: {
     requestAdapter: () => Promise<any>;
   };
 }
-
-declare const CreateMLCEngine: (
-  model: string, 
-  options: {
-    initProgressCallback?: (progress: any) => void;
-    chatCompletionProgressCallback?: (info: any) => void;
-  }
-) => Promise<MLCEngine>;
 
 export class WebLLMManager {
   private static instance: WebLLMManager;
@@ -88,11 +58,8 @@ export class WebLLMManager {
 
   private async createEngine(model: string): Promise<MLCEngine> {
     const engine: MLCEngine = await CreateMLCEngine(model, {
-      initProgressCallback: (progress) => {
+      initProgressCallback: (progress: any) => {
         console.log(`🔄 WebLLM loading progress: ${JSON.stringify(progress)}`);
-      },
-      chatCompletionProgressCallback: (info) => {
-        console.log(`💬 WebLLM chat progress: ${info}`);
       }
     });
     return engine;

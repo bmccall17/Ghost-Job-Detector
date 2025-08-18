@@ -9,6 +9,45 @@ export interface JobAnalysis {
   analyzedAt: Date
   status: 'pending' | 'completed' | 'failed'
   isNewContribution?: boolean
+  metadata?: {
+    rawData?: {
+      detailedAnalysis?: {
+        thoughtProcess?: string[]
+        linksChecked?: Array<{
+          url: string
+          platform: string
+          status: string
+          findings: string
+          confidence: number
+        }>
+        companyResearch?: {
+          companyName: string
+          domain: string
+          businessContext: string
+          recentActivity: string[]
+          locationVerification: string
+          legitimacyScore: number
+        }
+        crossPlatformCheck?: {
+          platformsFound: string[]
+          consistentInfo: boolean
+          duplicatesDetected: number
+          postingPattern: string
+        }
+        confidenceBreakdown?: Record<string, number>
+        verificationSteps?: Array<{
+          step: number
+          action: string
+          result: string
+          confidence: number
+          nextSteps?: string[]
+        }>
+        finalAssessment?: string
+        riskFactors?: string[]
+        legitimacyIndicators?: string[]
+      }
+    }
+  }
   parsingMetadata?: {
     parserUsed: string
     parserVersion: string
@@ -31,6 +70,50 @@ export interface JobAnalysis {
       structuredData?: any
       htmlTitle?: string
       htmlMetaTags?: Record<string, string>
+      agentValidated?: boolean
+      agentNotes?: string
+      detailedAnalysis?: {
+        thoughtProcess?: string[]
+        linksChecked?: Array<{
+          url: string
+          platform: string
+          status: string
+          findings: string
+          confidence: number
+        }>
+        companyResearch?: {
+          companyName: string
+          domain: string
+          businessContext: string
+          recentActivity: string[]
+          locationVerification: string
+          legitimacyScore: number
+        }
+        crossPlatformCheck?: {
+          platformsFound: string[]
+          consistentInfo: boolean
+          duplicatesDetected: number
+          postingPattern: string
+        }
+        confidenceBreakdown?: {
+          overallConfidence: number
+          titleConfidence: number
+          companyConfidence: number
+          locationConfidence: number
+          legitimacyConfidence: number
+          reasoningQuality: number
+        }
+        verificationSteps?: Array<{
+          step: number
+          action: string
+          result: string
+          confidence: number
+          nextSteps?: string[]
+        }>
+        finalAssessment?: string
+        riskFactors?: string[]
+        legitimacyIndicators?: string[]
+      }
     }
   }
 }
