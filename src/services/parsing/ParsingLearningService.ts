@@ -602,7 +602,6 @@ export class ParsingLearningService {
    */
   private findTitleCandidates(html: string): PatternCandidate[] {
     const candidates: PatternCandidate[] = []
-    const jobKeywords = ['engineer', 'manager', 'analyst', 'specialist', 'director', 'lead', 'coordinator', 'developer', 'designer', 'architect']
 
     // Strategy 1: H1-H3 tags with job keywords
     const headerRegex = /<h[1-3][^>]*>([^<]*(?:engineer|manager|analyst|specialist|director|lead|coordinator|developer|designer|architect)[^<]*)<\/h[1-3]>/gi
@@ -915,7 +914,7 @@ export class ParsingLearningService {
    */
   private async learnFromSimilarDomains(
     currentUrl: string,
-    failedResult: { title: string, company: string, location?: string }
+    _failedResult: { title: string, company: string, location?: string }
   ): Promise<{ title?: string, company?: string, location?: string, improvements: string[] }> {
     const currentDomain = this.extractDomain(currentUrl)
     const improvements: string[] = []
@@ -944,8 +943,6 @@ export class ParsingLearningService {
    * Find domains with similar patterns (same ATS, etc.)
    */
   private findSimilarDomains(domain: string): string[] {
-    const domainParts = domain.split('.')
-    
     // For Workday sites: find other *.myworkdayjobs.com domains
     if (domain.includes('myworkdayjobs.com')) {
       return Array.from(this.discoveredPatterns.keys())

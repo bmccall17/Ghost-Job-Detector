@@ -55,7 +55,8 @@ export enum ExtractionMethod {
   CSS_SELECTORS_WITH_LEARNING = 'css_selectors_with_learning',
   TEXT_PATTERNS_WITH_LEARNING = 'text_patterns_with_learning',
   NLP_EXTRACTION_WITH_LEARNING = 'nlp_extraction_with_learning',
-  MANUAL_FALLBACK_WITH_LEARNING = 'manual_fallback_with_learning'
+  MANUAL_FALLBACK_WITH_LEARNING = 'manual_fallback_with_learning',
+  REAL_TIME_LEARNING = 'real_time_learning'
 }
 
 export interface JobParser {

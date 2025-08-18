@@ -31,7 +31,7 @@ export class AnalysisService {
         };
 
         // Proactively trigger learning for failed parsing
-        this.triggerLearningForFailure(jobUrl, jobData, error).catch(learningError => {
+        this.triggerLearningForFailure(jobUrl, jobData, error instanceof Error ? error : new Error(String(error))).catch(learningError => {
           console.warn('Learning trigger failed:', learningError)
         })
       }
@@ -776,7 +776,7 @@ export class AnalysisService {
         console.log('🔍 Poor quality parsing detected, applying real-time learning...')
         
         // Trigger learning and get improvements
-        const improvements = await this.triggerLearningForFailure(
+        await this.triggerLearningForFailure(
           jobUrl, 
           {
             title: standardResult.title,

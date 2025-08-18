@@ -186,7 +186,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <table className="w-full">
+        <table className="w-full table-fixed">
           <thead className="bg-gray-50">
             <tr>
               <th className="w-12 px-4 py-3">
@@ -197,10 +197,10 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   className="rounded border-gray-300"
                 />
               </th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">Job</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">Company</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">Ghost Risk</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">Analyzed</th>
+              <th className="w-2/5 text-left px-4 py-3 text-sm font-medium text-gray-900">Job</th>
+              <th className="w-1/5 text-left px-4 py-3 text-sm font-medium text-gray-900">Company</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900">Ghost Risk</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900">Analyzed</th>
               <th className="w-16 px-4 py-3"></th>
             </tr>
           </thead>
@@ -216,11 +216,11 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="max-w-xs">
-                    <div className="flex items-center space-x-2 mb-1">
+                  <div className="min-w-0 w-full">
+                    <div className="flex items-start space-x-2 mb-1">
                       <button
                         onClick={() => openJobReport(result)}
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left truncate"
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left break-words leading-tight"
                         title="Click to view detailed analysis report"
                       >
                         {result.title}
@@ -233,11 +233,11 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                         />
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 truncate">{result.jobUrl}</p>
+                    <p className="text-sm text-gray-500 break-all leading-tight">{result.jobUrl}</p>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-sm text-gray-900">{result.company}</span>
+                  <span className="text-sm text-gray-900 break-words">{result.company}</span>
                 </td>
                 <td className="px-4 py-3">
                   <RiskTooltip 

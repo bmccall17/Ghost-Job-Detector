@@ -141,8 +141,8 @@ export class ParserRegistry {
           }
           
           // Mark as learning-enhanced
-          result.metadata.extractionMethod = result.metadata.extractionMethod === 'manual_fallback' 
-            ? 'real_time_learning'
+          result.metadata.extractionMethod = result.metadata.extractionMethod === ExtractionMethod.MANUAL_FALLBACK 
+            ? ExtractionMethod.REAL_TIME_LEARNING
             : result.metadata.extractionMethod
           
           // Re-validate after learning improvements
