@@ -1,6 +1,7 @@
 import { prisma } from '../lib/db.js';
 import { QueueManager } from '../lib/queue.js';
 import { BlobStorage } from '../lib/storage.js';
+import { CompanyNormalizationService } from '../src/services/CompanyNormalizationService.js';
 import crypto from 'crypto';
 
 // Ghost Job Analysis Service for Vercel (Production)
@@ -87,6 +88,67 @@ export default async function handler(req, res) {
             });
         }
 
+        // Check for duplicate jobs using intelligent detection
+        const normalizationService = CompanyNormalizationService.getInstance();
+        const duplicateJob = await detectDuplicateJob({
+            url,
+            title: title || 'Unknown Position',
+            company: company || 'Unknown Company',
+            location,
+            postedAt,
+            description
+        }, normalizationService);
+
+        if (duplicateJob) {
+            console.log(`🔄 Duplicate job detected! Updating existing job listing ${duplicateJob.id} instead of creating new one`);
+            
+            // Update the existing job listing's totalPositions (increment by 1)
+            await prisma.jobListing.update({
+                where: { id: duplicateJob.id },
+                data: {
+                    rawParsedJson: {
+                        ...duplicateJob.rawParsedJson,
+                        duplicateUrls: [
+                            ...(duplicateJob.rawParsedJson.duplicateUrls || []),
+                            url
+                        ],
+                        totalPositions: (duplicateJob.rawParsedJson.totalPositions || 1) + 1,
+                        lastSeenAt: new Date().toISOString()
+                    }
+                }
+            });
+
+            // Return the existing analysis
+            const existingAnalysis = await prisma.analysis.findFirst({
+                where: { jobListingId: duplicateJob.id },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            return res.status(200).json({
+                id: existingAnalysis?.id || duplicateJob.id,
+                url,
+                jobData: {
+                    title: duplicateJob.title,
+                    company: duplicateJob.company,
+                    description: description || '',
+                    location: duplicateJob.location,
+                    remote: duplicateJob.remoteFlag
+                },
+                ghostProbability: existingAnalysis ? Number(existingAnalysis.score) : 0,
+                riskLevel: existingAnalysis?.verdict || 'uncertain',
+                riskFactors: existingAnalysis?.reasonsJson?.riskFactors || [],
+                keyFactors: existingAnalysis?.reasonsJson?.keyFactors || [],
+                metadata: {
+                    storage: 'postgres',
+                    version: '2.0',
+                    cached: true,
+                    duplicate: true,
+                    totalPositions: (duplicateJob.rawParsedJson.totalPositions || 1) + 1,
+                    analysisDate: existingAnalysis?.createdAt
+                }
+            });
+        }
+
         // Generate normalized key for job listing (include URL for uniqueness)
         const normalizedKey = crypto.createHash('sha256')
             .update(`${url}:${(company || 'unknown').toLowerCase()}:${(title || 'unknown').toLowerCase()}`)
@@ -109,7 +171,9 @@ export default async function handler(req, res) {
                     originalLocation: location,
                     originalRemoteFlag: remoteFlag,
                     originalPostedAt: postedAt,
-                    extractedAt: new Date().toISOString()
+                    extractedAt: new Date().toISOString(),
+                    totalPositions: 1, // Initialize with 1 position
+                    duplicateUrls: [] // Track duplicate URLs
                 },
                 normalizedKey
             }
@@ -211,7 +275,7 @@ export default async function handler(req, res) {
     }
 }
 
-// Update company statistics
+// Update company statistics with intelligent normalization
 async function updateCompanyStats(companyName, ghostProbability) {
     try {
         // Clean and validate company name
@@ -220,84 +284,86 @@ async function updateCompanyStats(companyName, ghostProbability) {
             return;
         }
 
-        // Clean up company name (decode HTML entities, normalize)
-        const cleanCompanyName = companyName
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .trim();
+        // Get normalization service instance
+        const normalizationService = CompanyNormalizationService.getInstance();
+        
+        // Use intelligent normalization
+        const normalizationResult = normalizationService.normalizeCompanyName(companyName);
+        
+        console.log(`🧠 Intelligent normalization result:`, {
+            original: companyName,
+            canonical: normalizationResult.canonical,
+            normalized: normalizationResult.normalized,
+            confidence: normalizationResult.confidence,
+            isLearned: normalizationResult.isLearned
+        });
 
-        // Skip generic or invalid company names
-        const invalidNames = ['unknown company', 'linkedin company', 'unknown', 'linkedin'];
-        if (invalidNames.includes(cleanCompanyName.toLowerCase())) {
-            console.warn(`Skipping company stats update for generic name: ${cleanCompanyName}`);
+        // Skip generic company names (handled by normalization service)
+        if (normalizationResult.canonical === 'Unknown Company') {
+            console.warn(`Skipping company stats update for generic name: ${companyName}`);
             return;
         }
-
-        const normalizedName = cleanCompanyName.toLowerCase().trim();
         
-        console.log(`Updating company stats for: "${cleanCompanyName}" (normalized: "${normalizedName}")`);
-        
-        // Get or create company
+        // Get or create company using canonical name
         const company = await prisma.company.upsert({
-            where: { normalizedName },
+            where: { normalizedName: normalizationResult.normalized },
             update: {},
             create: {
-                name: cleanCompanyName,
-                normalizedName
+                name: normalizationResult.canonical,
+                normalizedName: normalizationResult.normalized
             }
         });
 
-        console.log(`Company upserted: ${company.id} - ${company.name}`);
+        console.log(`✅ Company upserted: ${company.id} - ${company.name} (canonical: ${normalizationResult.canonical})`);
 
-        // Recalculate stats from job listings - try both cleaned and original name
-        let companyListings = await prisma.jobListing.findMany({
-            where: { company: cleanCompanyName },
-            include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
+        // Find all job listings that could belong to this company using intelligent matching
+        const allJobListings = await prisma.jobListing.findMany({
+            select: { company: true, id: true, title: true, postedAt: true },
+            distinct: ['company']
         });
-
-        // If no matches with cleaned name, try with original name 
-        if (companyListings.length === 0 && cleanCompanyName !== companyName) {
-            console.log(`No listings found with cleaned name "${cleanCompanyName}", trying original name "${companyName}"`);
+        
+        // Find all company variations that should match this canonical company
+        const matchingCompanyNames = [];
+        
+        for (const listing of allJobListings) {
+            const listingNormalization = normalizationService.normalizeCompanyName(listing.company);
+            if (listingNormalization.canonical === normalizationResult.canonical || 
+                listingNormalization.normalized === normalizationResult.normalized) {
+                matchingCompanyNames.push(listing.company);
+                
+                // Learn this variation if it's different from canonical
+                if (listing.company !== normalizationResult.canonical) {
+                    console.log(`🎓 Learning company variation: "${listing.company}" -> "${normalizationResult.canonical}"`);
+                    normalizationService.learnCompanyVariation(
+                        normalizationResult.canonical,
+                        listing.company,
+                        undefined, // no job title for learning context
+                        undefined,
+                        0.85 // high confidence for company name matching
+                    );
+                }
+            }
+        }
+        
+        console.log(`🔍 Found ${matchingCompanyNames.length} company name variations:`, matchingCompanyNames);
+        
+        // Get all job listings for any of the matching company names
+        let companyListings = [];
+        if (matchingCompanyNames.length > 0) {
             companyListings = await prisma.jobListing.findMany({
-                where: { company: companyName },
+                where: { 
+                    company: { in: matchingCompanyNames }
+                },
                 include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
             });
         }
 
-        // If still no matches, try case-insensitive search
-        if (companyListings.length === 0) {
-            console.log(`No exact matches found, trying case-insensitive search...`);
-            const allListings = await prisma.jobListing.findMany({
-                select: { company: true, id: true },
-                distinct: ['company']
-            });
-            
-            console.log('Available companies in database:', allListings.map(l => l.company));
-            
-            // Try to find a case-insensitive match
-            const matchingCompany = allListings.find(listing => 
-                listing.company.toLowerCase() === cleanCompanyName.toLowerCase() ||
-                listing.company.toLowerCase() === companyName.toLowerCase()
-            );
-            
-            if (matchingCompany) {
-                console.log(`Found case-insensitive match: "${matchingCompany.company}"`);
-                companyListings = await prisma.jobListing.findMany({
-                    where: { company: matchingCompany.company },
-                    include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
-                });
-            }
-        }
-
-        console.log(`Found ${companyListings.length} job listings for company: ${cleanCompanyName}`);
+        console.log(`📊 Found ${companyListings.length} job listings for company: ${normalizationResult.canonical}`);
 
         const totalPostings = companyListings.length;
         
         if (totalPostings === 0) {
-            console.warn(`No job listings found for company "${cleanCompanyName}" - skipping stats update`);
+            console.warn(`No job listings found for company "${normalizationResult.canonical}" - skipping stats update`);
             return;
         }
         
@@ -396,4 +462,114 @@ function analyzeJob({ url, title, company, description }) {
         riskFactors,
         keyFactors
     };
+}
+
+// Duplicate job detection algorithm
+async function detectDuplicateJob(newJob, normalizationService) {
+    try {
+        console.log(`🔍 Checking for duplicates of job: "${newJob.title}" at "${newJob.company}"`);
+        
+        // Normalize the company name
+        const companyNormalization = normalizationService.normalizeCompanyName(newJob.company);
+        
+        // Find all job listings from the same canonical company
+        const allJobListings = await prisma.jobListing.findMany({
+            select: { 
+                id: true, 
+                title: true, 
+                company: true, 
+                location: true,
+                postedAt: true,
+                rawParsedJson: true,
+                createdAt: true
+            }
+        });
+
+        // Filter to potentially matching companies
+        const candidateJobs = [];
+        for (const job of allJobListings) {
+            const jobCompanyNormalization = normalizationService.normalizeCompanyName(job.company);
+            if (jobCompanyNormalization.canonical === companyNormalization.canonical) {
+                candidateJobs.push(job);
+            }
+        }
+
+        console.log(`📋 Found ${candidateJobs.length} jobs from same company group for duplicate checking`);
+
+        // Check each candidate for similarity
+        for (const candidateJob of candidateJobs) {
+            const similarityScore = calculateJobSimilarity(newJob, candidateJob, normalizationService);
+            
+            console.log(`🎯 Similarity score for "${candidateJob.title}": ${similarityScore.toFixed(3)}`);
+            
+            if (similarityScore > 0.8) { // High similarity threshold
+                console.log(`✅ Found duplicate job! Score: ${similarityScore.toFixed(3)}`);
+                return candidateJob;
+            }
+        }
+
+        console.log(`🆕 No duplicates found, this is a new job listing`);
+        return null;
+    } catch (error) {
+        console.error('Error in duplicate detection:', error);
+        return null; // Continue with job creation if duplicate detection fails
+    }
+}
+
+// Calculate similarity between two job listings
+function calculateJobSimilarity(job1, job2, normalizationService) {
+    let totalScore = 0;
+    let weightSum = 0;
+
+    // Title similarity (40% weight)
+    const titleSimilarity = normalizationService.calculateStringSimilarity(
+        job1.title.toLowerCase(),
+        job2.title.toLowerCase()
+    );
+    totalScore += titleSimilarity * 0.4;
+    weightSum += 0.4;
+
+    // Company similarity (30% weight) - should be high since we pre-filtered
+    const companyNorm1 = normalizationService.normalizeCompanyName(job1.company);
+    const companyNorm2 = normalizationService.normalizeCompanyName(job2.company);
+    const companySimilarity = companyNorm1.canonical === companyNorm2.canonical ? 1.0 : 0.0;
+    totalScore += companySimilarity * 0.3;
+    weightSum += 0.3;
+
+    // Location similarity (15% weight)
+    if (job1.location && job2.location) {
+        const locationSimilarity = normalizationService.calculateStringSimilarity(
+            job1.location.toLowerCase(),
+            job2.location.toLowerCase()
+        );
+        totalScore += locationSimilarity * 0.15;
+        weightSum += 0.15;
+    } else if (!job1.location && !job2.location) {
+        // Both have no location - consider similar
+        totalScore += 1.0 * 0.15;
+        weightSum += 0.15;
+    }
+
+    // Posting date proximity (15% weight)
+    if (job1.postedAt && job2.postedAt) {
+        const date1 = new Date(job1.postedAt);
+        const date2 = new Date(job2.postedAt);
+        const daysDiff = Math.abs(date1 - date2) / (1000 * 60 * 60 * 24);
+        
+        // Jobs posted within 7 days are considered similar for this factor
+        const dateSimilarity = Math.max(0, 1 - (daysDiff / 7));
+        totalScore += dateSimilarity * 0.15;
+        weightSum += 0.15;
+    } else if (job2.createdAt) {
+        // Compare new job posting time with existing job creation time
+        const date1 = new Date();
+        const date2 = new Date(job2.createdAt);
+        const daysDiff = Math.abs(date1 - date2) / (1000 * 60 * 60 * 24);
+        
+        const dateSimilarity = Math.max(0, 1 - (daysDiff / 14)); // 14 day window
+        totalScore += dateSimilarity * 0.15;
+        weightSum += 0.15;
+    }
+
+    return weightSum > 0 ? totalScore / weightSum : 0;
 }
