@@ -71,6 +71,7 @@ model JobListing {
   source            Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   analyses          Analysis[]
   keyFactors        KeyFactor[]
+  corrections       JobCorrection[]
   
   // Indexes
   @@index([sourceId])
@@ -162,6 +163,54 @@ model ParsingCorrection {
   @@index([correctedBy])
   @@index([isVerified])
   @@map("parsing_corrections")
+}
+
+// Manual job listing corrections by users
+model JobCorrection {
+  id                String      @id @default(cuid())
+  jobListingId      String      // Reference to JobListing
+  fieldName         String      // 'title', 'company', 'location', etc.
+  oldValue          String?     // Original value
+  newValue          String      // Corrected value
+  userVerified      Boolean     @default(true) // User confirmed correction
+  algorithmVerified Boolean     @default(false) // Algorithm confirmed correction
+  learningWeight    Decimal     @db.Decimal(3,2) @default(0.6) // Weight for ML training
+  correctionReason  String?     // Why correction was needed
+  validationData    Json?       // Validation results and metadata
+  isForceCommit     Boolean     @default(false) // Manual override flag
+  correctedBy       String      @default("user") // Who made the correction
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  jobListing        JobListing  @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([jobListingId])
+  @@index([fieldName])
+  @@index([correctedBy])
+  @@index([createdAt])
+  @@map("job_corrections")
+}
+
+// Algorithm feedback and learning data
+model AlgorithmFeedback {
+  id                String   @id @default(cuid())
+  sourceUrl         String   // Original job posting URL
+  extractedData     Json     // What algorithm extracted
+  correctedData     Json     // What it should have been
+  confidenceScore   Decimal  @db.Decimal(5,4) // Algorithm confidence
+  learningWeight    Decimal  @db.Decimal(3,2) // Weight for training
+  feedbackType      String   // 'manual_correction', 'validation_result', etc.
+  improvementAreas  Json?    // Areas where algorithm can improve
+  validationMethod  String?  // How correction was validated
+  createdAt         DateTime @default(now())
+  
+  // Indexes
+  @@index([sourceUrl])
+  @@index([feedbackType])
+  @@index([createdAt])
+  @@map("algorithm_feedback")
 }
 
 // System events and audit trail

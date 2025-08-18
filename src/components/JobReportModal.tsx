@@ -1,16 +1,19 @@
 import React, { useState } from 'react'
-import { X, ExternalLink, Calendar, Building, AlertTriangle, CheckCircle, XCircle, Code, Database, Search } from 'lucide-react'
+import { X, ExternalLink, Calendar, Building, AlertTriangle, CheckCircle, XCircle, Code, Database, Search, Edit3 } from 'lucide-react'
 import { JobAnalysis } from '@/types'
 import { GhostJobBadge } from './GhostJobBadge'
+import { JobCorrectionModal } from './JobCorrectionModal'
 
 interface JobReportModalProps {
   analysis: JobAnalysis | null
   isOpen: boolean
   onClose: () => void
+  onCorrection?: (jobId: string, corrections: any) => Promise<void>
 }
 
-export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen, onClose }) => {
+export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen, onClose, onCorrection }) => {
   const [activeTab, setActiveTab] = useState<'analysis' | 'parsing'>('analysis')
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false)
   
   if (!isOpen || !analysis) return null
 
@@ -60,13 +63,48 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
     return "Low"
   }
 
+  const handleCorrection = async (_corrections: any) => {
+    // Mock correction validation - re-scrape and validate
+    const mockValidationResult = {
+      verified: Math.random() > 0.5, // 50% chance of verification
+      confidence: 0.7 + Math.random() * 0.3,
+      algorithmData: {
+        id: analysis.id,
+        title: analysis.title,
+        company: analysis.company,
+        url: analysis.jobUrl
+      },
+      discrepancies: ['Title format differs from extracted data']
+    }
+    return mockValidationResult
+  }
+
+  const handleSaveCorrection = async (corrections: any, forceCommit = false) => {
+    if (onCorrection) {
+      await onCorrection(analysis.id, { ...corrections, forceCommit })
+    }
+    setShowCorrectionModal(false)
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">{analysis.title}</h2>
+            <div className="flex items-center space-x-3 mb-1">
+              <h2 className="text-xl font-bold text-gray-900">{analysis.title}</h2>
+              {onCorrection && (
+                <button
+                  onClick={() => setShowCorrectionModal(true)}
+                  className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md transition-colors"
+                  title="Correct job information"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Correct</span>
+                </button>
+              )}
+            </div>
             <div className="flex items-center space-x-3 text-sm text-gray-600">
               <div className="flex items-center space-x-1">
                 <Building className="w-4 h-4" />
@@ -421,6 +459,21 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
           )}
         </div>
       </div>
+
+      {/* Correction Modal */}
+      <JobCorrectionModal
+        isOpen={showCorrectionModal}
+        onClose={() => setShowCorrectionModal(false)}
+        jobData={{
+          id: analysis.id,
+          title: analysis.title,
+          company: analysis.company,
+          url: analysis.jobUrl,
+          platform: analysis.parsingMetadata?.parserUsed || ''
+        }}
+        onCorrect={handleCorrection}
+        onSave={handleSaveCorrection}
+      />
     </div>
   )
 }
