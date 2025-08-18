@@ -1,5 +1,5 @@
 import React from 'react'
-import { Clock, CheckCircle, AlertTriangle, Target, Info, Copy } from 'lucide-react'
+import { Clock, CheckCircle, AlertTriangle, Info, Copy } from 'lucide-react'
 
 interface DetailedAnalyzerViewProps {
   analysisData: {

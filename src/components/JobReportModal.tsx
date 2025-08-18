@@ -309,21 +309,22 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
           )}
 
           {activeTab === 'detailed' && (analysis.metadata?.rawData?.detailedAnalysis || analysis.metadata?.algorithmAssessment) && (
-            <DetailedAnalyzerView 
-              analysisData={{
-                algorithmAssessment: analysis.metadata?.algorithmAssessment,
-                riskFactorsAnalysis: analysis.metadata?.riskFactorsAnalysis,
-                recommendation: analysis.metadata?.recommendation,
-                analysisDetails: analysis.metadata?.analysisDetails
-              }}
-              isVisible={true}
-            />
-            
-            {/* Fallback to old detailed analysis if new format not available */}
-            {!analysis.metadata?.algorithmAssessment && analysis.metadata?.rawData?.detailedAnalysis && (
-            <div className="space-y-6">
+            <>
+              {analysis.metadata?.algorithmAssessment ? (
+                <DetailedAnalyzerView 
+                  analysisData={{
+                    algorithmAssessment: analysis.metadata?.algorithmAssessment,
+                    riskFactorsAnalysis: analysis.metadata?.riskFactorsAnalysis,
+                    recommendation: analysis.metadata?.recommendation,
+                    analysisDetails: analysis.metadata?.analysisDetails
+                  }}
+                  isVisible={true}
+                />
+              ) : (
+                /* Fallback to old detailed analysis if new format not available */
+                <div className="space-y-6">
               {/* Legacy Thought Process */}
-              {analysis.metadata.rawData.detailedAnalysis.thoughtProcess && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.thoughtProcess && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <Clock className="w-5 h-5 text-blue-600" />
@@ -331,7 +332,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                   </h3>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="space-y-3">
-                      {analysis.metadata.rawData.detailedAnalysis.thoughtProcess.map((thought, index) => (
+                      {analysis.metadata?.rawData?.detailedAnalysis?.thoughtProcess?.map((thought, index) => (
                         <div key={index} className="flex items-start space-x-3">
                           <span className="bg-blue-200 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full mt-0.5">
                             {index + 1}
@@ -345,14 +346,14 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Links Checked */}
-              {analysis.metadata.rawData.detailedAnalysis.linksChecked && analysis.metadata.rawData.detailedAnalysis.linksChecked.length > 0 && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.linksChecked && analysis.metadata?.rawData?.detailedAnalysis?.linksChecked.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <Globe className="w-5 h-5 text-green-600" />
                     <span>External Verification</span>
                   </h3>
                   <div className="space-y-3">
-                    {analysis.metadata.rawData.detailedAnalysis.linksChecked.map((link, index) => (
+                    {analysis.metadata?.rawData?.detailedAnalysis?.linksChecked?.map((link, index) => (
                       <div key={index} className="bg-white border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
@@ -380,7 +381,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Company Research */}
-              {analysis.metadata.rawData.detailedAnalysis.companyResearch && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.companyResearch && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <Building2 className="w-5 h-5 text-purple-600" />
@@ -390,30 +391,30 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <span className="text-sm font-medium text-purple-700">Company:</span>
-                        <p className="text-purple-900 font-semibold">{analysis.metadata.rawData.detailedAnalysis.companyResearch.companyName}</p>
+                        <p className="text-purple-900 font-semibold">{analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.companyName}</p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-purple-700">Domain:</span>
-                        <p className="text-purple-900 font-mono text-sm">{analysis.metadata.rawData.detailedAnalysis.companyResearch.domain}</p>
+                        <p className="text-purple-900 font-mono text-sm">{analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.domain}</p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-purple-700">Legitimacy Score:</span>
-                        <p className="text-purple-900 font-semibold">{Math.round(analysis.metadata.rawData.detailedAnalysis.companyResearch.legitimacyScore * 100)}%</p>
+                        <p className="text-purple-900 font-semibold">{Math.round((analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.legitimacyScore || 0) * 100)}%</p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-purple-700">Location Verified:</span>
-                        <p className="text-purple-900 text-sm">{analysis.metadata.rawData.detailedAnalysis.companyResearch.locationVerification}</p>
+                        <p className="text-purple-900 text-sm">{analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.locationVerification}</p>
                       </div>
                     </div>
                     <div className="mb-4">
                       <span className="text-sm font-medium text-purple-700">Business Context:</span>
-                      <p className="text-purple-900 text-sm mt-1">{analysis.metadata.rawData.detailedAnalysis.companyResearch.businessContext}</p>
+                      <p className="text-purple-900 text-sm mt-1">{analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.businessContext}</p>
                     </div>
-                    {analysis.metadata.rawData.detailedAnalysis.companyResearch.recentActivity && analysis.metadata.rawData.detailedAnalysis.companyResearch.recentActivity.length > 0 && (
+                    {analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.recentActivity && analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.recentActivity.length > 0 && (
                       <div>
                         <span className="text-sm font-medium text-purple-700">Recent Activity:</span>
                         <ul className="mt-2 space-y-1">
-                          {analysis.metadata.rawData.detailedAnalysis.companyResearch.recentActivity.map((activity, index) => (
+                          {analysis.metadata?.rawData?.detailedAnalysis?.companyResearch?.recentActivity?.map((activity, index) => (
                             <li key={index} className="text-purple-900 text-sm flex items-start space-x-2">
                               <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
                               <span>{activity}</span>
@@ -427,7 +428,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Cross-Platform Check */}
-              {analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <Target className="w-5 h-5 text-orange-600" />
@@ -438,7 +439,7 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                       <div>
                         <span className="text-sm font-medium text-orange-700">Platforms Found:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck.platformsFound.map((platform, index) => (
+                          {analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck?.platformsFound?.map((platform, index) => (
                             <span key={index} className="px-2 py-1 bg-orange-200 text-orange-800 text-xs font-medium rounded">
                               {platform}
                             </span>
@@ -447,17 +448,17 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                       </div>
                       <div>
                         <span className="text-sm font-medium text-orange-700">Posting Pattern:</span>
-                        <p className="text-orange-900 font-semibold capitalize">{analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck.postingPattern}</p>
+                        <p className="text-orange-900 font-semibold capitalize">{analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck?.postingPattern}</p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-orange-700">Info Consistent:</span>
-                        <p className={`font-semibold ${analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck.consistentInfo ? 'text-green-700' : 'text-red-700'}`}>
-                          {analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck.consistentInfo ? '✓ Yes' : '✗ No'}
+                        <p className={`font-semibold ${analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck?.consistentInfo ? 'text-green-700' : 'text-red-700'}`}>
+                          {analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck?.consistentInfo ? '✓ Yes' : '✗ No'}
                         </p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-orange-700">Duplicates Found:</span>
-                        <p className="text-orange-900 font-semibold">{analysis.metadata.rawData.detailedAnalysis.crossPlatformCheck.duplicatesDetected}</p>
+                        <p className="text-orange-900 font-semibold">{analysis.metadata?.rawData?.detailedAnalysis?.crossPlatformCheck?.duplicatesDetected}</p>
                       </div>
                     </div>
                   </div>
@@ -465,14 +466,14 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Confidence Breakdown */}
-              {analysis.metadata.rawData.detailedAnalysis.confidenceBreakdown && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.confidenceBreakdown && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <CheckSquare className="w-5 h-5 text-indigo-600" />
                     <span>Confidence Analysis</span>
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {Object.entries(analysis.metadata.rawData.detailedAnalysis.confidenceBreakdown).map(([key, value]) => (
+                    {Object.entries(analysis.metadata?.rawData?.detailedAnalysis?.confidenceBreakdown || {}).map(([key, value]) => (
                       <div key={key} className="bg-white border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-600 capitalize">
@@ -498,14 +499,14 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Verification Steps */}
-              {analysis.metadata.rawData.detailedAnalysis.verificationSteps && analysis.metadata.rawData.detailedAnalysis.verificationSteps.length > 0 && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.verificationSteps && analysis.metadata?.rawData?.detailedAnalysis?.verificationSteps.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
                     <span>Verification Steps</span>
                   </h3>
                   <div className="space-y-3">
-                    {analysis.metadata.rawData.detailedAnalysis.verificationSteps.map((step, index) => (
+                    {analysis.metadata?.rawData?.detailedAnalysis?.verificationSteps?.map((step, index) => (
                       <div key={index} className="bg-white border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
@@ -539,25 +540,25 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
               )}
 
               {/* Final Assessment */}
-              {analysis.metadata.rawData.detailedAnalysis.finalAssessment && (
+              {analysis.metadata?.rawData?.detailedAnalysis?.finalAssessment && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Final Assessment</h3>
                   <div className="bg-gray-50 border rounded-lg p-4">
-                    <p className="text-gray-800 font-medium">{analysis.metadata.rawData.detailedAnalysis.finalAssessment}</p>
+                    <p className="text-gray-800 font-medium">{analysis.metadata?.rawData?.detailedAnalysis?.finalAssessment}</p>
                   </div>
                 </div>
               )}
 
               {/* Risk Factors and Legitimacy Indicators */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {analysis.metadata.rawData.detailedAnalysis.riskFactors && analysis.metadata.rawData.detailedAnalysis.riskFactors.length > 0 && (
+                {analysis.metadata?.rawData?.detailedAnalysis?.riskFactors && analysis.metadata?.rawData?.detailedAnalysis?.riskFactors.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                       <XCircle className="w-5 h-5 text-red-600" />
                       <span>Risk Factors</span>
                     </h3>
                     <ul className="space-y-2">
-                      {analysis.metadata.rawData.detailedAnalysis.riskFactors.map((factor, index) => (
+                      {analysis.metadata?.rawData?.detailedAnalysis?.riskFactors?.map((factor, index) => (
                         <li key={index} className="flex items-start space-x-2">
                           <span className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0" />
                           <span className="text-red-700 text-sm">{factor}</span>
@@ -567,14 +568,14 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                   </div>
                 )}
 
-                {analysis.metadata.rawData.detailedAnalysis.legitimacyIndicators && analysis.metadata.rawData.detailedAnalysis.legitimacyIndicators.length > 0 && (
+                {analysis.metadata?.rawData?.detailedAnalysis?.legitimacyIndicators && analysis.metadata?.rawData?.detailedAnalysis?.legitimacyIndicators.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center space-x-2">
                       <CheckCircle className="w-5 h-5 text-green-600" />
                       <span>Legitimacy Indicators</span>
                     </h3>
                     <ul className="space-y-2">
-                      {analysis.metadata.rawData.detailedAnalysis.legitimacyIndicators.map((indicator, index) => (
+                      {analysis.metadata?.rawData?.detailedAnalysis?.legitimacyIndicators?.map((indicator, index) => (
                         <li key={index} className="flex items-start space-x-2">
                           <span className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
                           <span className="text-green-700 text-sm">{indicator}</span>
@@ -584,8 +585,9 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
                   </div>
                 )}
               </div>
-            </div>
-            )}
+                </div>
+              )}
+            </>
           )}
 
           {activeTab === 'parsing' && analysis.parsingMetadata && (
