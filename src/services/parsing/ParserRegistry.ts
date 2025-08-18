@@ -328,7 +328,8 @@ export class ParserRegistry {
         result.metadata.rawData = {
           ...result.metadata.rawData,
           agentValidated: true,
-          agentNotes: agentOutput.notes
+          agentNotes: agentOutput.notes,
+          detailedAnalysis: agentOutput.analysis
         } as any;
       }
 

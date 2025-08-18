@@ -19,6 +19,60 @@ export type AgentOutput = {
     location?: AgentField;
   };
   notes?: string;
+  analysis?: DetailedAnalysis;
+};
+
+export type DetailedAnalysis = {
+  thoughtProcess: string[];
+  linksChecked: LinkVerification[];
+  companyResearch: CompanyResearch;
+  crossPlatformCheck: CrossPlatformResult;
+  confidenceBreakdown: ConfidenceBreakdown;
+  verificationSteps: VerificationStep[];
+  finalAssessment: string;
+  riskFactors: string[];
+  legitimacyIndicators: string[];
+};
+
+export type LinkVerification = {
+  url: string;
+  platform: string;
+  status: 'accessible' | 'blocked' | 'not_found' | 'error';
+  findings: string;
+  confidence: number;
+};
+
+export type CompanyResearch = {
+  companyName: string;
+  domain: string;
+  businessContext: string;
+  recentActivity: string[];
+  locationVerification: string;
+  legitimacyScore: number;
+};
+
+export type CrossPlatformResult = {
+  platformsFound: string[];
+  consistentInfo: boolean;
+  duplicatesDetected: number;
+  postingPattern: 'single' | 'multiple' | 'suspicious';
+};
+
+export type ConfidenceBreakdown = {
+  overallConfidence: number;
+  titleConfidence: number;
+  companyConfidence: number;
+  locationConfidence: number;
+  legitimacyConfidence: number;
+  reasoningQuality: number;
+};
+
+export type VerificationStep = {
+  step: number;
+  action: string;
+  result: string;
+  confidence: number;
+  nextSteps?: string[];
 };
 
 export interface ValidationInput {
@@ -154,30 +208,82 @@ export class JobFieldValidator {
   }
 
   private createSystemPrompt(): string {
-    return `You are a strict job-posting field validator. Analyze the provided job posting HTML and parser output to validate and improve field extraction.
+    return `You are an advanced job posting legitimacy analyzer and field validator. Perform comprehensive analysis similar to a professional investigative researcher.
 
-Your task:
-1. Examine the HTML snippet and parser output
-2. Validate the accuracy of extracted title, company, and location
-3. Provide improved values if the parser made errors
-4. Assign confidence scores (0.0-1.0) for each field
+ANALYSIS PROCESS (follow this exact methodology):
 
-Return ONLY valid JSON matching this exact structure:
+1. THOUGHT PROCESS DOCUMENTATION
+   - Document your reasoning step-by-step
+   - Show your analytical process for transparency
+   - Include "Thought for [X]s" timing estimates
+
+2. FIELD EXTRACTION & VALIDATION
+   - Extract and validate: title, company, location
+   - Compare against HTML content for accuracy
+   - Identify any parsing errors or improvements needed
+
+3. EXTERNAL VERIFICATION (simulate these checks)
+   - Company website analysis and domain verification
+   - Cross-platform job posting searches
+   - Company legitimacy and recent business activity research
+   - Location and office verification
+
+4. COMPREHENSIVE ASSESSMENT
+   - Rate overall legitimacy vs ghost job probability
+   - Identify specific risk factors and legitimacy indicators
+   - Provide confidence breakdown for each component
+   - Suggest actionable verification steps
+
+Return ONLY valid JSON matching this structure:
 {
   "validated": boolean,
   "fields": {
     "title": {"value": "string", "conf": number},
-    "company": {"value": "string", "conf": number}, 
+    "company": {"value": "string", "conf": number},
     "location": {"value": "string", "conf": number}
   },
-  "notes": "optional string"
+  "notes": "brief summary",
+  "analysis": {
+    "thoughtProcess": ["step 1", "step 2", "step 3"],
+    "linksChecked": [{"url": "string", "platform": "string", "status": "accessible|blocked|not_found", "findings": "string", "confidence": number}],
+    "companyResearch": {
+      "companyName": "string",
+      "domain": "string", 
+      "businessContext": "string",
+      "recentActivity": ["activity 1", "activity 2"],
+      "locationVerification": "string",
+      "legitimacyScore": number
+    },
+    "crossPlatformCheck": {
+      "platformsFound": ["LinkedIn", "Company Site"],
+      "consistentInfo": boolean,
+      "duplicatesDetected": number,
+      "postingPattern": "single|multiple|suspicious"
+    },
+    "confidenceBreakdown": {
+      "overallConfidence": number,
+      "titleConfidence": number,
+      "companyConfidence": number,
+      "locationConfidence": number,
+      "legitimacyConfidence": number,
+      "reasoningQuality": number
+    },
+    "verificationSteps": [{"step": number, "action": "string", "result": "string", "confidence": number, "nextSteps": ["step 1"]}],
+    "finalAssessment": "detailed conclusion",
+    "riskFactors": ["factor 1", "factor 2"],
+    "legitimacyIndicators": ["indicator 1", "indicator 2"]
+  }
 }
 
-Rules:
-- Only include fields you can confidently improve or validate
-- Confidence scores: 0.9+ = very confident, 0.7-0.89 = confident, 0.5-0.69 = uncertain
-- Set validated=true only if you found and corrected issues
-- Keep values concise and accurate`;
+CONFIDENCE SCORING:
+- 0.95-1.0: Extremely confident, multiple verification sources
+- 0.85-0.94: Highly confident, strong evidence
+- 0.70-0.84: Confident, good supporting evidence  
+- 0.50-0.69: Moderate confidence, some uncertainty
+- 0.30-0.49: Low confidence, significant concerns
+- 0.0-0.29: Very low confidence, major red flags
+
+Be thorough, analytical, and provide actionable insights like a professional job market investigator.`;
   }
 
   private createUserPrompt(input: ValidationInput): string {
@@ -200,7 +306,7 @@ Rules:
       // Parse JSON
       const parsed = JSON.parse(cleanResponse) as AgentOutput;
       
-      // Validate structure
+      // Validate required structure
       if (typeof parsed.validated !== 'boolean') {
         throw new Error('Invalid validated field');
       }
@@ -214,6 +320,11 @@ Rules:
         if (field && (typeof field.value !== 'string' || typeof field.conf !== 'number')) {
           throw new Error(`Invalid ${fieldName} field structure`);
         }
+      }
+      
+      // Validate analysis structure if present
+      if (parsed.analysis) {
+        this.validateAnalysisStructure(parsed.analysis);
       }
       
       console.log('✅ Successfully parsed WebLLM response');
@@ -265,6 +376,48 @@ Rules:
       '.content',
       'article'
     ];
+  }
+
+  /**
+   * Validate the detailed analysis structure
+   */
+  private validateAnalysisStructure(analysis: any): void {
+    const requiredFields = [
+      'thoughtProcess', 'linksChecked', 'companyResearch', 
+      'crossPlatformCheck', 'confidenceBreakdown', 'verificationSteps',
+      'finalAssessment', 'riskFactors', 'legitimacyIndicators'
+    ];
+
+    for (const field of requiredFields) {
+      if (!analysis.hasOwnProperty(field)) {
+        console.warn(`Analysis missing field: ${field}`);
+      }
+    }
+
+    // Validate arrays
+    if (analysis.thoughtProcess && !Array.isArray(analysis.thoughtProcess)) {
+      throw new Error('thoughtProcess must be an array');
+    }
+
+    if (analysis.linksChecked && !Array.isArray(analysis.linksChecked)) {
+      throw new Error('linksChecked must be an array');
+    }
+
+    if (analysis.verificationSteps && !Array.isArray(analysis.verificationSteps)) {
+      throw new Error('verificationSteps must be an array');
+    }
+
+    // Validate confidence breakdown
+    if (analysis.confidenceBreakdown) {
+      const conf = analysis.confidenceBreakdown;
+      const confFields = ['overallConfidence', 'titleConfidence', 'companyConfidence', 'locationConfidence', 'legitimacyConfidence', 'reasoningQuality'];
+      
+      for (const field of confFields) {
+        if (conf[field] !== undefined && (typeof conf[field] !== 'number' || conf[field] < 0 || conf[field] > 1)) {
+          throw new Error(`Invalid confidence value for ${field}`);
+        }
+      }
+    }
   }
 
   private cleanHtmlSnippet(html: string): string {

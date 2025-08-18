@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     // Simple rate limiting check (could be enhanced with Redis)
     // For now, we'll rely on Groq's own rate limiting
     
-    // Prepare JSON Schema for structured output
+    // Enhanced JSON Schema for detailed analysis output
     const AgentJsonSchema = {
       type: "object",
       required: ["validated", "fields"],
@@ -78,7 +78,73 @@ export default async function handler(req, res) {
           },
           additionalProperties: false
         },
-        notes: { type: "string" }
+        notes: { type: "string" },
+        analysis: {
+          type: "object",
+          properties: {
+            thoughtProcess: { type: "array", items: { type: "string" } },
+            linksChecked: { 
+              type: "array", 
+              items: {
+                type: "object",
+                properties: {
+                  url: { type: "string" },
+                  platform: { type: "string" },
+                  status: { type: "string", enum: ["accessible", "blocked", "not_found", "error"] },
+                  findings: { type: "string" },
+                  confidence: { type: "number", minimum: 0, maximum: 1 }
+                }
+              }
+            },
+            companyResearch: {
+              type: "object",
+              properties: {
+                companyName: { type: "string" },
+                domain: { type: "string" },
+                businessContext: { type: "string" },
+                recentActivity: { type: "array", items: { type: "string" } },
+                locationVerification: { type: "string" },
+                legitimacyScore: { type: "number", minimum: 0, maximum: 1 }
+              }
+            },
+            crossPlatformCheck: {
+              type: "object",
+              properties: {
+                platformsFound: { type: "array", items: { type: "string" } },
+                consistentInfo: { type: "boolean" },
+                duplicatesDetected: { type: "number" },
+                postingPattern: { type: "string", enum: ["single", "multiple", "suspicious"] }
+              }
+            },
+            confidenceBreakdown: {
+              type: "object",
+              properties: {
+                overallConfidence: { type: "number", minimum: 0, maximum: 1 },
+                titleConfidence: { type: "number", minimum: 0, maximum: 1 },
+                companyConfidence: { type: "number", minimum: 0, maximum: 1 },
+                locationConfidence: { type: "number", minimum: 0, maximum: 1 },
+                legitimacyConfidence: { type: "number", minimum: 0, maximum: 1 },
+                reasoningQuality: { type: "number", minimum: 0, maximum: 1 }
+              }
+            },
+            verificationSteps: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  step: { type: "number" },
+                  action: { type: "string" },
+                  result: { type: "string" },
+                  confidence: { type: "number", minimum: 0, maximum: 1 },
+                  nextSteps: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            finalAssessment: { type: "string" },
+            riskFactors: { type: "array", items: { type: "string" } },
+            legitimacyIndicators: { type: "array", items: { type: "string" } }
+          }
+        }
       },
       additionalProperties: false
     };
@@ -95,11 +161,45 @@ export default async function handler(req, res) {
         }
       },
       temperature: 0.2,
-      max_tokens: 512,
+      max_tokens: 2048, // Increased for detailed analysis
       messages: [
         { 
           role: "system", 
-          content: "You are a strict job-posting field validator. Analyze the provided job posting HTML and parser output to validate and improve field extraction. Only emit JSON matching the exact schema provided." 
+          content: `You are an advanced job posting legitimacy analyzer and field validator. Perform comprehensive analysis similar to a professional investigative researcher.
+
+ANALYSIS PROCESS (follow this exact methodology):
+
+1. THOUGHT PROCESS DOCUMENTATION
+   - Document your reasoning step-by-step in thoughtProcess array
+   - Show your analytical process for transparency
+   - Include estimated thinking time like "Thought for 15s"
+
+2. FIELD EXTRACTION & VALIDATION
+   - Extract and validate: title, company, location
+   - Compare against HTML content for accuracy
+   - Identify any parsing errors or improvements needed
+
+3. EXTERNAL VERIFICATION (simulate these checks)
+   - Simulate company website analysis and domain verification
+   - Simulate cross-platform job posting searches
+   - Simulate company legitimacy and recent business activity research
+   - Simulate location and office verification
+
+4. COMPREHENSIVE ASSESSMENT
+   - Rate overall legitimacy vs ghost job probability
+   - Identify specific risk factors and legitimacy indicators
+   - Provide detailed confidence breakdown for each component
+   - Suggest actionable verification steps
+
+CONFIDENCE SCORING:
+- 0.95-1.0: Extremely confident, multiple verification sources
+- 0.85-0.94: Highly confident, strong evidence
+- 0.70-0.84: Confident, good supporting evidence  
+- 0.50-0.69: Moderate confidence, some uncertainty
+- 0.30-0.49: Low confidence, significant concerns
+- 0.0-0.29: Very low confidence, major red flags
+
+Be thorough, analytical, and provide actionable insights like a professional job market investigator. Only emit JSON matching the exact schema provided.` 
         },
         { 
           role: "user", 
