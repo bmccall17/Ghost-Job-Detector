@@ -8,19 +8,19 @@
 
 \### Detail View Modal Enhancement
 
-Add "Correct Information" button in the detail modal header next to the close button.
+Add "Correct" button in the detail modal header immediately next to the job title field.
 
 
 
 \### Correction Form
 
-When "Correct Information" is clicked, overlay an editable form with:
+When "Correct" button is clicked, overlay an editable form with:
 
 \- \*\*Job Title\*\*: Pre-filled text input (editable)
 
 \- \*\*Company Name\*\*: Pre-filled text input (editable) 
 
-\- \*\*Platform\*\*: Dropdown (LinkedIn, Greenhouse, Company Career Page, etc.)
+\- \*\*Platform\*\*: Dropdown (LinkedIn, Greenhouse, Company Career Page, etc.) with the option to add to.
 
 \- \*\*Location\*\*: Pre-filled text input (editable)
 
@@ -31,8 +31,6 @@ When "Correct Information" is clicked, overlay an editable form with:
 \### Correction Validation Flow
 
 After user submits corrections:
-
-
 
 1\. \*\*Automatic Re-verification\*\*
 
@@ -84,7 +82,7 @@ If user chooses "Double-check and force commit":
 
 
 
-\## Database Schema Updates
+\## Suggested Database Schema Updates
 
 
 
@@ -120,7 +118,7 @@ algorithm\_feedback (
 
 
 
-\## Algorithm Learning Integration
+\## Suggested Algorithm Learning Integration
 
 
 
