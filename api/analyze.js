@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { url, title, company, description, sourceType = 'url' } = req.body;
+        const { url, title, company, description, location, remoteFlag, postedAt, sourceType = 'url' } = req.body;
 
         if (!url) {
             return res.status(400).json({ error: 'URL is required' });
@@ -92,19 +92,23 @@ export default async function handler(req, res) {
             .update(`${url}:${(company || 'unknown').toLowerCase()}:${(title || 'unknown').toLowerCase()}`)
             .digest('hex');
 
-        // Create job listing
+        // Create job listing with enhanced fields
         const jobListing = await prisma.jobListing.create({
             data: {
                 sourceId: source.id,
                 title: title || 'Unknown Position',
                 company: company || 'Unknown Company',
-                location: null, // TODO: Extract from description
-                remoteFlag: description?.toLowerCase().includes('remote') || false,
+                location: location || null,
+                remoteFlag: remoteFlag !== undefined ? Boolean(remoteFlag) : (description?.toLowerCase().includes('remote') || false),
+                postedAt: postedAt ? new Date(postedAt) : null,
                 canonicalUrl: url,
                 rawParsedJson: {
                     originalTitle: title,
                     originalCompany: company,
                     originalDescription: description,
+                    originalLocation: location,
+                    originalRemoteFlag: remoteFlag,
+                    originalPostedAt: postedAt,
                     extractedAt: new Date().toISOString()
                 },
                 normalizedKey

@@ -4,6 +4,8 @@ export interface ParsedJob {
   description?: string
   location?: string
   salary?: string
+  remoteFlag?: boolean
+  postedAt?: Date
   metadata: ParsingMetadata
 }
 
@@ -30,6 +32,8 @@ export interface ConfidenceScores {
   description?: number
   location?: number
   salary?: number
+  remoteFlag?: number
+  postedAt?: number
 }
 
 export interface ValidationResult {
@@ -79,15 +83,20 @@ export interface ParserConfig {
     description?: string[]
     location?: string[]
     salary?: string[]
+    postedDate?: string[]
   }
   structuredDataPaths: {
     title: string[]
     company: string[]
     description?: string[]
+    location?: string[]
+    postedDate?: string[]
   }
   textPatterns: {
     title: RegExp[]
     company: RegExp[]
+    location?: RegExp[]
+    postedDate?: RegExp[]
   }
   validationRules: ValidationRule[]
 }

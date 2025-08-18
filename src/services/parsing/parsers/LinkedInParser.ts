@@ -60,13 +60,23 @@ export class LinkedInParser extends BaseParser {
           '[data-test-id="job-details-location"]',
           '.job-details-jobs-unified-top-card__primary-description',
           '.jobs-unified-top-card__subtitle-secondary',
-          '.job-location'
+          '.job-location',
+          '.jobs-unified-top-card__subtitle-secondary .jobs-unified-top-card__bullet',
+          '.job-details-jobs-unified-top-card__primary-description-container'
+        ],
+        postedDate: [
+          '[data-test-id="job-posted-date"]',
+          '.job-details-jobs-unified-top-card__posted-date',
+          '.jobs-unified-top-card__posted-date',
+          '.posted-time-ago'
         ]
       },
       structuredDataPaths: {
         title: ['title', 'name', 'jobTitle'],
         company: ['hiringOrganization.name', 'organization.name', 'company'],
-        description: ['description', 'jobDescription']
+        description: ['description', 'jobDescription'],
+        location: ['jobLocation.name', 'jobLocation', 'addressLocality', 'location'],
+        postedDate: ['datePosted', 'publishedAt', 'createdAt']
       },
       textPatterns: {
         title: [
@@ -83,6 +93,20 @@ export class LinkedInParser extends BaseParser {
           /data-company[^=]*="([^"]+)"/i,
           /company["\s]*[:=]["\s]*"([^"]+)"/i,
           /hiringOrganization[^}]*name["\s]*[:=]["\s]*"([^"]+)"/i
+        ],
+        location: [
+          // LinkedIn location patterns
+          /(?:location|jobLocation)["\s]*[:=]["\s]*"([^"]+)"/i,
+          /(?:addressLocality|city)["\s]*[:=]["\s]*"([^"]+)"/i,
+          /posting.?location["\s]*[:=]["\s]*"([^"]+)"/i,
+          /"location"\s*:\s*"([^"]+)"/i
+        ],
+        postedDate: [
+          // LinkedIn posting date patterns
+          /(?:datePosted|publishedAt|createdAt)["\s]*[:=]["\s]*"([^"]+)"/i,
+          /posted\s+(\d+\s+(?:days?|weeks?|months?)\s+ago)/i,
+          /(\d{1,2}\/\d{1,2}\/\d{4})/i,
+          /(\d{4}-\d{2}-\d{2})/i
         ]
       },
       validationRules: []
@@ -109,6 +133,19 @@ export class LinkedInParser extends BaseParser {
     if (enhanced.company) {
       enhanced.company = this.cleanLinkedInCompany(enhanced.company)
     }
+
+    // Extract location if not found
+    if (!enhanced.location) {
+      enhanced.location = this.extractLinkedInLocationFromHtml(html)
+    }
+
+    // Extract posting date if not found
+    if (!enhanced.postedAt) {
+      enhanced.postedAt = this.extractLinkedInPostedDateFromHtml(html)
+    }
+
+    // Determine remote status
+    enhanced.remoteFlag = this.detectRemoteStatus(enhanced.location, enhanced.title, html)
 
     return enhanced
   }
@@ -294,5 +331,157 @@ export class LinkedInParser extends BaseParser {
       .replace(/\s+-\s+[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?$/i, '') // Remove "- Location" patterns
       .replace(/\s*\([^)]*(?:remote|hybrid|onsite|location)[^)]*\)$/i, '') // Remove location parentheticals
       .trim()
+  }
+
+  private extractLinkedInLocationFromHtml(html: string): string | undefined {
+    // LinkedIn location extraction patterns
+    const locationPatterns = [
+      // JSON-LD structured data
+      /"jobLocation"\s*:\s*"([^"]+)"/i,
+      /"addressLocality"\s*:\s*"([^"]+)"/i,
+      /"location"\s*:\s*"([^"]+)"/i,
+      
+      // LinkedIn specific data attributes
+      /data-location="([^"]+)"/i,
+      /data-job-location="([^"]+)"/i,
+      
+      // Meta properties
+      /property="og:location"[^>]*content="([^"]+)"/i,
+      /<meta[^>]*name="location"[^>]*content="([^"]+)"/i,
+      
+      // Text patterns in HTML
+      /location[^:]*:\s*([^<\n]+)/i,
+      /job.?location[^:]*:\s*([^<\n]+)/i,
+      
+      // Extract from job title context (e.g., "Job Title in New York")
+      /hiring\s+.+?\s+in\s+([^"<\n]+)/i,
+      
+      // Extract from common LinkedIn layout patterns
+      /<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)/i
+    ]
+
+    for (const pattern of locationPatterns) {
+      const match = html.match(pattern)
+      if (match && match[1] && match[1].trim().length > 1) {
+        const location = match[1].trim()
+        
+        // Clean up common artifacts
+        const cleaned = location
+          .replace(/\s*\|\s*LinkedIn.*$/i, '')
+          .replace(/\s*·\s*LinkedIn.*$/i, '')
+          .replace(/\s*-\s*LinkedIn.*$/i, '')
+          .replace(/\s*<[^>]*>.*$/i, '') // Remove HTML tags and everything after
+          .replace(/\s*[\(\[\{].*$/, '') // Remove content in parentheses/brackets
+          .trim()
+
+        if (cleaned.length > 1 && !cleaned.toLowerCase().includes('unknown')) {
+          return cleaned
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  private extractLinkedInPostedDateFromHtml(html: string): Date | undefined {
+    // LinkedIn posting date extraction patterns
+    const datePatterns = [
+      // JSON-LD structured data
+      /"datePosted"\s*:\s*"([^"]+)"/i,
+      /"publishedAt"\s*:\s*"([^"]+)"/i,
+      /"createdAt"\s*:\s*"([^"]+)"/i,
+      
+      // LinkedIn specific data attributes
+      /data-posted-date="([^"]+)"/i,
+      /data-job-posted="([^"]+)"/i,
+      
+      // Time ago patterns
+      /posted\s+(\d+)\s+(days?|weeks?|months?)\s+ago/i,
+      /(\d+)\s+(days?|weeks?|months?)\s+ago/i,
+      
+      // Date formats
+      /(\d{4}-\d{2}-\d{2})/i,
+      /(\d{1,2}\/\d{1,2}\/\d{4})/i,
+      /(\d{1,2}-\d{1,2}-\d{4})/i,
+      
+      // Meta properties
+      /property="og:updated_time"[^>]*content="([^"]+)"/i,
+      /<meta[^>]*name="publish_date"[^>]*content="([^"]+)"/i
+    ]
+
+    for (const pattern of datePatterns) {
+      const match = html.match(pattern)
+      if (match && match[1]) {
+        try {
+          const dateStr = match[1].trim()
+          
+          // Handle "X days ago" format
+          if (match[2]) { // Has time unit (days, weeks, months)
+            const amount = parseInt(match[1])
+            const unit = match[2].toLowerCase()
+            const now = new Date()
+            
+            if (unit.startsWith('day')) {
+              now.setDate(now.getDate() - amount)
+            } else if (unit.startsWith('week')) {
+              now.setDate(now.getDate() - (amount * 7))
+            } else if (unit.startsWith('month')) {
+              now.setMonth(now.getMonth() - amount)
+            }
+            
+            return now
+          }
+          
+          // Handle standard date formats
+          const parsed = new Date(dateStr)
+          if (!isNaN(parsed.getTime())) {
+            return parsed
+          }
+        } catch (error) {
+          // Continue to next pattern
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  private detectRemoteStatus(location: string | undefined, title: string | undefined, html: string): boolean {
+    // Keywords that indicate remote work
+    const remoteKeywords = [
+      'remote', 'work from home', 'wfh', 'telecommute', 'virtual',
+      'distributed', 'anywhere', 'home-based', 'telework'
+    ]
+    
+    // Check location
+    if (location) {
+      const locationLower = location.toLowerCase()
+      if (remoteKeywords.some(keyword => locationLower.includes(keyword))) {
+        return true
+      }
+    }
+    
+    // Check title
+    if (title) {
+      const titleLower = title.toLowerCase()
+      if (remoteKeywords.some(keyword => titleLower.includes(keyword))) {
+        return true
+      }
+    }
+    
+    // Check HTML content for remote indicators
+    const htmlLower = html.toLowerCase()
+    const remotePatterns = [
+      /work.?from.?home/i,
+      /100%.?remote/i,
+      /fully.?remote/i,
+      /remote.?position/i,
+      /remote.?role/i,
+      /remote.?job/i,
+      /telecommute/i,
+      /work.?remotely/i
+    ]
+    
+    return remotePatterns.some(pattern => pattern.test(htmlLower))
   }
 }

@@ -94,6 +94,8 @@ export abstract class BaseParser implements JobParser {
       description: finalResult.description,
       location: finalResult.location,
       salary: finalResult.salary,
+      remoteFlag: finalResult.remoteFlag || false,
+      postedAt: finalResult.postedAt,
       metadata
     }
   }
@@ -180,11 +182,13 @@ export abstract class BaseParser implements JobParser {
       company: this.calculateFieldConfidence(result.company, validationResults, 'company'),
       description: this.calculateFieldConfidence(result.description, validationResults, 'description'),
       location: this.calculateFieldConfidence(result.location, validationResults, 'location'),
-      salary: this.calculateFieldConfidence(result.salary, validationResults, 'salary')
+      salary: this.calculateFieldConfidence(result.salary, validationResults, 'salary'),
+      remoteFlag: result.remoteFlag !== undefined ? 0.8 : 0, // Higher confidence if detected
+      postedAt: result.postedAt ? 0.7 : 0 // Higher confidence if found
     }
 
     // Calculate overall confidence as weighted average
-    const weights = { title: 0.4, company: 0.4, description: 0.1, location: 0.05, salary: 0.05 }
+    const weights = { title: 0.35, company: 0.35, description: 0.1, location: 0.08, salary: 0.05, remoteFlag: 0.04, postedAt: 0.03 }
     const overall = Object.entries(weights).reduce((sum, [field, weight]) => {
       const score = scores[field as keyof typeof scores] || 0
       return sum + (score * weight)

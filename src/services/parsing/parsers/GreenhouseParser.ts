@@ -50,11 +50,30 @@ export class GreenhouseParser extends BaseParser {
           '.company-info .name',
           'header .company',
           '.employer-name'
+        ],
+        location: [
+          '.location',
+          '[data-qa="job-location"]',
+          '.job-location',
+          '[data-testid="job-location"]',
+          '.location-name',
+          '.job-info .location',
+          '.position-location'
+        ],
+        postedDate: [
+          '.posted-date',
+          '[data-qa="posted-date"]',
+          '.job-posted-date',
+          '[data-testid="posted-date"]',
+          '.date-posted',
+          '.job-info .date'
         ]
       },
       structuredDataPaths: {
         title: ['title', 'name'],
-        company: ['hiringOrganization.name']
+        company: ['hiringOrganization.name'],
+        location: ['jobLocation.name', 'jobLocation', 'addressLocality', 'location'],
+        postedDate: ['datePosted', 'publishedAt', 'createdAt']
       },
       textPatterns: {
         title: [
@@ -67,6 +86,17 @@ export class GreenhouseParser extends BaseParser {
         company: [
           /company-name[^>]*>([^<]+)/i,
           /company[\"'\s]*[:=][\"'\s]*([^\"'<>\n]+)/i
+        ],
+        location: [
+          /location[^>]*>([^<]+)/i,
+          /(?:location|jobLocation)[\"'\s]*[:=][\"'\s]*([^\"'<>\n]+)/i,
+          /(?:addressLocality|city)[\"'\s]*[:=][\"'\s]*([^\"'<>\n]+)/i
+        ],
+        postedDate: [
+          /(?:datePosted|publishedAt|createdAt)[\"'\s]*[:=][\"'\s]*([^\"'<>\n]+)/i,
+          /posted\s+(\d+\s+(?:days?|weeks?|months?)\s+ago)/i,
+          /(\d{1,2}\/\d{1,2}\/\d{4})/i,
+          /(\d{4}-\d{2}-\d{2})/i
         ]
       },
       validationRules: []
@@ -96,10 +126,23 @@ export class GreenhouseParser extends BaseParser {
       }
     }
 
+    // Extract location if not found
+    if (!result.location) {
+      result.location = this.extractLocationFromHtml(html)
+    }
+
+    // Extract posting date if not found
+    if (!result.postedAt) {
+      result.postedAt = this.extractPostedDateFromHtml(html)
+    }
+
+    // Determine remote status
+    result.remoteFlag = this.detectRemoteStatus(result.location, result.title, html)
+
     return result
   }
 
-  private extractTitleFromContext(html: string, _url: string): string | null {
+  private extractTitleFromContext(html: string, _url: string): string | undefined {
     try {
       // Strategy 1: Extract from page title tag
       const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
@@ -158,13 +201,13 @@ export class GreenhouseParser extends BaseParser {
         }
       }
 
-      return null
+      return undefined
     } catch {
-      return null
+      return undefined
     }
   }
 
-  private extractCompanyFromGreenhouseUrl(url: string): string | null {
+  private extractCompanyFromGreenhouseUrl(url: string): string | undefined {
     try {
       // Extract company from greenhouse.io URL pattern
       // Format: https://job-boards.greenhouse.io/companyname/jobs/...
@@ -176,9 +219,9 @@ export class GreenhouseParser extends BaseParser {
         return this.formatCompanyName(companySlug)
       }
       
-      return null
+      return undefined
     } catch {
-      return null
+      return undefined
     }
   }
 
@@ -208,5 +251,144 @@ export class GreenhouseParser extends BaseParser {
     return slug.split(/[-_]/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ')
+  }
+
+  private extractLocationFromHtml(html: string): string | undefined {
+    // Greenhouse location extraction patterns
+    const locationPatterns = [
+      // JSON-LD structured data
+      /"jobLocation"\s*:\s*"([^"]+)"/i,
+      /"addressLocality"\s*:\s*"([^"]+)"/i,
+      /"location"\s*:\s*"([^"]+)"/i,
+      
+      // Greenhouse specific data attributes
+      /data-location="([^"]+)"/i,
+      /data-job-location="([^"]+)"/i,
+      
+      // Common greenhouse layout patterns
+      /<div[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)/i,
+      /<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)/i,
+      
+      // Text patterns in HTML
+      /location[^:]*:\s*([^<\n]+)/i,
+      /job.?location[^:]*:\s*([^<\n]+)/i
+    ]
+
+    for (const pattern of locationPatterns) {
+      const match = html.match(pattern)
+      if (match && match[1] && match[1].trim().length > 1) {
+        const location = match[1].trim()
+        
+        // Clean up common artifacts
+        const cleaned = location
+          .replace(/\s*<[^>]*>.*$/i, '') // Remove HTML tags and everything after
+          .replace(/\s*[\(\[\{].*$/, '') // Remove content in parentheses/brackets
+          .trim()
+
+        if (cleaned.length > 1 && !cleaned.toLowerCase().includes('unknown')) {
+          return cleaned
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  private extractPostedDateFromHtml(html: string): Date | undefined {
+    // Greenhouse posting date extraction patterns
+    const datePatterns = [
+      // JSON-LD structured data
+      /"datePosted"\s*:\s*"([^"]+)"/i,
+      /"publishedAt"\s*:\s*"([^"]+)"/i,
+      /"createdAt"\s*:\s*"([^"]+)"/i,
+      
+      // Greenhouse specific data attributes
+      /data-posted-date="([^"]+)"/i,
+      /data-job-posted="([^"]+)"/i,
+      
+      // Time ago patterns
+      /posted\s+(\d+)\s+(days?|weeks?|months?)\s+ago/i,
+      /(\d+)\s+(days?|weeks?|months?)\s+ago/i,
+      
+      // Date formats
+      /(\d{4}-\d{2}-\d{2})/i,
+      /(\d{1,2}\/\d{1,2}\/\d{4})/i,
+      /(\d{1,2}-\d{1,2}-\d{4})/i
+    ]
+
+    for (const pattern of datePatterns) {
+      const match = html.match(pattern)
+      if (match && match[1]) {
+        try {
+          const dateStr = match[1].trim()
+          
+          // Handle "X days ago" format
+          if (match[2]) { // Has time unit (days, weeks, months)
+            const amount = parseInt(match[1])
+            const unit = match[2].toLowerCase()
+            const now = new Date()
+            
+            if (unit.startsWith('day')) {
+              now.setDate(now.getDate() - amount)
+            } else if (unit.startsWith('week')) {
+              now.setDate(now.getDate() - (amount * 7))
+            } else if (unit.startsWith('month')) {
+              now.setMonth(now.getMonth() - amount)
+            }
+            
+            return now
+          }
+          
+          // Handle standard date formats
+          const parsed = new Date(dateStr)
+          if (!isNaN(parsed.getTime())) {
+            return parsed
+          }
+        } catch (error) {
+          // Continue to next pattern
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  private detectRemoteStatus(location: string | undefined, title: string | undefined, html: string): boolean {
+    // Keywords that indicate remote work
+    const remoteKeywords = [
+      'remote', 'work from home', 'wfh', 'telecommute', 'virtual',
+      'distributed', 'anywhere', 'home-based', 'telework'
+    ]
+    
+    // Check location
+    if (location) {
+      const locationLower = location.toLowerCase()
+      if (remoteKeywords.some(keyword => locationLower.includes(keyword))) {
+        return true
+      }
+    }
+    
+    // Check title
+    if (title) {
+      const titleLower = title.toLowerCase()
+      if (remoteKeywords.some(keyword => titleLower.includes(keyword))) {
+        return true
+      }
+    }
+    
+    // Check HTML content for remote indicators
+    const htmlLower = html.toLowerCase()
+    const remotePatterns = [
+      /work.?from.?home/i,
+      /100%.?remote/i,
+      /fully.?remote/i,
+      /remote.?position/i,
+      /remote.?role/i,
+      /remote.?job/i,
+      /telecommute/i,
+      /work.?remotely/i
+    ]
+    
+    return remotePatterns.some(pattern => pattern.test(htmlLower))
   }
 }

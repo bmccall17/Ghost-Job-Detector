@@ -28,6 +28,13 @@ export class CssSelectorStrategy implements ExtractionStrategy {
       result.salary = this.extractWithSelectors(mockDoc, this.config.selectors.salary)
     }
 
+    if (this.config.selectors.postedDate) {
+      const postedDateText = this.extractWithSelectors(mockDoc, this.config.selectors.postedDate)
+      if (postedDateText) {
+        result.postedAt = this.parseDate(postedDateText)
+      }
+    }
+
     return result
   }
 
@@ -91,6 +98,38 @@ export class CssSelectorStrategy implements ExtractionStrategy {
 
   private containsSelectors(text: string): boolean {
     return /[<>{}[\]#.]/.test(text) || text.includes('class=') || text.includes('id=')
+  }
+
+  private parseDate(dateText: string): Date | undefined {
+    try {
+      // Handle "X days ago" format
+      const daysAgoMatch = dateText.match(/(\d+)\s+(days?|weeks?|months?)\s+ago/i)
+      if (daysAgoMatch) {
+        const amount = parseInt(daysAgoMatch[1])
+        const unit = daysAgoMatch[2].toLowerCase()
+        const now = new Date()
+        
+        if (unit.startsWith('day')) {
+          now.setDate(now.getDate() - amount)
+        } else if (unit.startsWith('week')) {
+          now.setDate(now.getDate() - (amount * 7))
+        } else if (unit.startsWith('month')) {
+          now.setMonth(now.getMonth() - amount)
+        }
+        
+        return now
+      }
+      
+      // Handle standard date formats
+      const parsed = new Date(dateText)
+      if (!isNaN(parsed.getTime())) {
+        return parsed
+      }
+      
+      return undefined
+    } catch {
+      return undefined
+    }
   }
 }
 

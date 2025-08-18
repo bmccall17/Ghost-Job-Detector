@@ -6,6 +6,7 @@ import { Loader2, Link as LinkIcon, Upload, BarChart3 } from 'lucide-react'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { AnalysisService } from '@/services/analysisService'
 import { FileUpload } from '@/components/FileUpload'
+import { PDFUpload } from '@/components/PDFUpload'
 import { GhostJobBadge } from '@/components/GhostJobBadge'
 import { NewContributionBadge } from '@/components/NewContributionBadge'
 import { JobAnalysis } from '@/types'
@@ -15,7 +16,6 @@ const urlAnalysisSchema = z.object({
 })
 
 const pdfAnalysisSchema = z.object({
-  sourceUrl: z.string().url('Please enter the source URL for this job posting'),
   pdfFile: z.instanceof(File).refine(
     (file) => file.type === 'application/pdf',
     'Please upload a PDF file'
@@ -73,7 +73,10 @@ export const JobAnalysisDashboard: React.FC = () => {
       const result = await AnalysisService.analyzeJob(data.jobUrl, {
         title: jobData.title,
         company: jobData.company,
-        description: '' // We don't have full description from basic extraction
+        description: '', // We don't have full description from basic extraction
+        location: jobData.location,
+        remoteFlag: jobData.remoteFlag,
+        postedAt: jobData.postedAt
       });
 
       const analysis: JobAnalysis = {
@@ -100,15 +103,22 @@ export const JobAnalysisDashboard: React.FC = () => {
     }
   }
 
-  const onSubmitPdf = async (data: PdfAnalysisForm) => {
+  const onSubmitPdf = async (_data: PdfAnalysisForm) => {
     if (!selectedPdf) return
     
     setIsAnalyzing(true)
     setCurrentAnalysis(null)
 
     try {
-      // Check if this job has already been analyzed
-      const existingAnalysis = findExistingAnalysis(data.sourceUrl)
+      // Extract job data from PDF (including URL from header/footer)
+      const jobData = await AnalysisService.extractJobDataFromPDF(selectedPdf);
+      
+      if (!jobData.sourceUrl) {
+        throw new Error('Could not find URL in PDF header/footer. Please ensure the PDF was saved with headers and footers enabled.');
+      }
+
+      // Check if this job has already been analyzed using the extracted URL
+      const existingAnalysis = findExistingAnalysis(jobData.sourceUrl)
       
       if (existingAnalysis) {
         // Job already analyzed - show existing results
@@ -120,17 +130,19 @@ export const JobAnalysisDashboard: React.FC = () => {
         return
       }
 
-      // New job - extract data from PDF and run analysis
-      const jobData = await AnalysisService.extractJobDataFromPDF(selectedPdf, data.sourceUrl);
-      const result = await AnalysisService.analyzeJob(data.sourceUrl, {
+      // New job - run analysis using extracted URL and data
+      const result = await AnalysisService.analyzeJob(jobData.sourceUrl, {
         title: jobData.title,
         company: jobData.company,
-        description: jobData.content || '' // Use PDF content as description
+        description: jobData.content || '', // Use PDF content as description
+        location: undefined, // PDF extraction doesn't provide location yet
+        remoteFlag: false, // PDF extraction doesn't provide remote flag yet  
+        postedAt: undefined // PDF extraction doesn't provide posted date yet
       });
 
       const analysis: JobAnalysis = {
         id: result.id,
-        jobUrl: data.sourceUrl,
+        jobUrl: jobData.sourceUrl,
         title: result.jobData?.title || jobData.title,
         company: result.jobData?.company || jobData.company,
         ghostProbability: result.ghostProbability,
@@ -147,6 +159,9 @@ export const JobAnalysisDashboard: React.FC = () => {
       setSelectedPdf(null)
     } catch (error) {
       console.error('PDF Analysis failed:', error)
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze PDF. Please ensure the PDF contains header/footer information with the job URL.'
+      alert(errorMessage)
     } finally {
       setIsAnalyzing(false)
     }
@@ -338,54 +353,41 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       {activeTab === 'pdf' && (
         <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
-          <form onSubmit={pdfForm.handleSubmit(onSubmitPdf)} className="space-y-4">
-            <div>
-              <label htmlFor="sourceUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                Source URL (where this job posting is from)
-              </label>
-              <input
-                {...pdfForm.register('sourceUrl')}
-                type="url"
-                id="sourceUrl"
-                placeholder="https://careers.company.com/jobs/123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {pdfForm.formState.errors.sourceUrl && (
-                <p className="mt-1 text-sm text-red-600">{pdfForm.formState.errors.sourceUrl.message}</p>
-              )}
-            </div>
+          <form onSubmit={pdfForm.handleSubmit(onSubmitPdf)} className="space-y-6">
+            <PDFUpload
+              onFileSelect={(file) => {
+                setSelectedPdf(file)
+                pdfForm.setValue('pdfFile', file)
+              }}
+              disabled={isAnalyzing}
+            />
 
-            <div>
-              <label htmlFor="pdfFile" className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Job Posting PDF
-              </label>
-              <input
-                type="file"
-                id="pdfFile"
-                accept=".pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    setSelectedPdf(file)
-                    pdfForm.setValue('pdfFile', file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {pdfForm.formState.errors.pdfFile && (
-                <p className="mt-1 text-sm text-red-600">{pdfForm.formState.errors.pdfFile.message}</p>
-              )}
-              {selectedPdf && (
-                <p className="mt-1 text-sm text-green-600">
-                  Selected: {selectedPdf.name} ({(selectedPdf.size / 1024).toFixed(1)} KB)
-                </p>
-              )}
-            </div>
+            {selectedPdf && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <Upload className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900">
+                      PDF Ready for Analysis
+                    </p>
+                    <p className="text-sm text-green-700">
+                      {selectedPdf.name} ({(selectedPdf.size / 1024).toFixed(1)} KB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {pdfForm.formState.errors.pdfFile && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-600">{pdfForm.formState.errors.pdfFile.message}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={isAnalyzing || !selectedPdf}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAnalyzing ? (
                 <>
