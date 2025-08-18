@@ -246,8 +246,8 @@ export class AnalysisService {
       
       // Extract title from LinkedIn page structure
       const titleMatch = html.match(/<title[^>]*>([^<]+)</i)
-      let title = 'LinkedIn Position'
-      let company = 'LinkedIn Company'
+      let title = 'Unknown Position'
+      let company = 'Unknown Company'
       
       if (titleMatch) {
         const fullTitle = titleMatch[1].trim()
@@ -277,13 +277,43 @@ export class AnalysisService {
           }
         }
         
-        // Fallback: try to extract from JSON-LD or meta tags
-        if (company === 'LinkedIn Company') {
-          const companyMatch = html.match(/"hiringOrganization"[^}]*"name"\s*:\s*"([^"]+)"/i) ||
-                              html.match(/property="og:site_name"[^>]*content="([^"]+)"/i) ||
-                              html.match(/"companyName"\s*:\s*"([^"]+)"/i)
-          if (companyMatch) {
-            company = companyMatch[1].trim()
+        // Enhanced fallback: try to extract from JSON-LD, meta tags, or hiring patterns
+        if (company === 'Unknown Company') {
+          // Try structured data patterns
+          const structuredDataPatterns = [
+            /"hiringOrganization"[^}]*"name"\s*:\s*"([^"]+)"/i,
+            /property="og:site_name"[^>]*content="([^"]+)"/i,
+            /"companyName"\s*:\s*"([^"]+)"/i,
+            /"company"\s*:\s*"([^"]+)"/i
+          ]
+          
+          for (const pattern of structuredDataPatterns) {
+            const match = html.match(pattern)
+            if (match && match[1] && match[1].trim() !== 'LinkedIn') {
+              company = match[1].trim()
+              break
+            }
+          }
+          
+          // Try hiring patterns if still no company found
+          if (company === 'Unknown Company') {
+            const hiringPatterns = [
+              /(.+?)\s+(?:is\s+)?hiring\s+/i,
+              /join\s+(.+?)\s+(?:team|as|and)/i,
+              /careers?\s+at\s+(.+?)[\s<]/i
+            ]
+            
+            for (const pattern of hiringPatterns) {
+              const match = fullTitle.match(pattern)
+              if (match && match[1] && match[1].trim().length > 2) {
+                const potentialCompany = match[1].trim()
+                // Avoid generic terms
+                if (!['the', 'our', 'this', 'that', 'company', 'organization'].includes(potentialCompany.toLowerCase())) {
+                  company = potentialCompany
+                  break
+                }
+              }
+            }
           }
         }
       }
@@ -291,8 +321,8 @@ export class AnalysisService {
       return { title, company }
     } catch (error) {
       return {
-        title: 'LinkedIn Position',
-        company: 'LinkedIn Company'
+        title: 'Unknown Position', 
+        company: 'Unknown Company'
       }
     }
   }

@@ -214,23 +214,51 @@ export default async function handler(req, res) {
 // Update company statistics
 async function updateCompanyStats(companyName, ghostProbability) {
     try {
-        const normalizedName = companyName.toLowerCase().trim();
+        // Clean and validate company name
+        if (!companyName || companyName.trim().length === 0) {
+            console.warn('Skipping company stats update: empty company name');
+            return;
+        }
+
+        // Clean up company name (decode HTML entities, normalize)
+        const cleanCompanyName = companyName
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .trim();
+
+        // Skip generic or invalid company names
+        const invalidNames = ['unknown company', 'linkedin company', 'unknown', 'linkedin'];
+        if (invalidNames.includes(cleanCompanyName.toLowerCase())) {
+            console.warn(`Skipping company stats update for generic name: ${cleanCompanyName}`);
+            return;
+        }
+
+        const normalizedName = cleanCompanyName.toLowerCase().trim();
+        
+        console.log(`Updating company stats for: "${cleanCompanyName}" (normalized: "${normalizedName}")`);
         
         // Get or create company
         const company = await prisma.company.upsert({
             where: { normalizedName },
             update: {},
             create: {
-                name: companyName,
+                name: cleanCompanyName,
                 normalizedName
             }
         });
 
+        console.log(`Company upserted: ${company.id} - ${company.name}`);
+
         // Recalculate stats from job listings
         const companyListings = await prisma.jobListing.findMany({
-            where: { company: companyName },
+            where: { company: cleanCompanyName },
             include: { analyses: { orderBy: { createdAt: 'desc' }, take: 1 } }
         });
+
+        console.log(`Found ${companyListings.length} job listings for company: ${cleanCompanyName}`);
 
         const totalPostings = companyListings.length;
         const avgGhostProbability = companyListings.reduce((sum, listing) => {
@@ -246,8 +274,12 @@ async function updateCompanyStats(companyName, ghostProbability) {
                 lastAnalyzedAt: new Date()
             }
         });
+
+        console.log(`Company stats updated: ${totalPostings} postings, ${avgGhostProbability.toFixed(4)} avg ghost probability`);
     } catch (error) {
         console.error('Failed to update company stats:', error);
+        console.error('Company name was:', companyName);
+        console.error('Ghost probability was:', ghostProbability);
     }
 }
 
