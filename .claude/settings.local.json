@@ -59,7 +59,8 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(cd:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx prisma:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

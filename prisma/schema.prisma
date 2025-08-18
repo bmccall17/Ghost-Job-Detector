@@ -269,6 +269,8 @@ enum EventKind {
   analysis_failed
   queue_processed
   admin_action
+  agent_validate
+  agent_promotion
 }
 
 enum UserRole {

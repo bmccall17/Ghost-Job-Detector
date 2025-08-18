@@ -69,11 +69,24 @@ export default async function handler(req, res) {
             }
         });
 
+        // Run agent promotion if enabled
+        let promotionResults = null;
+        if (process.env.AGENT_ENABLED === 'true') {
+            try {
+                console.log('🎓 Running agent promotion step');
+                promotionResults = await promoteVerifiedAgentCorrections();
+            } catch (promotionError) {
+                console.error('❌ Agent promotion failed:', promotionError);
+                // Don't fail the entire tick for promotion errors
+            }
+        }
+
         return res.status(200).json({
             message: 'Analysis batch processed',
             processed,
             failed,
-            total: jobs.length
+            total: jobs.length,
+            promotionResults
         });
 
     } catch (error) {
@@ -376,5 +389,139 @@ async function updateCompanyStats(companyName, ghostProbability) {
         });
     } catch (error) {
         console.error('Failed to update company stats:', error);
+    }
+}
+
+// Promote verified agent corrections to runtime rules
+async function promoteVerifiedAgentCorrections() {
+    try {
+        console.log('🔍 Looking for verified agent corrections to promote');
+        
+        // Find verified agent validation events that haven't been promoted yet
+        const pendingPromotions = await prisma.event.findMany({
+            where: {
+                kind: 'agent_validate',
+                AND: [
+                    {
+                        meta: {
+                            path: ['verified'],
+                            equals: true
+                        }
+                    },
+                    {
+                        meta: {
+                            path: ['promotedAt'],
+                            equals: null
+                        }
+                    }
+                ]
+            },
+            take: 200, // Limit batch size
+            orderBy: { createdAt: 'asc' }
+        });
+
+        console.log(`📋 Found ${pendingPromotions.length} verified corrections ready for promotion`);
+
+        if (pendingPromotions.length === 0) {
+            return { promoted: 0, message: 'No verified corrections found' };
+        }
+
+        let promoted = 0;
+        const rulesDelta = [];
+
+        for (const event of pendingPromotions) {
+            try {
+                const agentOutput = event.meta;
+                const url = agentOutput.url || '';
+                
+                // Extract domain-specific rules from agent corrections
+                if (agentOutput.fields) {
+                    const hostname = url ? new URL(url).hostname : '';
+                    
+                    // Build promotion rules based on agent improvements
+                    if (agentOutput.fields.title && agentOutput.fields.title.conf > 0.8) {
+                        rulesDelta.push({
+                            type: 'title_correction',
+                            domain: hostname,
+                            pattern: 'agent_verified',
+                            correction: agentOutput.fields.title.value,
+                            confidence: agentOutput.fields.title.conf,
+                            source: 'agent_promotion'
+                        });
+                    }
+                    
+                    if (agentOutput.fields.company && agentOutput.fields.company.conf > 0.8) {
+                        rulesDelta.push({
+                            type: 'company_correction',
+                            domain: hostname,
+                            pattern: 'agent_verified',
+                            correction: agentOutput.fields.company.value,
+                            confidence: agentOutput.fields.company.conf,
+                            source: 'agent_promotion'
+                        });
+                    }
+                    
+                    if (agentOutput.fields.location && agentOutput.fields.location.conf > 0.8) {
+                        rulesDelta.push({
+                            type: 'location_correction',
+                            domain: hostname,
+                            pattern: 'agent_verified',
+                            correction: agentOutput.fields.location.value,
+                            confidence: agentOutput.fields.location.conf,
+                            source: 'agent_promotion'
+                        });
+                    }
+                }
+
+                // Mark as promoted
+                await prisma.event.update({
+                    where: { id: event.id },
+                    data: {
+                        meta: {
+                            ...event.meta,
+                            promotedAt: new Date().toISOString(),
+                            promotionRulesGenerated: rulesDelta.length
+                        }
+                    }
+                });
+
+                promoted++;
+                console.log(`✅ Promoted agent correction from event ${event.id}`);
+
+            } catch (eventError) {
+                console.error(`❌ Failed to promote event ${event.id}:`, eventError);
+                continue;
+            }
+        }
+
+        // Save rules dataset (in a real implementation, this would write to a file or table)
+        if (rulesDelta.length > 0) {
+            console.log(`💾 Generated ${rulesDelta.length} promotion rules`);
+            
+            // Log the promotion rules for now (in production, save to parser rules dataset)
+            await prisma.event.create({
+                data: {
+                    kind: 'agent_promotion',
+                    meta: {
+                        rulesGenerated: rulesDelta.length,
+                        promotedEvents: promoted,
+                        rules: rulesDelta,
+                        timestamp: new Date().toISOString()
+                    }
+                }
+            });
+        }
+
+        console.log(`🎉 Agent promotion completed: ${promoted} events promoted, ${rulesDelta.length} rules generated`);
+
+        return {
+            promoted,
+            rulesGenerated: rulesDelta.length,
+            rules: rulesDelta
+        };
+
+    } catch (error) {
+        console.error('💥 Agent promotion error:', error);
+        throw error;
     }
 }

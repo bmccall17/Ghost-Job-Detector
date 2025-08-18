@@ -1,20 +1,28 @@
-# Ghost Job Detector v0.1 🎉 August 17, 2025
+# Ghost Job Detector v0.1.1 🚀 August 18, 2025
 
+**ENHANCED MILESTONE:** Advanced intelligent parsing system with company normalization, duplicate detection, and location extraction improvements. Version 0.1.1 delivers significant enhancements to parsing accuracy, intelligent learning systems, and data quality.
 
 **MILESTONE ACHIEVED:** A production-ready web application for detecting fake job postings with intelligent analysis and universal data persistence. Version 0.1 successfully delivers bi-directional database integration, cross-browser synchronization, and real-time analysis capabilities.
 
-## 🎯 v0.1 Features Delivered
+## 🎯 v0.1.1 Features Delivered
+
+### ✅ **Enhanced Intelligent Parsing System**
+- **Company Normalization**: Advanced AI-powered company name matching and consolidation
+- **Duplicate Detection**: Intelligent job posting deduplication with 80% similarity threshold
+- **Location Extraction**: Enhanced LinkedIn parser with 20+ extraction patterns
+- **Learning System**: Continuous improvement through pattern recognition and user feedback
 
 ### ✅ **Core Analysis Engine**
 - **URL-based Analysis**: Submit job posting URLs for instant intelligent analysis
 - **Risk Assessment**: Detailed ghost probability scoring with confidence metrics
-- **Multi-platform Support**: Works with LinkedIn, company career pages, and job boards
+- **Multi-platform Support**: Enhanced LinkedIn, company career pages, and job boards
 - **Real-time Processing**: Live analysis with <2 second response times
 
 ### ✅ **Universal Database Integration**
 - **Persistent Storage**: All analyses saved to production PostgreSQL database
 - **Cross-browser Sync**: History accessible from any browser or device
-- **Deduplication**: Smart duplicate detection prevents redundant analyses
+- **Advanced Deduplication**: AI-powered duplicate detection with similarity scoring
+- **Company Consolidation**: Intelligent merging of company name variations (e.g., "Red Ventures" ↔ "Redventures")
 - **Audit Trail**: Complete history of all job posting evaluations
 
 ### ✅ **Advanced Frontend**

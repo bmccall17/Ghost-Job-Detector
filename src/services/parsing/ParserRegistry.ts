@@ -6,6 +6,8 @@ import { GreenhouseParser } from './parsers/GreenhouseParser'
 import { GenericParser } from './parsers/GenericParser'
 import { ParsingLearningService, initializeParsingLearning } from './ParsingLearningService'
 import { DuplicateDetectionService } from '../DuplicateDetectionService'
+import { JobFieldValidator, needsValidation, type AgentOutput } from '@/agents/validator'
+import { isWebGPUSupported } from '@/lib/webllm'
 
 export class ParserRegistry {
   private static instance: ParserRegistry
@@ -13,12 +15,14 @@ export class ParserRegistry {
   private fallbackParser: JobParser
   private learningService: ParsingLearningService
   private duplicateDetection: DuplicateDetectionService
+  private validator: JobFieldValidator
 
   private constructor() {
     this.initializeParsers()
     this.fallbackParser = new GenericParser()
     this.learningService = ParsingLearningService.getInstance()
     this.duplicateDetection = DuplicateDetectionService.getInstance()
+    this.validator = new JobFieldValidator()
     this.initializeLearning()
   }
 
@@ -94,6 +98,16 @@ export class ParserRegistry {
             result.metadata.extractionMethod = ExtractionMethod.DOMAIN_INTELLIGENCE
             break
         }
+      }
+      
+      // Check if AI validation is needed based on confidence thresholds
+      const agentEnabled = typeof window !== 'undefined' && 
+                          (process.env.AGENT_ENABLED === 'true' || 
+                           process.env.NEXT_PUBLIC_AGENT_ENABLED === 'true');
+      
+      if (agentEnabled && this.shouldRunAgentValidation(result)) {
+        console.log('🤖 Running AI validation due to low confidence scores');
+        result = await this.runAgentValidation(url, html, result, parser.name);
       }
       
       // Validate the result quality
@@ -230,5 +244,168 @@ export class ParserRegistry {
    */
   public async joinDuplicates(duplicateGroup: any) {
     return this.duplicateDetection.joinDuplicates(duplicateGroup)
+  }
+
+  /**
+   * Check if agent validation should run based on confidence thresholds
+   */
+  private shouldRunAgentValidation(result: ParsedJob): boolean {
+    return needsValidation({
+      title: { confidence: result.metadata.confidence.title },
+      company: { confidence: result.metadata.confidence.company },
+      location: { confidence: result.metadata.confidence.location ?? 0.5 },
+      description: result.description || ''
+    });
+  }
+
+  /**
+   * Run AI validation using WebLLM or server fallback
+   */
+  private async runAgentValidation(
+    url: string, 
+    html: string, 
+    result: ParsedJob, 
+    _parserName: string
+  ): Promise<ParsedJob> {
+    try {
+      const htmlSnippet = this.validator.extractHtmlSnippet(url, html);
+      const parserOutput = {
+        title: result.title,
+        company: result.company,
+        location: result.location,
+        description: result.description
+      };
+
+      let agentOutput: AgentOutput;
+
+      // Try WebLLM first if WebGPU is supported
+      const hasWebGPU = await isWebGPUSupported();
+      
+      if (hasWebGPU) {
+        console.log('🔮 Using WebLLM for validation');
+        try {
+          agentOutput = await this.validator.validateWithWebLLM({
+            url,
+            htmlSnippet,
+            parserOutput
+          });
+        } catch (webllmError) {
+          console.warn('⚠️ WebLLM validation failed, trying server fallback:', webllmError instanceof Error ? webllmError.message : 'Unknown error');
+          agentOutput = await this.tryServerFallback(url, htmlSnippet, parserOutput);
+        }
+      } else {
+        console.log('🌐 Using server fallback for validation');
+        agentOutput = await this.tryServerFallback(url, htmlSnippet, parserOutput);
+      }
+
+      // Apply agent improvements to result
+      if (agentOutput.validated && agentOutput.fields) {
+        console.log('✅ Agent validation completed, applying improvements');
+        
+        if (agentOutput.fields.title && agentOutput.fields.title.conf > result.metadata.confidence.title) {
+          result.title = agentOutput.fields.title.value;
+          result.metadata.confidence.title = agentOutput.fields.title.conf;
+        }
+        
+        if (agentOutput.fields.company && agentOutput.fields.company.conf > result.metadata.confidence.company) {
+          result.company = agentOutput.fields.company.value;
+          result.metadata.confidence.company = agentOutput.fields.company.conf;
+        }
+        
+        if (agentOutput.fields.location && agentOutput.fields.location.conf > (result.metadata.confidence.location ?? 0)) {
+          result.location = agentOutput.fields.location.value;
+          result.metadata.confidence.location = agentOutput.fields.location.conf;
+        }
+
+        // Update overall confidence
+        result.metadata.confidence.overall = Math.max(
+          result.metadata.confidence.overall,
+          (result.metadata.confidence.title + result.metadata.confidence.company + (result.metadata.confidence.location ?? 0.5)) / 3
+        );
+
+        // Mark as agent-enhanced
+        result.metadata.extractionMethod = ExtractionMethod.NLP_EXTRACTION;
+        result.metadata.rawData = {
+          ...result.metadata.rawData,
+          agentValidated: true,
+          agentNotes: agentOutput.notes
+        } as any;
+      }
+
+      // Post agent result to ingest API
+      await this.postAgentResult({
+        url,
+        htmlSnippet,
+        parserOutput,
+        agent: hasWebGPU ? 'webllm' : 'server',
+        out: agentOutput
+      });
+
+      return result;
+    } catch (error) {
+      console.error('❌ Agent validation failed:', error);
+      return result; // Return original result if validation fails
+    }
+  }
+
+  /**
+   * Try server fallback for agent validation
+   */
+  private async tryServerFallback(
+    url: string, 
+    htmlSnippet: string, 
+    parserOutput: any
+  ): Promise<AgentOutput> {
+    const fallbackEnabled = process.env.AGENT_USE_SERVER_FALLBACK === 'true' || 
+                           process.env.NEXT_PUBLIC_AGENT_USE_SERVER_FALLBACK === 'true';
+
+    if (!fallbackEnabled) {
+      throw new Error('Server fallback is disabled');
+    }
+
+    const response = await fetch('/api/agent/fallback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        htmlSnippet,
+        parserOutput
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server fallback failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.out;
+  }
+
+  /**
+   * Post agent result to ingest API
+   */
+  private async postAgentResult(payload: {
+    url: string;
+    htmlSnippet: string;
+    parserOutput: any;
+    agent: 'webllm' | 'server';
+    out: AgentOutput;
+  }): Promise<void> {
+    try {
+      const response = await fetch('/api/agent/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        console.warn('⚠️ Failed to post agent result to ingest API');
+      } else {
+        const result = await response.json();
+        console.log('📝 Agent result posted to ingest API:', result.eventId);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to post agent result:', error instanceof Error ? error.message : 'Unknown error');
+    }
   }
 }
