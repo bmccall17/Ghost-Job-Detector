@@ -2,7 +2,7 @@ import { AnalysisResult, BulkAnalysisJob } from '@/types'
 import { ParserRegistry } from './parsing/ParserRegistry'
 
 export class AnalysisService {
-  private static readonly API_BASE = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || 'http://localhost:3001/api'
+  private static readonly API_BASE = '/api'
 
   static async analyzeJob(jobUrl: string, jobData?: {title: string, company: string, description?: string, location?: string, remoteFlag?: boolean, postedAt?: Date}): Promise<AnalysisResult> {
     // If job data is not provided, extract it first
