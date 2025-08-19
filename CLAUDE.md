@@ -1,14 +1,33 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
-## Project Status: v0.1.5 🚀
+## Project Status: v0.1.6 🚀
 
-**Latest Updates:**
+**Latest Updates (v0.1.6):**
+- 🚨 **CRITICAL FIX**: Frontend API endpoint configuration resolved
+- ✅ Database writing functionality fully restored
+- ✅ Analysis results now properly stored in production database
+- ✅ Real-time analysis history synchronization working
+- ✅ Frontend-backend API communication completely functional
+
+**Previous Updates (v0.1.5):**
 - ✅ Detailed analyzer processing data integration complete
 - ✅ JobReportModal corrections functionality removed (cleaner UI)
 - ✅ TypeScript build errors resolved
 - ✅ Analysis history API with fallback mock data
 - ✅ Text wrapping fixes for job titles and URLs in tables
 - ✅ Terminal animation and analysis flow working properly
+
+## Critical Breakthrough (v0.1.6)
+
+### 🚨 DATABASE WRITING ISSUE RESOLVED
+**Root Cause**: Frontend was calling `localhost:3001/api` instead of production `/api` endpoint
+**Impact**: Analysis appeared to complete but no database writes occurred
+**Solution**: Fixed API_BASE configuration to use relative URLs for Vercel deployment
+
+### Technical Details
+- **Before**: `API_BASE = process.env?.VITE_API_BASE_URL || 'http://localhost:3001/api'`
+- **After**: `API_BASE = '/api'`
+- **Result**: Frontend now correctly calls production API, database writes work perfectly
 
 ## Recent Improvements (v0.1.5)
 

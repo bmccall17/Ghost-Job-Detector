@@ -62,7 +62,7 @@ function App() {
           <div className="flex items-center justify-between text-sm text-gray-500">
             <p>&copy; 2025 Ghost Job Detector. Detecting fake job postings with 95%+ accuracy.</p>
             <div className="flex items-center space-x-4">
-              <span>Model Version: v0.1.0</span>
+              <span>Model Version: v0.1.6</span>
               <span>•</span>
               <span>Last Updated: {new Date().toLocaleDateString()}</span>
             </div>
