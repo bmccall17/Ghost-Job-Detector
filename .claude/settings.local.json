@@ -68,7 +68,10 @@
       "Bash(cd:*)",
       "Bash(npm run:*)",
       "Bash(git push:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git --version)",
+      "Bash(vercel:*)",
+      "Bash(npm:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
