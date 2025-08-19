@@ -6,7 +6,7 @@
     "dev": "vite",
     "dev:api": "node server.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:api\"",
-    "build": "prisma generate && tsc && vite build",
+    "build": "prisma generate && prisma migrate deploy && tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "jest",
