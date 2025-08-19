@@ -6,7 +6,6 @@ import { RiskTooltip } from './RiskTooltip'
 import { JobReportModal } from './JobReportModal'
 import { CorrectionStatusBadge } from './CorrectionStatusBadge'
 import { AnalysisService } from '@/services/analysisService'
-import { CorrectionService } from '@/services/CorrectionService'
 
 interface AnalysisResultsTableProps {
   results: JobAnalysis[]
@@ -31,39 +30,6 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
     setIsModalOpen(false)
   }
 
-  const handleCorrection = async (jobId: string, corrections: any) => {
-    try {
-      console.log(`Processing correction for job ${jobId}:`, corrections)
-      
-      // Mock correction processing
-      const correctionService = CorrectionService.getInstance()
-      
-      // Create correction record
-      const correctionData = {
-        jobId,
-        originalData: {
-          title: selectedAnalysis?.title || '',
-          company: selectedAnalysis?.company || '',
-          location: '',
-          platform: selectedAnalysis?.parsingMetadata?.parserUsed || ''
-        },
-        correctedData: corrections,
-        userVerified: true,
-        algorithmVerified: !corrections.forceCommit,
-        learningWeight: corrections.forceCommit ? 0.6 : 0.8,
-        correctionReason: corrections.forceCommit ? 'Manual override by user' : 'User correction',
-        forceCommit: corrections.forceCommit || false
-      }
-      
-      await correctionService.saveCorrections(correctionData)
-      
-      // Refresh the analysis data (in a real app)
-      console.log('✅ Correction saved successfully')
-      
-    } catch (error) {
-      console.error('Failed to save correction:', error)
-    }
-  }
 
   const handleSelectAll = () => {
     if (selectedResults.size === results.length) {
@@ -279,7 +245,6 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
         analysis={selectedAnalysis}
         isOpen={isModalOpen}
         onClose={closeJobReport}
-        onCorrection={handleCorrection}
       />
     </div>
   )
