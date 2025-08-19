@@ -7,6 +7,7 @@ interface AnalysisState {
   analysisHistory: JobAnalysis[]
   bulkJobs: BulkAnalysisJob[]
   isAnalyzing: boolean
+  refreshHistoryTrigger: number
   
   setCurrentAnalysis: (analysis: JobAnalysis | null) => void
   addToHistory: (analysis: JobAnalysis) => void
@@ -16,6 +17,7 @@ interface AnalysisState {
   setIsAnalyzing: (isAnalyzing: boolean) => void
   clearHistory: () => void
   findExistingAnalysis: (jobUrl: string) => JobAnalysis | null
+  triggerHistoryRefresh: () => void
 }
 
 export const useAnalysisStore = create<AnalysisState>()(
@@ -25,6 +27,7 @@ export const useAnalysisStore = create<AnalysisState>()(
       analysisHistory: [],
       bulkJobs: [],
       isAnalyzing: false,
+      refreshHistoryTrigger: 0,
 
       setCurrentAnalysis: (analysis) => set({ currentAnalysis: analysis }),
 
@@ -78,13 +81,18 @@ export const useAnalysisStore = create<AnalysisState>()(
       findExistingAnalysis: (jobUrl) => {
         const state = get()
         return state.analysisHistory.find(analysis => analysis.jobUrl === jobUrl) || null
-      }
+      },
+
+      triggerHistoryRefresh: () => set((state) => ({
+        refreshHistoryTrigger: state.refreshHistoryTrigger + 1
+      }))
     }),
     {
       name: 'ghost-job-detector-storage',
       partialize: (state) => ({
         analysisHistory: state.analysisHistory,
-        bulkJobs: state.bulkJobs
+        bulkJobs: state.bulkJobs,
+        refreshHistoryTrigger: state.refreshHistoryTrigger
       })
     }
   )

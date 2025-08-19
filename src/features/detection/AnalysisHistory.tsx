@@ -6,13 +6,13 @@ import { AnalysisResultsTable } from '@/components/AnalysisResultsTable'
 import { JobAnalysis } from '@/types'
 
 export const AnalysisHistory: React.FC = () => {
-  const { analysisHistory, bulkJobs } = useAnalysisStore()
+  const { analysisHistory, bulkJobs, refreshHistoryTrigger } = useAnalysisStore()
   const [databaseAnalyses, setDatabaseAnalyses] = useState<JobAnalysis[]>([])
   const [databaseStats, setDatabaseStats] = useState<{ total: number; highRisk: number; mediumRisk: number; lowRisk: number }>({ total: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0 })
   const [isLoadingDatabase, setIsLoadingDatabase] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Load analysis history from database on component mount
+  // Load analysis history from database on component mount and when refreshKey changes
   useEffect(() => {
     const loadDatabaseHistory = async () => {
       try {
@@ -55,7 +55,7 @@ export const AnalysisHistory: React.FC = () => {
     }
 
     loadDatabaseHistory()
-  }, [])
+  }, [refreshHistoryTrigger])
 
   // Combine local and database analyses, removing duplicates by URL
   const combinedAnalyses = React.useMemo(() => {

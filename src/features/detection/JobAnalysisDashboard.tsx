@@ -54,7 +54,8 @@ export const JobAnalysisDashboard: React.FC = () => {
     addToHistory,
     setIsAnalyzing,
     addBulkJob,
-    findExistingAnalysis
+    findExistingAnalysis,
+    triggerHistoryRefresh
   } = useAnalysisStore()
 
   const urlForm = useForm<UrlAnalysisForm>({
@@ -97,6 +98,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         
         setCurrentAnalysis(existingAnalysis)
         addToHistory(existingAnalysis) // This will move it to top without marking as new
+        triggerHistoryRefresh() // Refresh database history in History tab
         urlForm.reset()
         setIsAnalyzing(false)
         return
@@ -161,6 +163,7 @@ export const JobAnalysisDashboard: React.FC = () => {
       console.log('🎯 Setting current analysis in state...');
       setCurrentAnalysis(analysis)
       addToHistory(analysis)
+      triggerHistoryRefresh() // Refresh database history in History tab
       urlForm.reset()
       console.log('✅ Analysis state updated successfully!');
     } catch (error) {
@@ -191,6 +194,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         // Job already analyzed - show existing results
         setCurrentAnalysis(existingAnalysis)
         addToHistory(existingAnalysis) // This will move it to top without marking as new
+        triggerHistoryRefresh() // Refresh database history in History tab
         pdfForm.reset()
         setSelectedPdf(null)
         setIsAnalyzing(false)
@@ -222,6 +226,7 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       setCurrentAnalysis(analysis)
       addToHistory(analysis)
+      triggerHistoryRefresh() // Refresh database history in History tab
       pdfForm.reset()
       setSelectedPdf(null)
     } catch (error) {
@@ -362,6 +367,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         
         setCurrentAnalysis(updatedAnalysis)
         addToHistory(updatedAnalysis)
+        triggerHistoryRefresh() // Refresh database history in History tab
       }
     } else {
       // User confirmed the data is correct - record as positive feedback
