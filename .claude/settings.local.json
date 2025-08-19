@@ -65,7 +65,8 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(cd:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

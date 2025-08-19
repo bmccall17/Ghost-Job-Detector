@@ -105,74 +105,26 @@ export const JobAnalysisDashboard: React.FC = () => {
       // New job - extract data and run analysis
       const jobData = await AnalysisService.extractJobData(data.jobUrl);
       
-      // Start AI simulation first to show logs immediately
+      // Start AI simulation for terminal logs (runs in parallel with real analysis)
       console.log('🚀 Starting AI simulation for terminal logs');
       const simulationPromise = simulateAnalysis(data.jobUrl, jobData);
       
-      // Wait for simulation to complete first
+      // Call the REAL API for analysis and database storage
+      console.log('🚀 Calling real analysis API...');
+      const result = await AnalysisService.analyzeJob(data.jobUrl, {
+        title: jobData.title,
+        company: jobData.company,
+        description: '',
+        location: jobData.location,
+        remoteFlag: jobData.remoteFlag,
+        postedAt: jobData.postedAt
+      });
+
+      // Wait for simulation to complete for terminal display
       console.log('🚀 Waiting for AI simulation to complete...');
       const simulationResult = await simulationPromise;
       console.log('✅ AI simulation completed:', simulationResult);
-
-      // For now, since the real API isn't working, create a mock result based on simulation
-      const result = {
-        id: `analysis_${Date.now()}`,
-        jobData: {
-          title: jobData.title,
-          company: jobData.company,
-          description: '',
-          location: jobData.location,
-          remote: jobData.remoteFlag || false
-        },
-        ghostProbability: simulationResult.ghostProbability || Math.random() * 0.5 + 0.25, // Random between 0.25-0.75
-        riskLevel: simulationResult.ghostProbability > 0.67 ? 'high' : simulationResult.ghostProbability > 0.34 ? 'medium' : 'low',
-        riskFactors: simulationResult.riskFactors || [],
-        keyFactors: simulationResult.legitimacyIndicators || [],
-        metadata: {
-          storage: 'mock_development',
-          version: '0.1.5',
-          cached: false,
-          analysisDate: new Date().toISOString(),
-          algorithmAssessment: {
-            ghostProbability: Math.round((simulationResult.ghostProbability || 0.4) * 100),
-            modelConfidence: `${Math.round(simulationResult.confidence * 100)}%`,
-            assessmentText: `Analysis completed with ${Math.round(simulationResult.confidence * 100)}% confidence. Job shows ${simulationResult.ghostProbability > 0.67 ? 'high risk' : simulationResult.ghostProbability > 0.34 ? 'moderate risk' : 'low risk'} indicators.`
-          },
-          riskFactorsAnalysis: {
-            warningSignsCount: simulationResult.riskFactors?.length || 0,
-            warningSignsTotal: 8,
-            riskFactors: (simulationResult.riskFactors || []).map(factor => ({
-              type: 'general_risk',
-              description: factor,
-              impact: 'Medium'
-            })),
-            positiveIndicators: (simulationResult.legitimacyIndicators || []).map(indicator => ({
-              type: 'legitimacy_indicator',
-              description: indicator,
-              impact: 'Positive'
-            }))
-          },
-          recommendation: {
-            action: simulationResult.ghostProbability > 0.67 ? 'Avoid' : simulationResult.ghostProbability > 0.34 ? 'Research Further' : 'Apply',
-            message: simulationResult.ghostProbability > 0.67 
-              ? 'High risk of ghost job detected. Consider avoiding this opportunity.' 
-              : simulationResult.ghostProbability > 0.34 
-              ? 'Mixed signals detected. Research the company thoroughly before applying.'
-              : 'This appears to be a legitimate opportunity worth pursuing.',
-            confidence: simulationResult.confidence > 0.8 ? 'High' : simulationResult.confidence > 0.6 ? 'Medium' : 'Low'
-          },
-          analysisDetails: {
-            analysisId: `analysis_${Date.now()}`,
-            modelVersion: 'v0.1.5',
-            processingTimeMs: 850,
-            analysisDate: new Date().toISOString(),
-            algorithmType: 'simulation_based',
-            platform: jobData.parsingMetadata?.parserUsed || 'unknown'
-          }
-        }
-      };
-
-      console.log('✅ Mock analysis result created:', result);
+      console.log('✅ Real analysis result received:', result);
 
       const analysis: JobAnalysis = {
         id: result.id,
@@ -187,13 +139,13 @@ export const JobAnalysisDashboard: React.FC = () => {
         isNewContribution: true,
         parsingMetadata: jobData.parsingMetadata,
         metadata: {
-          // New detailed analyzer processing data from API response
+          // Real detailed analyzer processing data from API response
           algorithmAssessment: result.metadata?.algorithmAssessment,
           riskFactorsAnalysis: result.metadata?.riskFactorsAnalysis,
           recommendation: result.metadata?.recommendation,
           analysisDetails: result.metadata?.analysisDetails,
 
-          // Legacy detailed analysis for fallback
+          // Legacy detailed analysis for fallback (using simulation for terminal display)
           rawData: {
             detailedAnalysis: {
               thoughtProcess: logs.filter(log => log.type === 'analysis').map(log => log.message),
