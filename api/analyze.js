@@ -218,7 +218,7 @@ export default async function handler(req, res) {
 
         // Perform detailed analysis with processing metadata
         const startTime = Date.now();
-        const analysis = analyzeJob({ url, title, company, description });
+        const analysis = analyzeJob({ url, title, company, description, postedAt });
         const processingTime = Date.now() - startTime;
         
         // Generate unique analysis ID
@@ -234,20 +234,19 @@ export default async function handler(req, res) {
                 reasonsJson: {
                     riskFactors: analysis.riskFactors,
                     keyFactors: analysis.keyFactors,
-                    confidence: analysis.confidence || 0.8
+                    confidence: analysis.confidence
                 },
-                modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.0',
+                modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.7',
                 processingTimeMs: processingTime,
                 
                 // Detailed analyzer processing data
                 ghostProbability: analysis.ghostProbability,
-                modelConfidence: analysis.confidence || 0.8,
+                modelConfidence: analysis.confidence,
                 analysisId: analysisId,
                 
                 algorithmAssessment: {
                     ghostProbability: Math.round(analysis.ghostProbability * 100),
-                    modelConfidence: analysis.riskLevel === 'high' ? 'High (80%)' : 
-                                   analysis.riskLevel === 'low' ? 'High (80%)' : 'Medium (60%)',
+                    modelConfidence: `${analysis.riskLevel === 'high' ? 'High' : analysis.riskLevel === 'low' ? 'High' : 'Medium'} (${Math.round(analysis.confidence * 100)}%)`,
                     assessmentText: analysis.riskLevel === 'high' 
                         ? 'This job posting shows signs of being a ghost job with multiple red flags.'
                         : analysis.riskLevel === 'low'
@@ -284,10 +283,10 @@ export default async function handler(req, res) {
                 
                 analysisDetails: {
                     analysisId: analysisId,
-                    modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.0',
+                    modelVersion: process.env.ML_MODEL_VERSION || 'v0.1.7',
                     processingTimeMs: processingTime,
                     analysisDate: new Date().toISOString(),
-                    algorithmType: 'rule_based_v1',
+                    algorithmType: 'rule_based_v1.7',
                     dataSource: 'job_posting_analysis',
                     platform: extractSourcePlatform(url)
                 }
@@ -493,79 +492,214 @@ async function updateCompanyStats(companyName, ghostProbability) {
     }
 }
 
-// Simple ghost job analysis logic
-function analyzeJob({ url, title, company, description }) {
-    let ghostProbability = 0;
+// Enhanced ghost job analysis logic v0.1.7 - Based on updated detection criteria
+function analyzeJob({ url, title, company, description, postedAt }) {
+    let ghostScore = 0; // Start with 0, accumulate positive scores for ghost indicators
     const riskFactors = [];
     const keyFactors = [];
+    
+    // Algorithm version and confidence tracking
+    const algorithmVersion = 'v0.1.7';
+    let confidence = 0.8; // Base confidence level
 
-    // URL analysis
-    if (url && url.includes('linkedin.com')) {
-        ghostProbability += 0.1;
-        keyFactors.push('LinkedIn posting');
-    }
-
-    // Title analysis
-    if (title) {
-        const titleLower = title.toLowerCase();
-        if (titleLower.includes('urgent') || titleLower.includes('immediate')) {
-            ghostProbability += 0.3;
-            riskFactors.push('Urgent hiring language');
-        }
-        if (titleLower.includes('remote') || titleLower.includes('work from home')) {
-            ghostProbability += 0.2;
-            keyFactors.push('Remote position');
-        }
-        if (titleLower.length > 50) {
-            ghostProbability += 0.1;
-            riskFactors.push('Very long job title');
-        }
-    }
-
-    // Company analysis
-    if (company) {
-        if (company.toLowerCase().includes('consulting') || company.toLowerCase().includes('staffing')) {
-            ghostProbability += 0.2;
-            keyFactors.push('Consulting/staffing company');
+    // === 1. POSTING RECENCY ANALYSIS ===
+    if (postedAt) {
+        const postDate = new Date(postedAt);
+        const now = new Date();
+        const daysSincePosted = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysSincePosted > 45) {
+            // Jobs older than 45 days are suspicious unless exceptions apply
+            const isException = checkExceptionRoles(title, company);
+            if (!isException || daysSincePosted > 90) {
+                ghostScore += 0.20;
+                riskFactors.push(`Posted ${daysSincePosted} days ago (stale posting)`);
+            } else if (isException && daysSincePosted > 60) {
+                ghostScore += 0.10;
+                riskFactors.push(`Posted ${daysSincePosted} days ago (long open for exception role)`);
+            }
+        } else if (daysSincePosted <= 30) {
+            keyFactors.push(`Recently posted (${daysSincePosted} days ago)`);
         }
     }
 
-    // Description analysis
+    // === 2. COMPANY-SITE VERIFICATION ===
+    // Note: This is a basic implementation. Full verification would require external API calls
+    if (url) {
+        const urlLower = url.toLowerCase();
+        
+        // Check if posted only on job boards vs company sites
+        const isJobBoard = urlLower.includes('linkedin.com') || urlLower.includes('indeed.com') || 
+                          urlLower.includes('glassdoor.com') || urlLower.includes('monster.com') ||
+                          urlLower.includes('ziprecruiter.com');
+        
+        const isCompanySite = urlLower.includes('careers.') || urlLower.includes('jobs.') ||
+                             urlLower.includes('greenhouse.io') || urlLower.includes('lever.co') ||
+                             urlLower.includes('workday.com') || urlLower.includes('bamboohr.com');
+        
+        if (isJobBoard && !isCompanySite) {
+            ghostScore += 0.15;
+            riskFactors.push('Job board only posting (not on company site)');
+        } else if (isCompanySite) {
+            keyFactors.push('Posted on company career site/ATS');
+        }
+    }
+
+    // === 3. LANGUAGE CUES ANALYSIS ===
     if (description) {
         const descLower = description.toLowerCase();
-        if (descLower.includes('competitive salary') && !descLower.match(/\$[\d,]+/)) {
-            ghostProbability += 0.2;
+        
+        // Ghost-positive language patterns
+        if (descLower.includes('always accepting') || descLower.includes('building a pipeline') || 
+            descLower.includes('express interest') || descLower.includes('talent pipeline')) {
+            ghostScore += 0.25;
+            riskFactors.push('Pipeline building language');
+        }
+        
+        // Vague language without specifics
+        if (descLower.includes('competitive salary') && !descLower.match(/\$[\d,]+/) && 
+            !descLower.match(/\d+k/i)) {
+            ghostScore += 0.15;
             riskFactors.push('Vague salary description');
         }
-        if (descLower.includes('fast-paced') || descLower.includes('dynamic')) {
-            ghostProbability += 0.1;
-            riskFactors.push('Generic corporate language');
+        
+        // Generic corporate buzzwords
+        const buzzwordCount = (descLower.match(/(fast-paced|dynamic|innovative|cutting-edge|world-class)/g) || []).length;
+        if (buzzwordCount >= 2) {
+            ghostScore += 0.10;
+            riskFactors.push('Excessive corporate buzzwords');
         }
-        if (description.length < 100) {
-            ghostProbability += 0.3;
+        
+        // Very short descriptions lack specifics
+        if (description.length < 200) {
+            ghostScore += 0.20;
             riskFactors.push('Very short job description');
+        }
+        
+        // Ghost-negative indicators (concrete details)
+        if (descLower.match(/deadline|apply by|start date|timeline/) || 
+            descLower.match(/\$\d+.*-.*\$\d+|salary.*range|compensation.*\$\d+/)) {
+            keyFactors.push('Concrete timeline or compensation details');
+        }
+        
+        // Technical stack/tools mentioned (positive indicator)
+        if (descLower.match(/(javascript|python|java|react|angular|sql|aws|kubernetes|docker)/)) {
+            keyFactors.push('Specific technical requirements mentioned');
         }
     }
 
-    // Cap at 100%
-    ghostProbability = Math.min(ghostProbability, 1.0);
+    // === 4. TITLE ANALYSIS ===
+    if (title) {
+        const titleLower = title.toLowerCase();
+        
+        // Urgent language (high ghost indicator)
+        if (titleLower.includes('urgent') || titleLower.includes('immediate') || 
+            titleLower.includes('asap') || titleLower.includes('start immediately')) {
+            ghostScore += 0.25;
+            riskFactors.push('Urgent hiring language');
+        }
+        
+        // Very long titles often indicate fake positions
+        if (title.length > 60) {
+            ghostScore += 0.10;
+            riskFactors.push('Overly long job title');
+        }
+        
+        // Generic titles
+        if (titleLower.match(/^(developer|engineer|analyst|manager|specialist|coordinator)$/)) {
+            ghostScore += 0.05;
+            riskFactors.push('Very generic job title');
+        }
+    }
 
-    // Determine risk level
+    // === 5. COMPANY ANALYSIS ===
+    if (company) {
+        const companyLower = company.toLowerCase();
+        
+        // Staffing/consulting companies often post speculative positions
+        if (companyLower.includes('staffing') || companyLower.includes('consulting') ||
+            companyLower.includes('solutions') || companyLower.includes('services') ||
+            companyLower.includes('group') || companyLower.includes('associates')) {
+            ghostScore += 0.15;
+            riskFactors.push('Staffing/consulting company posting');
+        }
+        
+        // Generic company names
+        if (companyLower.includes('confidential') || companyLower.includes('fortune') ||
+            companyLower.includes('leading') || companyLower.includes('major')) {
+            ghostScore += 0.20;
+            riskFactors.push('Anonymous or generic company name');
+        }
+    }
+
+    // === 6. POSITIVE ADJUSTMENTS ===
+    // Reduce ghost score for positive indicators
+    if (keyFactors.length >= 3) {
+        ghostScore -= 0.15; // Multiple positive indicators
+        keyFactors.push('Multiple positive indicators found');
+    }
+
+    // === 7. FINAL SCORING ===
+    // Cap probability between 0 and 1
+    const ghostProbability = Math.max(0, Math.min(ghostScore, 1.0));
+    
+    // Determine risk level with updated thresholds
     let riskLevel;
-    if (ghostProbability >= 0.7) {
+    if (ghostProbability >= 0.6) {        // Lowered from 0.7 to be more sensitive
         riskLevel = 'high';
-    } else if (ghostProbability >= 0.4) {
+        confidence = 0.85;
+    } else if (ghostProbability >= 0.35) { // Lowered from 0.4 for better granularity
         riskLevel = 'medium';
+        confidence = 0.75;
     } else {
         riskLevel = 'low';
+        confidence = 0.80;
     }
 
     return {
         ghostProbability,
         riskLevel,
         riskFactors,
-        keyFactors
+        keyFactors,
+        confidence,
+        algorithmVersion,
+        metadata: {
+            totalRiskFactors: riskFactors.length,
+            totalKeyFactors: keyFactors.length,
+            scoringModel: 'weighted_accumulative_v1.7'
+        }
     };
+}
+
+// Helper function to check if a role qualifies for extended posting window
+function checkExceptionRoles(title, company) {
+    if (!title) return false;
+    
+    const titleLower = title.toLowerCase();
+    const companyLower = (company || '').toLowerCase();
+    
+    // Government roles
+    if (companyLower.includes('government') || companyLower.includes('federal') ||
+        companyLower.includes('state') || companyLower.includes('county') ||
+        companyLower.includes('city') || titleLower.includes('clearance')) {
+        return true;
+    }
+    
+    // Academic positions
+    if (companyLower.includes('university') || companyLower.includes('college') ||
+        companyLower.includes('institute') || titleLower.includes('professor') ||
+        titleLower.includes('faculty') || titleLower.includes('researcher')) {
+        return true;
+    }
+    
+    // Executive roles
+    if (titleLower.includes('director') || titleLower.includes('vp') ||
+        titleLower.includes('vice president') || titleLower.includes('cto') ||
+        titleLower.includes('ceo') || titleLower.includes('chief')) {
+        return true;
+    }
+    
+    return false;
 }
 
 // Duplicate job detection algorithm
