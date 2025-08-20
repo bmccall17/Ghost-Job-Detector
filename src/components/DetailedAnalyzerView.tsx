@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Clock, CheckCircle, AlertTriangle, Info, Copy, Eye, EyeOff, TrendingUp, Shield } from 'lucide-react'
+import React from 'react'
+import { Clock, CheckCircle, AlertTriangle, Info, Copy, Eye, TrendingUp, Shield } from 'lucide-react'
 
 interface DetailedAnalyzerViewProps {
   analysisData: {
@@ -43,7 +43,6 @@ export const DetailedAnalyzerView: React.FC<DetailedAnalyzerViewProps> = ({
   analysisData,
   isVisible
 }) => {
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
 
   const copyAnalysisId = () => {
     if (analysisData.analysisDetails?.analysisId) {
@@ -200,7 +199,7 @@ export const DetailedAnalyzerView: React.FC<DetailedAnalyzerViewProps> = ({
                   </div>
                 </div>
                 <div className="mt-2 text-xs text-gray-500">
-                  Thresholds: High ≥60% • Medium ≥35% • Low <35%
+                  Thresholds: High ≥60% • Medium ≥35% • Low &lt;35%
                 </div>
               </div>
               

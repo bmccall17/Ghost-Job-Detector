@@ -23,6 +23,7 @@ export const ghostJobStats = {
   opaqueListingGhosting: "11%"
 }
 
+// Updated with 2025 Ghost Job Report - v0.1.7
 export const newsArticles: NewsArticle[] = [
   {
     id: '1',
@@ -30,7 +31,7 @@ export const newsArticles: NewsArticle[] = [
     excerpt: 'Comprehensive 2025 research reveals 67% of job applications are ghosted by staffing agencies, while salary transparency reduces ghosting to just 1%. Healthcare leads ghosting rates at 29%.',
     url: 'https://jobright.ai/blog/the-2025-ghosted-jobs-report%EF%BC%9Athe-hidden-crisis-costing-job-seekers-time-and-companies-top-talent/',
     source: 'JobRight.ai',
-    publishedDate: '2025-01-15',
+    publishedDate: '2024-12-15',
     type: 'Research',
     tags: ['2025 data', 'comprehensive study', 'salary transparency', 'industry statistics', 'ghosting rates']
   },
@@ -45,7 +46,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['warning signs', 'job seekers', 'red flags']
   },
   {
-    id: '2',
+    id: '3',
     title: 'Ghost Jobs: What they are and how to avoid them',
     excerpt: 'Understanding the phenomenon of ghost jobs and practical strategies to identify and avoid wasting time on fake job postings.',
     url: 'https://www.rezi.ai/posts/ghost-jobs',
@@ -55,7 +56,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['avoidance strategies', 'job search', 'productivity']
   },
   {
-    id: '3',
+    id: '4',
     title: 'How to spot ghost jobs in your first job search and what to do instead',
     excerpt: 'First-time job seekers face unique challenges when encountering ghost jobs. This guide provides actionable steps for new graduates entering the job market.',
     url: 'https://www.collegerecruiter.com/blog/2025/07/14/how-to-spot-ghost-jobs-in-your-first-job-search-and-what-to-do-instead',
@@ -65,7 +66,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['first job', 'college graduates', 'job search tips']
   },
   {
-    id: '4',
+    id: '5',
     title: 'The increasing presence of ghost jobs and tips to spot them',
     excerpt: 'Staffing professionals share insights on the growing trend of ghost job postings and provide expert advice on identification techniques.',
     url: 'https://staffingbystarboard.com/blog/the-increasing-presence-of-ghost-jobs-and-tips-to-spot-them-during-your-job-search/',
@@ -75,7 +76,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['staffing industry', 'expert insights', 'detection methods']
   },
   {
-    id: '5',
+    id: '6',
     title: 'What is a ghost job?',
     excerpt: 'Indeed\'s comprehensive guide to understanding ghost jobs, their impact on job seekers, and how they affect the broader employment landscape.',
     url: 'https://www.indeed.com/career-advice/news/ghost-job',
@@ -85,7 +86,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['definition', 'employment trends', 'job market analysis']
   },
   {
-    id: '6',
+    id: '7',
     title: 'Ghost jobs are wreaking havoc on hiring',
     excerpt: 'Wall Street Journal investigation into how ghost job postings are disrupting traditional hiring processes and affecting both employers and job seekers.',
     url: 'https://www.wsj.com/lifestyle/careers/ghost-jobs-2c0dcd4e',
@@ -95,7 +96,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['hiring disruption', 'industry analysis', 'employer perspective']
   },
   {
-    id: '7',
+    id: '8',
     title: 'Ghost job - Wikipedia',
     excerpt: 'Comprehensive overview of ghost jobs phenomenon, including definitions, causes, impacts, and research findings from academic and industry sources.',
     url: 'https://en.wikipedia.org/wiki/Ghost_job',
@@ -105,7 +106,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['encyclopedia', 'research compilation', 'academic sources']
   },
   {
-    id: '8',
+    id: '9',
     title: 'How to identify ghost jobs - Reddit Discussion',
     excerpt: 'Community-driven discussion on practical methods for identifying ghost job postings, with real-world experiences shared by job seekers.',
     url: 'https://www.reddit.com/r/overemployed/comments/1git85c/how_to_identify_ghost_jobs/',
