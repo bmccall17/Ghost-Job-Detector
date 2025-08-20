@@ -1,8 +1,16 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
-## Project Status: v0.1.6 🚀
+## Project Status: v0.1.7 🚀
 
-**Latest Updates (v0.1.6):**
+**Latest Updates (v0.1.7):**
+- ✅ **News & Impact Feature**: Complete implementation replacing "Powered by AI" text
+- ✅ **Interactive Statistics Tooltip**: Displays key ghost job statistics on hover (43% prevalence, 67-day duration)
+- ✅ **Resource Library**: 9 curated articles from reputable sources (WSJ, Indeed, New York Post, etc.)
+- ✅ **Blog-Style Interface**: Full-screen news page with filtering, sorting, and responsive design
+- ✅ **Content Management**: Filter by type, tags, and chronological sorting functionality
+- ✅ **Documentation Cleanup**: All project docs updated and consolidated to v0.1.7
+
+**Previous Updates (v0.1.6):**
 - 🚨 **CRITICAL FIX**: Frontend API endpoint configuration resolved
 - ✅ Database writing functionality fully restored
 - ✅ Analysis results now properly stored in production database

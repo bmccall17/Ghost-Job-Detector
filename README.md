@@ -1,24 +1,25 @@
-# Ghost Job Detector v0.1.5 🚀 August 18, 2025
+# Ghost Job Detector v0.1.7 🚀 December 18, 2024
 
-**MAJOR RELEASE:** AI Thinking Terminal with real-time analysis transparency, WebLLM integration, and enhanced duplicate detection. Version 0.1.5 delivers breakthrough features including live AI reasoning visibility, client-side processing, and comprehensive analysis workflows.
+**MAJOR RELEASE:** News & Impact feature with comprehensive educational resources, interactive statistics, and curated research library. Version 0.1.7 transforms the app from a detection tool into a complete educational platform for understanding and combating ghost jobs.
 
-**MILESTONE ACHIEVED:** A production-ready web application for detecting fake job postings with intelligent analysis, universal data persistence, and complete AI transparency. Version 0.1.5 successfully delivers AI thinking terminal, WebLLM processing, and real-time analysis logging.
+**MILESTONE ACHIEVED:** A comprehensive ghost job detection and education platform with AI transparency, database persistence, and a complete resource library. Version 0.1.7 successfully delivers News & Impact functionality, enhanced user education, and consolidated documentation.
 
-## 🎯 v0.1.5 Features Delivered
+## 🎯 v0.1.7 Features Delivered
 
-### ✅ **AI Thinking Terminal - NEW**
-- **Real-time AI reasoning**: Live terminal showing step-by-step analysis thoughts
-- **Authentic terminal styling**: macOS-like terminal with interactive controls
-- **Color-coded logging**: Info, process, analysis, warning, success, and error logs
-- **Interactive features**: Minimize, fullscreen, copy logs, download logs
-- **Educational transparency**: Complete visibility into AI decision-making process
+### ✅ **News & Impact Feature - NEW**
+- **Interactive Button**: Replaces "Powered by AI" with engaging educational content access
+- **Statistics Tooltip**: Hover displays key ghost job stats (43% prevalence, 67-day duration)  
+- **Blog-Style Page**: Full-screen news experience with professional layout
+- **Resource Library**: 9 curated articles from reputable sources (WSJ, Indeed, NY Post, etc.)
+- **Content Management**: Smart filtering by type, tags, and chronological sorting
+- **Responsive Design**: Mobile-optimized interface with touch-friendly controls
 
-### ✅ **WebLLM Integration - NEW**
-- **Client-side AI processing**: WebGPU-powered local analysis with WebLLM
-- **Server fallback**: Groq API integration when WebLLM unavailable
-- **Advanced analysis structure**: Detailed thought process and verification tracking
-- **External verification simulation**: Company research and link checking
-- **Cross-platform detection**: Enhanced duplicate recognition across platforms
+### ✅ **Educational Content System**
+- **Comprehensive Research**: Articles from Wikipedia, Indeed, Wall Street Journal, New York Post
+- **Expert Insights**: Staffing industry perspectives and professional guidance
+- **Community Resources**: Reddit discussions and real-world user experiences
+- **Solution Highlighting**: Featured upstream solution (hiring.cafe) for employers
+- **Action-Oriented**: Job seeker tips and practical avoidance strategies
 
 ### ✅ **Enhanced Intelligent Parsing System**
 - **Advanced Duplicate Detection**: Cross-platform recognition with smart similarity thresholds

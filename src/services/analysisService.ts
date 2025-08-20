@@ -824,7 +824,7 @@ export class AnalysisService {
           ],
           metadata: {
             storage: 'mock',
-            version: 'v0.1.0',
+            version: 'v0.1.7',
             cached: false,
             analysisDate: new Date().toISOString()
           }
