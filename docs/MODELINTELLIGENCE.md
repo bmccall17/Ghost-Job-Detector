@@ -323,6 +323,6 @@ Ghost Job Detector v0.1 has successfully established a functional rule-based det
 The roadmap outlined provides a clear path from the current rule-based system to an advanced AI-powered detection engine while maintaining the reliability and transparency that makes the v0.1 system effective.
 
 ---
-*Next Review: September 15, 2025*  
+*Next Review: Ongoing 2025*  
 *Responsible Team: AI/ML Development*  
 *Status: Foundation Complete, Ready for Enhancement*
