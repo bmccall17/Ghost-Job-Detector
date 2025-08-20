@@ -72,7 +72,12 @@
       "Bash(git --version)",
       "Bash(vercel:*)",
       "Bash(npm:*)",
-      "WebFetch(domain:jobright.ai)"
+      "WebFetch(domain:jobright.ai)",
+      "WebFetch(domain:nypost.com)",
+      "WebFetch(domain:www.collegerecruiter.com)",
+      "WebFetch(domain:www.wsj.com)",
+      "WebFetch(domain:www.indeed.com)",
+      "WebFetch(domain:www.rezi.ai)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

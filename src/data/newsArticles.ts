@@ -27,16 +27,36 @@ export const ghostJobStats = {
 export const newsArticles: NewsArticle[] = [
   {
     id: '1',
+    title: 'How to spot ghost jobs in your first job search and what to do instead',
+    excerpt: 'First-time job seekers face unique challenges when encountering ghost jobs. This guide provides actionable steps for new graduates entering the job market.',
+    url: 'https://www.collegerecruiter.com/blog/2025/07/14/how-to-spot-ghost-jobs-in-your-first-job-search-and-what-to-do-instead',
+    source: 'College Recruiter',
+    publishedDate: '2025-07-14',
+    type: 'Job Seeker Tips',
+    tags: ['first job', 'college graduates', 'job search tips']
+  },
+  {
+    id: '2',
+    title: 'Ghost Jobs: What they are and how to avoid them',
+    excerpt: 'Understanding the phenomenon of ghost jobs and practical strategies to identify and avoid wasting time on fake job postings.',
+    url: 'https://www.rezi.ai/posts/ghost-jobs',
+    source: 'Rezi',
+    publishedDate: '2025-07-08',
+    type: 'Job Seeker Tips',
+    tags: ['avoidance strategies', 'job search', 'productivity']
+  },
+  {
+    id: '3',
     title: 'The 2025 Ghosted Jobs Report: The Hidden Crisis Costing Job Seekers Time and Companies Top Talent',
     excerpt: 'Comprehensive 2025 research reveals 67% of job applications are ghosted by staffing agencies, while salary transparency reduces ghosting to just 1%. Healthcare leads ghosting rates at 29%.',
     url: 'https://jobright.ai/blog/the-2025-ghosted-jobs-report%EF%BC%9Athe-hidden-crisis-costing-job-seekers-time-and-companies-top-talent/',
     source: 'JobRight.ai',
-    publishedDate: '2024-12-15',
+    publishedDate: '2025-07-01',
     type: 'Research',
     tags: ['2025 data', 'comprehensive study', 'salary transparency', 'industry statistics', 'ghosting rates']
   },
   {
-    id: '2',
+    id: '4',
     title: 'What\'s a ghost job listing? These are the warning signs',
     excerpt: 'Ghost job listings are becoming increasingly common, with experts warning job seekers to watch for specific red flags that indicate a posting may be fake or unfillable.',
     url: 'https://nypost.com/2024/10/03/lifestyle/whats-a-ghost-job-listing-these-are-the-warning-signs/',
@@ -44,26 +64,6 @@ export const newsArticles: NewsArticle[] = [
     publishedDate: '2024-10-03',
     type: 'News Report',
     tags: ['warning signs', 'job seekers', 'red flags']
-  },
-  {
-    id: '3',
-    title: 'Ghost Jobs: What they are and how to avoid them',
-    excerpt: 'Understanding the phenomenon of ghost jobs and practical strategies to identify and avoid wasting time on fake job postings.',
-    url: 'https://www.rezi.ai/posts/ghost-jobs',
-    source: 'Rezi',
-    publishedDate: '2024-08-15',
-    type: 'Job Seeker Tips',
-    tags: ['avoidance strategies', 'job search', 'productivity']
-  },
-  {
-    id: '4',
-    title: 'How to spot ghost jobs in your first job search and what to do instead',
-    excerpt: 'First-time job seekers face unique challenges when encountering ghost jobs. This guide provides actionable steps for new graduates entering the job market.',
-    url: 'https://www.collegerecruiter.com/blog/2025/07/14/how-to-spot-ghost-jobs-in-your-first-job-search-and-what-to-do-instead',
-    source: 'College Recruiter',
-    publishedDate: '2024-07-14',
-    type: 'Job Seeker Tips',
-    tags: ['first job', 'college graduates', 'job search tips']
   },
   {
     id: '5',
