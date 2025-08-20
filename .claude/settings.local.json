@@ -71,7 +71,8 @@
       "Bash(grep:*)",
       "Bash(git --version)",
       "Bash(vercel:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "WebFetch(domain:jobright.ai)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

@@ -12,12 +12,30 @@ export interface NewsArticle {
 export const ghostJobStats = {
   prevalence: "43%",
   avgPostingDuration: "67 days",
-  mostAffectedIndustries: ["Tech", "Marketing", "Finance"]
+  mostAffectedIndustries: ["Healthcare (29%)", "Manufacturing (18%)", "Engineering (15%)"],
+  ghostingByAgencies: "67%",
+  directEmployerGhosting: "2%",
+  timeWastedPerYear: "9 hours",
+  remoteGhostingRate: "11%",
+  onsiteGhostingRate: "8%",
+  wouldNotReapply: "43%",
+  transparentSalaryGhosting: "1%",
+  opaqueListingGhosting: "11%"
 }
 
 export const newsArticles: NewsArticle[] = [
   {
     id: '1',
+    title: 'The 2025 Ghosted Jobs Report: The Hidden Crisis Costing Job Seekers Time and Companies Top Talent',
+    excerpt: 'Comprehensive 2025 research reveals 67% of job applications are ghosted by staffing agencies, while salary transparency reduces ghosting to just 1%. Healthcare leads ghosting rates at 29%.',
+    url: 'https://jobright.ai/blog/the-2025-ghosted-jobs-report%EF%BC%9Athe-hidden-crisis-costing-job-seekers-time-and-companies-top-talent/',
+    source: 'JobRight.ai',
+    publishedDate: '2025-01-15',
+    type: 'Research',
+    tags: ['2025 data', 'comprehensive study', 'salary transparency', 'industry statistics', 'ghosting rates']
+  },
+  {
+    id: '2',
     title: 'What\'s a ghost job listing? These are the warning signs',
     excerpt: 'Ghost job listings are becoming increasingly common, with experts warning job seekers to watch for specific red flags that indicate a posting may be fake or unfillable.',
     url: 'https://nypost.com/2024/10/03/lifestyle/whats-a-ghost-job-listing-these-are-the-warning-signs/',
@@ -97,7 +115,7 @@ export const newsArticles: NewsArticle[] = [
     tags: ['community insights', 'practical tips', 'real experiences']
   },
   {
-    id: '9',
+    id: '10',
     title: 'Hiring.cafe - Combat Ghost Jobs Upstream',
     excerpt: 'A strategic solution to combat ghost job listings at their source by improving hiring practices and transparency in the recruitment process.',
     url: 'https://hiring.cafe/',
