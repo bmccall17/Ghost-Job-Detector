@@ -3,11 +3,23 @@ import { BarChart3, History as HistoryIcon, Shield } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 import { JobAnalysisDashboard } from '@/features/detection/JobAnalysisDashboard'
 import { AnalysisHistory } from '@/features/detection/AnalysisHistory'
+import { NewsImpactButton } from '@/components/NewsImpactButton'
+import { NewsImpactPage } from '@/components/NewsImpactPage'
 
-type ActiveView = 'dashboard' | 'history'
+type ActiveView = 'dashboard' | 'history' | 'news'
 
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard')
+
+  // If viewing news page, render it directly without navigation
+  if (activeView === 'news') {
+    return (
+      <>
+        <NewsImpactPage onBack={() => setActiveView('dashboard')} />
+        <Analytics />
+      </>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -20,7 +32,7 @@ function App() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Ghost Job Detector</h1>
-                <p className="text-xs text-gray-500">Powered by AI</p>
+                <NewsImpactButton onClick={() => setActiveView('news')} />
               </div>
             </div>
 
