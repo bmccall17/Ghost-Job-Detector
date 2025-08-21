@@ -1,0 +1,35 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield background -->
+  <path d="M32 4L48 12V28C48 40 40 50 32 56C24 50 16 40 16 28V12L32 4Z" fill="#1E293B" stroke="#0F172A" stroke-width="2"/>
+  
+  <!-- Shield inner glow -->
+  <path d="M32 6L45 13V27C45 37.5 38.5 46 32 51C25.5 46 19 37.5 19 27V13L32 6Z" fill="#334155"/>
+  
+  <!-- Ghost body -->
+  <ellipse cx="32" cy="32" rx="12" ry="14" fill="#F1F5F9"/>
+  
+  <!-- Ghost wavy bottom -->
+  <path d="M20 40C20 36 24 32 28 32C32 32 36 36 36 40C40 40 44 36 44 40V46C44 48 42 50 40 50H24C22 50 20 48 20 46V40Z" fill="#F1F5F9"/>
+  
+  <!-- Ghost eyes -->
+  <circle cx="28" cy="28" r="2" fill="#0F172A"/>
+  <circle cx="36" cy="28" r="2" fill="#0F172A"/>
+  
+  <!-- Ghost mouth (surprised/concerned) -->
+  <ellipse cx="32" cy="34" rx="2" ry="3" fill="#0F172A"/>
+  
+  <!-- Shield highlight -->
+  <path d="M32 6L42 12V26C42 35 37 42 32 46V6Z" fill="url(#shieldGradient)" opacity="0.3"/>
+  
+  <!-- Warning symbol on shield -->
+  <circle cx="32" cy="18" r="1.5" fill="#EF4444"/>
+  <rect x="31" y="20" width="2" height="6" rx="1" fill="#EF4444"/>
+  
+  <!-- Define gradient -->
+  <defs>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#64748B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+</svg>

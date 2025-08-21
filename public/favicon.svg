@@ -1,0 +1,21 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield background -->
+  <path d="M16 2L24 6V14C24 20 20 25 16 28C12 25 8 20 8 14V6L16 2Z" fill="#1E293B" stroke="#0F172A" stroke-width="1"/>
+  
+  <!-- Ghost body -->
+  <ellipse cx="16" cy="16" rx="6" ry="7" fill="#F1F5F9"/>
+  
+  <!-- Ghost wavy bottom -->
+  <path d="M10 20C10 18 12 16 14 16C16 16 18 18 18 20C20 20 22 18 22 20V23C22 24 21 25 20 25H12C11 25 10 24 10 23V20Z" fill="#F1F5F9"/>
+  
+  <!-- Ghost eyes -->
+  <circle cx="14" cy="14" r="1" fill="#0F172A"/>
+  <circle cx="18" cy="14" r="1" fill="#0F172A"/>
+  
+  <!-- Ghost mouth -->
+  <ellipse cx="16" cy="17" rx="1" ry="1.5" fill="#0F172A"/>
+  
+  <!-- Warning symbol -->
+  <circle cx="16" cy="9" r="0.8" fill="#EF4444"/>
+  <rect x="15.5" y="10" width="1" height="3" rx="0.5" fill="#EF4444"/>
+</svg>

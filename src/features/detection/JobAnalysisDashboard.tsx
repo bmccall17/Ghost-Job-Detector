@@ -382,19 +382,19 @@ export const JobAnalysisDashboard: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Job Analysis Dashboard</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Job Analysis Dashboard</h1>
+        <p className="text-gray-600 dark:text-gray-300">
           Analyze job postings from URLs, PDF uploads, or CSV files for bulk ghost job detection
         </p>
       </div>
 
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         <button
           onClick={() => setActiveTab('url')}
           className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'url'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           <LinkIcon className="w-4 h-4" />
@@ -404,8 +404,8 @@ export const JobAnalysisDashboard: React.FC = () => {
           onClick={() => setActiveTab('pdf')}
           className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'pdf'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           <Upload className="w-4 h-4" />
@@ -414,7 +414,7 @@ export const JobAnalysisDashboard: React.FC = () => {
       </div>
 
       {activeTab === 'url' && (
-        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
           <form onSubmit={urlForm.handleSubmit(onSubmitUrl)} className="space-y-4">
             <div>
               <label htmlFor="jobUrl" className="block text-sm font-medium text-gray-700 mb-2">
@@ -546,7 +546,7 @@ export const JobAnalysisDashboard: React.FC = () => {
       )}
 
       {activeTab === 'pdf' && (
-        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
           <form onSubmit={pdfForm.handleSubmit(onSubmitPdf)} className="space-y-6">
             <PDFUpload
               onFileSelect={(file) => {
@@ -643,7 +643,7 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       {/* Bulk analysis section hidden for v0.1 */}
       {false && (
-        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Bulk Job Analysis</h3>
             <p className="text-sm text-gray-600 mb-4">
