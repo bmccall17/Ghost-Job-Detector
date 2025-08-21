@@ -1,8 +1,17 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
-## Project Status: v0.1.7 🚀
+## Project Status: v0.1.8 🎨
 
-**Latest Updates (v0.1.7):**
+**Latest Updates (v0.1.8):**
+- ✅ **Fun Ghost+Prohibition Logo**: New engaging logo design with ghost character and "no ghost jobs" prohibition symbol
+- ✅ **Dark Theme Implementation**: Complete dark theme with light/dark toggle, localStorage persistence, professional color palette
+- ✅ **Dark Theme Contrast Fixes**: Comprehensive visibility improvements for all UI elements in dark mode
+- ✅ **Form Control Theming**: All input fields, dropdowns, and modals properly styled for dark theme
+- ✅ **Modal Close Button Fixes**: All X buttons now properly visible with appropriate contrast
+- ✅ **Database Writing Issue Resolution**: Fixed critical Prisma schema and API endpoint configuration issues
+- ✅ **Security Hardening**: Enterprise-grade security framework with GDPR/CCPA compliance, rate limiting, input validation
+
+**Previous Updates (v0.1.7):**
 - ✅ **News & Impact Feature**: Complete implementation replacing "Powered by AI" text
 - ✅ **Interactive Statistics Tooltip**: Displays key ghost job statistics on hover (43% prevalence, 67-day duration)
 - ✅ **Resource Library**: 9 curated articles from reputable sources (WSJ, Indeed, New York Post, etc.)
@@ -56,6 +65,46 @@
 - **Metadata Storage**: Detailed processing information now properly stored and retrievable
 - **History Integration**: Analysis history properly displays detailed analyzer data
 - **Response Format**: Standardized API response structure with backward compatibility
+
+## Major UI/UX Overhaul (v0.1.8)
+
+### 🎨 Design & Branding
+- **New Logo Design**: Fun ghost+prohibition symbol replacing serious shield design
+  - Cute ghost character with surprised expression
+  - Clear "no ghost jobs" prohibition circle and slash
+  - Professional yet approachable brand identity
+  - SVG format with 32x32 favicon and 64x64 logo versions
+- **Dark Theme Implementation**: Complete dark mode with professional aesthetics
+  - Default dark theme with light theme toggle button
+  - Theme persistence via localStorage
+  - Custom color palette optimized for ghost job detection branding
+  - Smooth transitions and hover effects
+
+### 🌙 Dark Theme Technical Implementation
+- **ThemeProvider Context**: React context for global theme state management
+- **Tailwind CSS Integration**: Class-based dark mode strategy with custom variables
+- **Component Coverage**: Every UI element properly themed including:
+  - Navigation and headers (`dark:bg-gray-800`, `dark:text-gray-100`)
+  - Form controls and inputs (`dark:bg-gray-700`, `dark:placeholder-gray-400`)
+  - Tables and data displays (`dark:bg-gray-700`, `dark:hover:bg-gray-700`)
+  - Modals and popups (`dark:bg-gray-800`, `dark:border-gray-600`)
+  - Dropdown menus and select elements
+  - Modal close buttons with proper contrast
+- **Accessibility Compliance**: Proper contrast ratios meeting WCAG guidelines
+
+### 🔧 Critical Fixes & Infrastructure
+- **Database Writing Resolution**: Fixed Prisma schema deployment issues
+  - Corrected SQLite vs PostgreSQL provider conflicts
+  - Restored proper Decimal types for production
+  - Fixed missing environment variable configuration
+- **Security Hardening**: Enterprise-grade security implementation
+  - DOMPurify + validator.js integration for input sanitization
+  - Multi-tier rate limiting system (IP-based and endpoint-specific)
+  - GDPR/CCPA compliance framework with data subject rights
+  - Enhanced error logging and security event tracking
+- **Build Optimization**: Resolved TypeScript compilation errors
+  - Fixed unused import issues
+  - Proper component cleanup and optimization
 
 ## ⚠️ CRITICAL DEPLOYMENT CONSTRAINT ⚠️
 
