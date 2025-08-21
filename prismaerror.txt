@@ -1,0 +1,53 @@
+[08:20:06.648] Running build in Washington, D.C., USA (East) – iad1
+[08:20:06.649] Build machine configuration: 2 cores, 8 GB
+[08:20:06.671] Cloning github.com/bmccall17/Ghost-Job-Detector (Branch: main, Commit: edef555)
+[08:20:07.312] Cloning completed: 641.000ms
+[08:20:09.561] Restored build cache from previous deployment (3dxUnoZU4Ztqjf59YQ85P9uCdPzi)
+[08:20:10.053] Running "vercel build"
+[08:20:10.446] Vercel CLI 46.0.2
+[08:20:11.249] Installing dependencies...
+[08:20:13.273] 
+[08:20:13.273] > ghost-job-detector-dashboard@0.1.8 postinstall
+[08:20:13.273] > prisma generate
+[08:20:13.273] 
+[08:20:14.848] Prisma schema loaded from prisma/schema.prisma
+[08:20:15.275] 
+[08:20:15.277] ✔ Generated Prisma Client (v6.14.0) to ./node_modules/@prisma/client in 250ms
+[08:20:15.277] 
+[08:20:15.277] Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+[08:20:15.277] 
+[08:20:15.278] Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+[08:20:15.278] 
+[08:20:15.301] 
+[08:20:15.302] changed 1 package in 4s
+[08:20:15.302] 
+[08:20:15.302] 114 packages are looking for funding
+[08:20:15.302]   run `npm fund` for details
+[08:20:15.338] Running "npm run build"
+[08:20:15.451] 
+[08:20:15.452] > ghost-job-detector-dashboard@0.1.8 build
+[08:20:15.452] > prisma generate && prisma db push --accept-data-loss && tsc && vite build
+[08:20:15.452] 
+[08:20:16.728] Prisma schema loaded from prisma/schema.prisma
+[08:20:17.047] 
+[08:20:17.048] ✔ Generated Prisma Client (v6.14.0) to ./node_modules/@prisma/client in 141ms
+[08:20:17.048] 
+[08:20:17.048] Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+[08:20:17.048] 
+[08:20:17.048] Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+[08:20:17.048] 
+[08:20:18.389] Prisma schema loaded from prisma/schema.prisma
+[08:20:18.404] Error: Prisma schema validation - (get-config wasm)
+[08:20:18.405] Error code: P1012
+[08:20:18.405] error: Error validating datasource `db`: the URL must start with the protocol `file:`.
+[08:20:18.405]   -->  prisma/schema.prisma:10
+[08:20:18.405]    | 
+[08:20:18.405]  9 |   provider = "sqlite"
+[08:20:18.406] 10 |   url      = env("DATABASE_URL")
+[08:20:18.406]    | 
+[08:20:18.406] 
+[08:20:18.406] Validation Error Count: 1
+[08:20:18.406] [Context: getConfig]
+[08:20:18.406] 
+[08:20:18.406] Prisma CLI Version : 6.14.0
+[08:20:18.449] Error: Command "npm run build" exited with 1
