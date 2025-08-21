@@ -98,9 +98,9 @@ export const JobReportModal: React.FC<JobReportModalProps> = ({ analysis, isOpen
             />
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" />
             </button>
           </div>
         </div>

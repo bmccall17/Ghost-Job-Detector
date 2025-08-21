@@ -157,7 +157,7 @@ export const AIThinkingTerminal: React.FC<AIThinkingTerminalProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+              className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-400 transition-colors"
               title="Close terminal"
             >
               <X className="w-4 h-4" />

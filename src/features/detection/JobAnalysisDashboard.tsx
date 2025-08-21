@@ -425,7 +425,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 type="url"
                 id="jobUrl"
                 placeholder="https://www.linkedin.com/jobs/view/1234567890 or https://careers.company.com/jobs/123"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {urlForm.formState.errors.jobUrl && (
                 <p className="mt-1 text-sm text-red-600">{urlForm.formState.errors.jobUrl.message}</p>
@@ -671,7 +671,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 value={linkedInSearchUrl}
                 onChange={(e) => setLinkedInSearchUrl(e.target.value)}
                 placeholder="https://www.linkedin.com/jobs/search/?currentJobId=4283562303&f_C=2582861..."
-                className="w-full h-20 text-xs px-2 py-1 border border-gray-300 rounded-md resize-none"
+                className="w-full h-20 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 resize-none"
               />
               <button 
                 onClick={handleLinkedInSearchAnalysis}
@@ -691,7 +691,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 value={careerSiteUrl}
                 onChange={(e) => setCareerSiteUrl(e.target.value)}
                 placeholder="https://careers.company.com/jobs"
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md"
+                className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
               <button 
                 onClick={handleCareerSiteAnalysis}
