@@ -505,8 +505,7 @@ export const JobAnalysisDashboard: React.FC = () => {
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
-                  <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Analysis Results</h3>
                 </div>
                 <button
                   onClick={() => handleShowFeedback(currentAnalysis)}
@@ -519,7 +518,7 @@ export const JobAnalysisDashboard: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">{currentAnalysis.title}</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{currentAnalysis.title}</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300">{currentAnalysis.company}</p>
                   </div>
                   <GhostJobBadge 
@@ -601,8 +600,7 @@ export const JobAnalysisDashboard: React.FC = () => {
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
-                  <NewContributionBadge isNew={currentAnalysis.isNewContribution} />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Analysis Results</h3>
                 </div>
                 <button
                   onClick={() => handleShowFeedback(currentAnalysis)}
@@ -615,7 +613,7 @@ export const JobAnalysisDashboard: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">{currentAnalysis.title}</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{currentAnalysis.title}</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300">{currentAnalysis.company}</p>
                   </div>
                   <GhostJobBadge 
