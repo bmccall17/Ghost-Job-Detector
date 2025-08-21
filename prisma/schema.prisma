@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -84,7 +84,7 @@ model JobListing {
 model Analysis {
   id                String   @id @default(cuid())
   jobListingId      String
-  score             Decimal  @db.Decimal(5,4) // 0.0000 to 1.0000
+  score             Float // 0.0000 to 1.0000
   verdict           AnalysisVerdict
   reasonsJson       Json     // Detailed reason codes and factors
   modelVersion      String
@@ -96,8 +96,8 @@ model Analysis {
   riskFactorsAnalysis Json?   // Warning signs, positive indicators, detailed factors
   recommendation      Json?   // Final recommendation and reasoning
   analysisDetails     Json?   // Analysis ID, processing metadata, technical details
-  modelConfidence     Decimal? @db.Decimal(5,4) // Model confidence score (0-1)
-  ghostProbability    Decimal? @db.Decimal(5,4) // Ghost job probability (0-1)
+  modelConfidence     Float? // Model confidence score (0-1)
+  ghostProbability    Float? // Ghost job probability (0-1)
   analysisId          String?  // Unique analysis identifier for tracking
   
   // Relations
@@ -118,7 +118,7 @@ model KeyFactor {
   jobListingId      String
   factorType        FactorType // 'risk' or 'positive'
   factorDescription String
-  impactScore       Decimal    @db.Decimal(5,4) // Impact weight
+  impactScore       Float // Impact weight
   createdAt         DateTime   @default(now())
   
   // Relations
@@ -136,7 +136,7 @@ model Company {
   name                  String   @unique
   normalizedName        String   @unique // Cleaned company name for deduplication
   totalPostings         Int      @default(0)
-  avgGhostProbability   Decimal  @db.Decimal(5,4) @default(0)
+  avgGhostProbability   Float @default(0)
   lastAnalyzedAt        DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -159,7 +159,7 @@ model ParsingCorrection {
   correctionReason  String?  // Why correction was needed
   domainPattern     String?  // Domain pattern for learning
   urlPattern        String?  // URL pattern for learning
-  confidence        Decimal  @db.Decimal(3,2) @default(1.0) // Confidence in correction
+  confidence        Float @default(1.0) // Confidence in correction
   correctedBy       String?  // User or system that made correction
   isVerified        Boolean  @default(false) // Whether correction has been verified
   createdAt         DateTime @default(now())
@@ -183,7 +183,7 @@ model JobCorrection {
   newValue          String      // Corrected value
   userVerified      Boolean     @default(true) // User confirmed correction
   algorithmVerified Boolean     @default(false) // Algorithm confirmed correction
-  learningWeight    Decimal     @db.Decimal(3,2) @default(0.6) // Weight for ML training
+  learningWeight    Float @default(0.6) // Weight for ML training
   correctionReason  String?     // Why correction was needed
   validationData    Json?       // Validation results and metadata
   isForceCommit     Boolean     @default(false) // Manual override flag
@@ -208,8 +208,8 @@ model AlgorithmFeedback {
   sourceUrl         String   // Original job posting URL
   extractedData     Json     // What algorithm extracted
   correctedData     Json     // What it should have been
-  confidenceScore   Decimal  @db.Decimal(5,4) // Algorithm confidence
-  learningWeight    Decimal  @db.Decimal(3,2) // Weight for training
+  confidenceScore   Float // Algorithm confidence
+  learningWeight    Float // Weight for training
   feedbackType      String   // 'manual_correction', 'validation_result', etc.
   improvementAreas  Json?    // Areas where algorithm can improve
   validationMethod  String?  // How correction was validated
