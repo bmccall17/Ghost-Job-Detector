@@ -417,7 +417,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
           <form onSubmit={urlForm.handleSubmit(onSubmitUrl)} className="space-y-4">
             <div>
-              <label htmlFor="jobUrl" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="jobUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Job URL (LinkedIn, company career pages, Indeed, etc.)
               </label>
               <input
@@ -520,7 +520,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900">{currentAnalysis.title}</h4>
-                    <p className="text-sm text-gray-600">{currentAnalysis.company}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{currentAnalysis.company}</p>
                   </div>
                   <GhostJobBadge 
                     probability={currentAnalysis.ghostProbability}
@@ -529,10 +529,10 @@ export const JobAnalysisDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Key Factors:</h5>
+                  <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Key Factors:</h5>
                   <ul className="space-y-1">
                     {currentAnalysis.factors.map((factor, index) => (
-                      <li key={index} className="text-sm text-gray-600 flex items-start">
+                      <li key={index} className="text-sm text-gray-600 dark:text-gray-300 flex items-start">
                         <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-2 flex-shrink-0" />
                         {factor}
                       </li>
@@ -616,7 +616,7 @@ export const JobAnalysisDashboard: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900">{currentAnalysis.title}</h4>
-                    <p className="text-sm text-gray-600">{currentAnalysis.company}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{currentAnalysis.company}</p>
                   </div>
                   <GhostJobBadge 
                     probability={currentAnalysis.ghostProbability}
@@ -625,10 +625,10 @@ export const JobAnalysisDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Key Factors:</h5>
+                  <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Key Factors:</h5>
                   <ul className="space-y-1">
                     {currentAnalysis.factors.map((factor, index) => (
-                      <li key={index} className="text-sm text-gray-600 flex items-start">
+                      <li key={index} className="text-sm text-gray-600 dark:text-gray-300 flex items-start">
                         <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-2 flex-shrink-0" />
                         {factor}
                       </li>
@@ -646,7 +646,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Bulk Job Analysis</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               Analyze multiple job postings at once using CSV files, LinkedIn search URLs, or career site URLs
             </p>
           </div>

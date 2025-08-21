@@ -97,8 +97,8 @@ export const AnalysisHistory: React.FC = () => {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analysis History</h1>
-          <p className="text-gray-600">Track and export your job analysis results</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analysis History</h1>
+          <p className="text-gray-600 dark:text-gray-300">Track and export your job analysis results</p>
         </div>
       </div>
 
@@ -106,64 +106,64 @@ export const AnalysisHistory: React.FC = () => {
       {isLoadingDatabase && (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-          <span className="text-gray-600">Loading analysis history...</span>
+          <span className="text-gray-600 dark:text-gray-300">Loading analysis history...</span>
         </div>
       )}
 
       {/* Error State */}
       {loadError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{loadError}</p>
-          <p className="text-sm text-red-600 mt-1">Showing local data only.</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-200">{loadError}</p>
+          <p className="text-sm text-red-600 dark:text-red-300 mt-1">Showing local data only.</p>
         </div>
       )}
 
       {!isLoadingDatabase && combinedAnalyses.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Analyzed</p>
-                <p className="text-xl font-semibold text-gray-900">{stats.total}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Total Analyzed</p>
+                <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.total}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-red-100 rounded-lg">
                 <div className="w-5 h-5 bg-red-600 rounded" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">High Risk</p>
-                <p className="text-xl font-semibold text-gray-900">{stats.highRisk}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">High Risk</p>
+                <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.highRisk}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-yellow-100 rounded-lg">
                 <div className="w-5 h-5 bg-yellow-600 rounded" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Medium Risk</p>
-                <p className="text-xl font-semibold text-gray-900">{stats.mediumRisk}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Medium Risk</p>
+                <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.mediumRisk}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-green-100 rounded-lg">
                 <div className="w-5 h-5 bg-green-600 rounded" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Low Risk</p>
-                <p className="text-xl font-semibold text-gray-900">{stats.lowRisk}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Low Risk</p>
+                <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.lowRisk}</p>
               </div>
             </div>
           </div>

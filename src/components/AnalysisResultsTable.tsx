@@ -94,8 +94,8 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
 
   if (results.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <Filter className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <Filter className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
         <p>No analysis results yet</p>
         <p className="text-sm">Analyze some jobs to see results here</p>
       </div>
@@ -130,7 +130,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
 
         {selectedResults.size > 0 && (
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-300">
               {selectedResults.size} selected
             </span>
             <button
@@ -151,7 +151,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <table className="w-full table-fixed">
           <thead className="bg-gray-50">
             <tr>
@@ -163,10 +163,10 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   className="rounded border-gray-300"
                 />
               </th>
-              <th className="w-2/5 text-left px-4 py-3 text-sm font-medium text-gray-900">Job</th>
-              <th className="w-1/5 text-left px-4 py-3 text-sm font-medium text-gray-900">Company</th>
-              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900">Ghost Risk</th>
-              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900">Analyzed</th>
+              <th className="w-2/5 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Job</th>
+              <th className="w-1/5 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Company</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Ghost Risk</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Analyzed</th>
               <th className="w-16 px-4 py-3"></th>
             </tr>
           </thead>
@@ -199,11 +199,11 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                         />
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 break-all leading-tight">{result.jobUrl}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 break-all leading-tight">{result.jobUrl}</p>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-sm text-gray-900 break-words">{result.company}</span>
+                  <span className="text-sm text-gray-900 dark:text-gray-100 break-words">{result.company}</span>
                 </td>
                 <td className="px-4 py-3">
                   <RiskTooltip 
@@ -220,7 +220,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   </RiskTooltip>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center space-x-1 text-sm text-gray-500">
+                  <div className="flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400">
                     <Calendar className="w-4 h-4" />
                     <span>{new Date(result.analyzedAt).toLocaleDateString()}</span>
                   </div>
@@ -230,7 +230,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                     href={result.jobUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-blue-600"
+                    className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>

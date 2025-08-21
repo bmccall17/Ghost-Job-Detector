@@ -1,21 +1,28 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Shield background -->
-  <path d="M16 2L24 6V14C24 20 20 25 16 28C12 25 8 20 8 14V6L16 2Z" fill="#1E293B" stroke="#0F172A" stroke-width="1"/>
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#ffffff"/>
   
   <!-- Ghost body -->
-  <ellipse cx="16" cy="16" rx="6" ry="7" fill="#F1F5F9"/>
-  
-  <!-- Ghost wavy bottom -->
-  <path d="M10 20C10 18 12 16 14 16C16 16 18 18 18 20C20 20 22 18 22 20V23C22 24 21 25 20 25H12C11 25 10 24 10 23V20Z" fill="#F1F5F9"/>
+  <path d="M16 6C12.5 6 10 8.5 10 12C10 13 10 14 10 15C10 16.5 10 18 10 19.5C10 20 10.2 20.4 10.5 20.7L11.5 21.5C11.8 21.8 12 22.2 12 22.7V24C12 24.6 12.4 25 13 25C13.6 25 14 24.6 14 24V23.5C14 23.2 14.1 22.9 14.3 22.7L15.3 21.7C15.7 21.3 16.3 21.3 16.7 21.7L17.7 22.7C17.9 22.9 18 23.2 18 23.5V24C18 24.6 18.4 25 19 25C19.6 25 20 24.6 20 24V22.7C20 22.2 20.2 21.8 20.5 21.5L21.5 20.7C21.8 20.4 22 20 22 19.5C22 18 22 16.5 22 15C22 14 22 13 22 12C22 8.5 19.5 6 16 6Z" fill="#f5f5dc" stroke="#2d3748" stroke-width="1"/>
   
   <!-- Ghost eyes -->
-  <circle cx="14" cy="14" r="1" fill="#0F172A"/>
-  <circle cx="18" cy="14" r="1" fill="#0F172A"/>
+  <circle cx="13.5" cy="11.5" r="1.5" fill="#2d3748"/>
+  <circle cx="18.5" cy="11.5" r="1.5" fill="#2d3748"/>
   
-  <!-- Ghost mouth -->
-  <ellipse cx="16" cy="17" rx="1" ry="1.5" fill="#0F172A"/>
+  <!-- Ghost mouth (surprised) -->
+  <ellipse cx="16" cy="15" rx="1" ry="1.5" fill="#2d3748"/>
   
-  <!-- Warning symbol -->
-  <circle cx="16" cy="9" r="0.8" fill="#EF4444"/>
-  <rect x="15.5" y="10" width="1" height="3" rx="0.5" fill="#EF4444"/>
+  <!-- Document/resume -->
+  <rect x="20" y="18" width="8" height="10" rx="1" fill="#e2e8f0" stroke="#4a5568" stroke-width="0.8"/>
+  <line x1="22" y1="20" x2="26" y2="20" stroke="#4a5568" stroke-width="0.5"/>
+  <line x1="22" y1="21.5" x2="26" y2="21.5" stroke="#4a5568" stroke-width="0.5"/>
+  <line x1="22" y1="23" x2="24" y2="23" stroke="#4a5568" stroke-width="0.5"/>
+  
+  <!-- X mark on document -->
+  <line x1="23" y1="24.5" x2="25" y2="26.5" stroke="#e53e3e" stroke-width="1.2"/>
+  <line x1="25" y1="24.5" x2="23" y2="26.5" stroke="#e53e3e" stroke-width="1.2"/>
+  
+  <!-- Red prohibition circle -->
+  <circle cx="16" cy="16" r="14" fill="none" stroke="#e53e3e" stroke-width="2.5"/>
+  <line x1="6" y1="6" x2="26" y2="26" stroke="#e53e3e" stroke-width="2.5"/>
 </svg>
