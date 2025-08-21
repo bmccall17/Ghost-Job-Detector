@@ -1,58 +1,7 @@
 import { prisma } from '../lib/db.js';
-// Temporarily disable for testing
-// import { QueueManager } from '../lib/queue.js';
-// import { BlobStorage } from '../lib/storage.js';
-
-// Mock BlobStorage for testing
-const mockBlobStorage = {
-    storeHTML: async (content, url) => ({ url: 'blob://mock-storage' }),
-    generateContentHash: (content) => crypto.createHash('sha256').update(content).digest('hex')
-};
-// Temporarily disable CompanyNormalizationService import for testing
-// import { CompanyNormalizationService } from '../src/services/CompanyNormalizationService.js';
-
-// Mock CompanyNormalizationService for testing
-const mockCompanyNormalizationService = {
-    getInstance: () => ({
-        normalizeCompanyName: (name) => ({
-            canonical: name,
-            normalized: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
-            confidence: 0.8,
-            isLearned: false
-        }),
-        calculateStringSimilarity: (str1, str2) => {
-            const longer = str1.length > str2.length ? str1 : str2;
-            const shorter = str1.length > str2.length ? str2 : str1;
-            if (longer.length === 0) return 1.0;
-            return (longer.length - levenshteinDistance(longer, shorter)) / longer.length;
-        }
-    })
-};
-
-// Simple Levenshtein distance function
-function levenshteinDistance(str1, str2) {
-    const matrix = [];
-    for (let i = 0; i <= str2.length; i++) {
-        matrix[i] = [i];
-    }
-    for (let j = 0; j <= str1.length; j++) {
-        matrix[0][j] = j;
-    }
-    for (let i = 1; i <= str2.length; i++) {
-        for (let j = 1; j <= str1.length; j++) {
-            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(
-                    matrix[i - 1][j - 1] + 1,
-                    matrix[i][j - 1] + 1,
-                    matrix[i - 1][j] + 1
-                );
-            }
-        }
-    }
-    return matrix[str2.length][str1.length];
-}
+import { QueueManager } from '../lib/queue.js';
+import { BlobStorage } from '../lib/storage.js';
+import { CompanyNormalizationService } from '../src/services/CompanyNormalizationService.js';
 import { securityValidator } from '../lib/security.js';
 import crypto from 'crypto';
 
@@ -185,26 +134,26 @@ export default async function handler(req, res) {
             }
         });
 
-        // Store HTML snapshot if URL source (mocked for testing)
+        // Store HTML snapshot if URL source
         let storageUrl = null;
         if (sourceType === 'url' && description) {
-            const blob = await mockBlobStorage.storeHTML(description, url);
+            const blob = await BlobStorage.storeHTML(description, url);
             storageUrl = blob.url;
             
-            // Create raw document record (skipped for testing)
-            // await prisma.rawDocument.create({
-            //     data: {
-            //         sourceId: source.id,
-            //         storageUrl: blob.url,
-            //         mimeType: 'text/html',
-            //         textContent: description,
-            //         textSha256: mockBlobStorage.generateContentHash(description)
-            //     }
-            // });
+            // Create raw document record
+            await prisma.rawDocument.create({
+                data: {
+                    sourceId: source.id,
+                    storageUrl: blob.url,
+                    mimeType: 'text/html',
+                    textContent: description,
+                    textSha256: BlobStorage.generateContentHash(description)
+                }
+            });
         }
 
         // Check for duplicate jobs using intelligent detection
-        const normalizationService = mockCompanyNormalizationService.getInstance();
+        const normalizationService = CompanyNormalizationService.getInstance();
         const duplicateJob = await detectDuplicateJob({
             url,
             title: title || 'Unknown Position',
@@ -528,7 +477,7 @@ async function updateCompanyStats(companyName, ghostProbability) {
         }
 
         // Get normalization service instance
-        const normalizationService = mockCompanyNormalizationService.getInstance();
+        const normalizationService = CompanyNormalizationService.getInstance();
         
         // Use intelligent normalization
         const normalizationResult = normalizationService.normalizeCompanyName(companyName);
