@@ -98,7 +98,7 @@ export const RiskTooltip: React.FC<RiskTooltipProps> = ({ factors, probability, 
 
       {isVisible && (
         <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm"
+          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-4 max-w-sm"
           style={{
             left: position.x - 150, // Center the tooltip
             top: position.y,

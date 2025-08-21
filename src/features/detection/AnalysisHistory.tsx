@@ -184,7 +184,7 @@ export const AnalysisHistory: React.FC = () => {
           ) : (
             <div className="overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">File Name</th>
                     <th className="text-left px-4 py-3 text-sm font-medium text-gray-900">Status</th>
@@ -195,7 +195,7 @@ export const AnalysisHistory: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {bulkJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
+                    <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3">
                         <span className="font-medium text-gray-900">{job.fileName}</span>
                       </td>

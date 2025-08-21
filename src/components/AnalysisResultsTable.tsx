@@ -109,7 +109,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="date">Sort by Date</option>
             <option value="probability">Sort by Probability</option>
@@ -119,7 +119,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
           <select
             value={filterBy}
             onChange={(e) => setFilterBy(e.target.value as any)}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="all">All Results</option>
             <option value="high">High Risk (67%+)</option>
@@ -153,7 +153,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <table className="w-full table-fixed">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="w-12 px-4 py-3">
                 <input
@@ -172,7 +172,7 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
           </thead>
           <tbody className="divide-y divide-gray-200">
             {sortedResults.map((result) => (
-              <tr key={result.id} className="hover:bg-gray-50">
+              <tr key={result.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-4 py-3">
                   <input
                     type="checkbox"
