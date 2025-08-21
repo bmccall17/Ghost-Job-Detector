@@ -1,13 +1,41 @@
 import { prisma } from '../lib/db.js';
+import { securityValidator } from '../lib/security.js';
 
 // Consolidated Analysis History API
 // Supports both legacy /api/history and current /api/analysis-history functionality
 export default async function handler(req, res) {
+    const startTime = Date.now();
+    
+    // Apply security headers
+    const securityHeaders = securityValidator.getSecurityHeaders();
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        res.setHeader(key, value);
+    });
+
+    // Get client IP
+    const clientIP = req.headers['x-forwarded-for'] || 
+                    req.connection.remoteAddress || 
+                    req.socket.remoteAddress ||
+                    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
+        // Rate limiting check
+        const rateLimit = securityValidator.checkRateLimit(clientIP, 'general');
+        if (!rateLimit.allowed) {
+            securityValidator.logSecurityEvent('history_rate_limit_exceeded', {
+                ip: clientIP,
+                endpoint: '/api/analysis-history'
+            });
+            
+            return res.status(429).json({
+                error: 'Rate limit exceeded',
+                retryAfter: rateLimit.retryAfter
+            });
+        }
         console.log('Analysis History API called:', { method: req.method, query: req.query });
         
         // Get query parameters (for legacy history.js compatibility)

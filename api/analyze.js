@@ -2,19 +2,78 @@ import { prisma } from '../lib/db.js';
 import { QueueManager } from '../lib/queue.js';
 import { BlobStorage } from '../lib/storage.js';
 import { CompanyNormalizationService } from '../src/services/CompanyNormalizationService.js';
+import { securityValidator } from '../lib/security.js';
 import crypto from 'crypto';
 
 // Ghost Job Analysis Service for Vercel (Production)
 export default async function handler(req, res) {
+    const startTime = Date.now();
+    let clientIP = null;
+    
+    // Security headers
+    const securityHeaders = securityValidator.getSecurityHeaders();
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        res.setHeader(key, value);
+    });
+    
     // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const { url, title, company, description, location, remoteFlag, postedAt, sourceType = 'url' } = req.body;
+        // Get client IP for logging and rate limiting
+        clientIP = req.headers['x-forwarded-for'] || 
+                  req.connection.remoteAddress || 
+                  req.socket.remoteAddress ||
+                  (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
+        // Check IP-based rate limiting
+        const ipRateLimit = securityValidator.checkIPRateLimit(clientIP);
+        if (!ipRateLimit.allowed) {
+            securityValidator.logSecurityEvent('analysis_rate_limit_exceeded', {
+                ip: clientIP,
+                endpoint: '/api/analyze'
+            });
+            
+            res.setHeader('Retry-After', ipRateLimit.retryAfter);
+            return res.status(429).json({
+                error: 'Rate limit exceeded',
+                message: 'Too many analysis requests. Please try again later.',
+                retryAfter: ipRateLimit.retryAfter
+            });
+        }
+
+        // Add rate limit headers
+        res.setHeader('X-RateLimit-Limit', ipRateLimit.limit);
+        res.setHeader('X-RateLimit-Remaining', ipRateLimit.remaining);
+        res.setHeader('X-RateLimit-Reset', ipRateLimit.resetTime.toISOString());
+
+        // Additional rate limiting for analysis endpoint (stricter)
+        const analysisRateLimit = securityValidator.checkRateLimit(clientIP, 'analysis');
+        if (!analysisRateLimit.allowed) {
+            securityValidator.logSecurityEvent('analysis_specific_rate_limit_exceeded', {
+                ip: clientIP,
+                endpoint: '/api/analyze'
+            });
+            
+            return res.status(429).json({
+                error: 'Analysis rate limit exceeded',
+                message: 'Maximum 100 analyses per hour. Please try again later.',
+                retryAfter: analysisRateLimit.retryAfter
+            });
+        }
+
+        // Validate and sanitize input
+        const sanitizedInput = securityValidator.validateAnalysisRequest(req.body);
+        const { url, title, company, description, location } = sanitizedInput;
+        
+        // Additional validation
         if (!url) {
+            securityValidator.logSecurityEvent('invalid_request', {
+                ip: clientIP,
+                reason: 'Missing URL parameter'
+            });
             return res.status(400).json({ error: 'URL is required' });
         }
 
@@ -368,12 +427,37 @@ export default async function handler(req, res) {
     } catch (error) {
         console.error('Analysis error:', error);
         
-        // Skip error logging to avoid foreign key issues for now
-        console.error('Skipping error event logging due to schema constraints');
+        // Enhanced security logging
+        securityValidator.logSecurityEvent('analysis_error', {
+            ip: clientIP,
+            endpoint: '/api/analyze',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            processingTime: Date.now() - startTime
+        });
         
+        // Log to database for monitoring (if possible)
+        try {
+            await prisma.event.create({
+                data: {
+                    kind: 'analysis_error',
+                    meta: {
+                        ip: clientIP,
+                        error: error.message,
+                        processingTime: Date.now() - startTime,
+                        timestamp: new Date().toISOString()
+                    }
+                }
+            });
+        } catch (logError) {
+            console.error('Failed to log error event:', logError);
+        }
+        
+        // Return sanitized error response
         return res.status(500).json({ 
             error: 'Analysis failed',
-            details: error.message 
+            message: 'Unable to process the job analysis request. Please try again.',
+            requestId: crypto.randomUUID() // For support tracking
         });
     }
 }

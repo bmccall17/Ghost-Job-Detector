@@ -77,7 +77,8 @@
       "WebFetch(domain:www.collegerecruiter.com)",
       "WebFetch(domain:www.wsj.com)",
       "WebFetch(domain:www.indeed.com)",
-      "WebFetch(domain:www.rezi.ai)"
+      "WebFetch(domain:www.rezi.ai)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
