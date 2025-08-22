@@ -1,11 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/ingest/tick",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/analysis/tick", 
+      "path": "/api/scheduler",
       "schedule": "0 0 * * *"
     }
   ]

@@ -1,26 +1,130 @@
-import { QueueManager } from '../../lib/queue.js';
-import { prisma } from '../../lib/db.js';
+import { QueueManager } from '../lib/queue.js';
+import { prisma } from '../lib/db.js';
+import { BlobStorage } from '../lib/storage.js';
 
-// Analysis Worker - Process job analysis
+// Unified Scheduler - Process both ingest and analysis jobs
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        console.log('🔄 Analysis worker tick started');
+        console.log('🔄 Unified scheduler tick started');
         
         // Get batch size from environment
         const batchSize = parseInt(process.env.QUEUE_BATCH_SIZE) || 10;
         
-        // Pop jobs from analysis queue
+        // Process both queues in parallel for efficiency
+        const [ingestResults, analysisResults] = await Promise.all([
+            processIngestQueue(batchSize),
+            processAnalysisQueue(batchSize)
+        ]);
+
+        // Combine results
+        const totalProcessed = ingestResults.processed + analysisResults.processed;
+        const totalFailed = ingestResults.failed + analysisResults.failed;
+        const totalJobs = ingestResults.total + analysisResults.total;
+
+        // Log unified processing event
+        await prisma.event.create({
+            data: {
+                kind: 'unified_queue_processed',
+                meta: {
+                    ingest: ingestResults,
+                    analysis: analysisResults,
+                    totalProcessed,
+                    totalFailed,
+                    batchSize: totalJobs
+                }
+            }
+        });
+
+        return res.status(200).json({
+            message: 'Unified scheduler batch processed',
+            ingest: ingestResults,
+            analysis: analysisResults,
+            summary: {
+                totalProcessed,
+                totalFailed,
+                totalJobs
+            }
+        });
+
+    } catch (error) {
+        console.error('Unified scheduler error:', error);
+        return res.status(500).json({
+            error: 'Unified scheduler failed',
+            details: error.message
+        });
+    }
+}
+
+// Process ingest queue
+async function processIngestQueue(batchSize) {
+    console.log('📋 Processing ingest queue...');
+    
+    try {
+        const jobs = await QueueManager.popIngestJobs(batchSize);
+        
+        if (jobs.length === 0) {
+            return { processed: 0, failed: 0, total: 0, message: 'No ingest jobs to process' };
+        }
+
+        console.log(`📋 Processing ${jobs.length} ingest jobs`);
+        
+        let processed = 0;
+        let failed = 0;
+        
+        for (const job of jobs) {
+            try {
+                await processIngestJob(job);
+                processed++;
+                console.log(`✅ Processed ingest job ${job.id}`);
+            } catch (error) {
+                console.error(`❌ Failed to process ingest job ${job.id}:`, error);
+                failed++;
+                
+                // Handle retry logic
+                if (job.retryCount < (parseInt(process.env.QUEUE_RETRY_ATTEMPTS) || 3)) {
+                    await QueueManager.enqueueIngest({
+                        ...job,
+                        retryCount: job.retryCount + 1
+                    });
+                    console.log(`🔄 Retrying ingest job ${job.id} (attempt ${job.retryCount + 2})`);
+                } else {
+                    await QueueManager.moveToDeadLetter(job, error.message);
+                    console.log(`💀 Moved ingest job ${job.id} to dead letter queue`);
+                }
+            }
+        }
+
+        return {
+            processed,
+            failed,
+            total: jobs.length,
+            message: 'Ingest queue processed'
+        };
+
+    } catch (error) {
+        console.error('Ingest queue processing error:', error);
+        return {
+            processed: 0,
+            failed: 0,
+            total: 0,
+            error: error.message
+        };
+    }
+}
+
+// Process analysis queue
+async function processAnalysisQueue(batchSize) {
+    console.log('📊 Processing analysis queue...');
+    
+    try {
         const jobs = await QueueManager.popAnalysisJobs(batchSize);
         
         if (jobs.length === 0) {
-            return res.status(200).json({ 
-                message: 'No jobs to process',
-                processed: 0 
-            });
+            return { processed: 0, failed: 0, total: 0, message: 'No analysis jobs to process' };
         }
 
         console.log(`📊 Processing ${jobs.length} analysis jobs`);
@@ -42,36 +146,21 @@ export default async function handler(req, res) {
                 
                 // Handle retry logic
                 if (job.retryCount < (parseInt(process.env.QUEUE_RETRY_ATTEMPTS) || 3)) {
-                    // Retry the job
                     await QueueManager.enqueueAnalysis({
                         ...job,
                         retryCount: job.retryCount + 1
                     });
                     console.log(`🔄 Retrying analysis ${job.id} (attempt ${job.retryCount + 2})`);
                 } else {
-                    // Move to dead letter queue
                     await QueueManager.moveToDeadLetter(job, error.message);
                     console.log(`💀 Moved analysis ${job.id} to dead letter queue`);
                 }
             }
         }
 
-        // Log processing event
-        await prisma.event.create({
-            data: {
-                kind: 'queue_processed',
-                meta: {
-                    queue: 'analysis',
-                    processed,
-                    failed,
-                    batchSize: jobs.length
-                }
-            }
-        });
-
-        // Run agent promotion if enabled
+        // Run agent promotion if enabled (from analysis tick)
         let promotionResults = null;
-        if (process.env.AGENT_ENABLED === 'true') {
+        if (process.env.AGENT_ENABLED === 'true' && processed > 0) {
             try {
                 console.log('🎓 Running agent promotion step');
                 promotionResults = await promoteVerifiedAgentCorrections();
@@ -81,24 +170,128 @@ export default async function handler(req, res) {
             }
         }
 
-        return res.status(200).json({
-            message: 'Analysis batch processed',
+        return {
             processed,
             failed,
             total: jobs.length,
-            promotionResults
-        });
+            promotionResults,
+            message: 'Analysis queue processed'
+        };
 
     } catch (error) {
-        console.error('Analysis worker error:', error);
-        return res.status(500).json({
-            error: 'Analysis worker failed',
-            details: error.message
-        });
+        console.error('Analysis queue processing error:', error);
+        return {
+            processed: 0,
+            failed: 0,
+            total: 0,
+            error: error.message
+        };
     }
 }
 
-// Process individual analysis job
+// Process individual ingest job (from ingest/tick.js)
+async function processIngestJob(job) {
+    const { sourceId, url, blobUrl } = job;
+    
+    // Get source from database
+    const source = await prisma.source.findUnique({
+        where: { id: sourceId }
+    });
+    
+    if (!source) {
+        throw new Error(`Source ${sourceId} not found`);
+    }
+
+    let content = '';
+    let mimeType = 'text/html';
+    
+    if (source.kind === 'url' && url) {
+        // Fetch URL content
+        console.log(`🌐 Fetching URL: ${url}`);
+        
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; GhostJobDetector/1.0)'
+                },
+                timeout: 30000 // 30 second timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            content = await response.text();
+            mimeType = response.headers.get('content-type') || 'text/html';
+            
+            // Update source with HTTP status
+            await prisma.source.update({
+                where: { id: sourceId },
+                data: { httpStatus: response.status }
+            });
+            
+        } catch (fetchError) {
+            console.error(`Failed to fetch ${url}:`, fetchError);
+            // Update source with error status
+            await prisma.source.update({
+                where: { id: sourceId },
+                data: { httpStatus: 0 } // Indicates fetch failure
+            });
+            throw fetchError;
+        }
+        
+    } else if (source.kind === 'pdf' && blobUrl) {
+        // Handle PDF processing (placeholder for now)
+        console.log(`📄 Processing PDF: ${blobUrl}`);
+        content = 'PDF content extraction not yet implemented';
+        mimeType = 'application/pdf';
+    }
+
+    // Store content in Blob storage
+    let storageUrl;
+    if (source.kind === 'url') {
+        const blob = await BlobStorage.storeHTML(content, url);
+        storageUrl = blob.url;
+    } else {
+        storageUrl = blobUrl; // PDF already stored
+    }
+
+    // Create raw document record
+    const textSha256 = BlobStorage.generateContentHash(content);
+    
+    await prisma.rawDocument.create({
+        data: {
+            sourceId,
+            storageUrl,
+            mimeType,
+            textContent: content.substring(0, 100000), // Limit text content size
+            textSha256
+        }
+    });
+
+    // Parse job listing from content
+    const jobListing = await parseJobListing(source, content);
+    
+    if (jobListing) {
+        // Create job listing record
+        const listing = await prisma.jobListing.create({
+            data: jobListing
+        });
+        
+        // Enqueue for analysis
+        await QueueManager.enqueueAnalysis({
+            id: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            jobListingId: listing.id,
+            sourceId,
+            modelVersion: process.env.ML_MODEL_VERSION || 'v1.0.0',
+            priority: 1
+        });
+        
+        console.log(`📊 Enqueued analysis for job listing ${listing.id}`);
+    }
+}
+
+// Process individual analysis job (from analysis/tick.js)
 async function processAnalysisJob(job) {
     const { jobListingId, modelVersion } = job;
     const startTime = Date.now();
@@ -196,7 +389,41 @@ async function processAnalysisJob(job) {
     console.log(`📊 Analysis complete: ${analysis.ghostProbability.toFixed(3)} ghost probability`);
 }
 
-// Enhanced ghost job analysis algorithm
+// Parse job listing from raw content (from ingest/tick.js)
+async function parseJobListing(source, content) {
+    try {
+        // Simple extraction for demo
+        const titleMatch = content.match(/<title[^>]*>([^<]+)</i);
+        const title = titleMatch ? titleMatch[1].substring(0, 100) : 'Unknown Position';
+        
+        // Generate normalized key
+        const crypto = await import('crypto');
+        const normalizedKey = crypto.createHash('sha256')
+            .update(`unknown:${title.toLowerCase()}`)
+            .digest('hex');
+        
+        return {
+            sourceId: source.id,
+            title,
+            company: 'Unknown Company', // TODO: Extract from content
+            location: null,
+            remoteFlag: content.toLowerCase().includes('remote'),
+            canonicalUrl: source.url,
+            rawParsedJson: {
+                extractedAt: new Date().toISOString(),
+                method: 'simple_title_extraction',
+                confidence: 0.5
+            },
+            normalizedKey
+        };
+        
+    } catch (error) {
+        console.error('Failed to parse job listing:', error);
+        return null;
+    }
+}
+
+// Enhanced ghost job analysis algorithm (from analysis/tick.js)
 function analyzeJobListing({ title, company, description, url, location, remote }) {
     let ghostProbability = 0;
     const riskFactors = [];
@@ -352,7 +579,7 @@ function analyzeJobListing({ title, company, description, url, location, remote 
     };
 }
 
-// Update company statistics (same as in analyze.js)
+// Update company statistics (from analysis/tick.js)
 async function updateCompanyStats(companyName, ghostProbability) {
     try {
         const normalizedName = companyName.toLowerCase().trim();
@@ -392,7 +619,7 @@ async function updateCompanyStats(companyName, ghostProbability) {
     }
 }
 
-// Promote verified agent corrections to runtime rules
+// Promote verified agent corrections to runtime rules (from analysis/tick.js)
 async function promoteVerifiedAgentCorrections() {
     try {
         console.log('🔍 Looking for verified agent corrections to promote');
