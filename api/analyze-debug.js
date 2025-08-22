@@ -212,6 +212,18 @@ export default async function handler(req, res) {
             timestamp: new Date().toISOString()
         };
         
+        // 📊 COMPREHENSIVE EXTRACTION SUMMARY  
+        console.log('📊 ===== EXTRACTION FLOW SUMMARY =====');
+        console.log(`🔗 URL: ${url}`);
+        console.log(`🏷️  Platform: ${extractPlatformFromUrl(url)}`);
+        console.log(`📝 Input Data: title="${title || 'EMPTY'}", company="${company || 'EMPTY'}"`);
+        console.log(`🤖 WebLLM Triggered: ${shouldExtract ? 'YES' : 'NO'} (${shouldExtract ? 'no valid manual data' : 'valid manual data provided'})`);
+        console.log(`🎯 Final Results: title="${response.title}", company="${response.company}"`);
+        console.log(`📈 Confidence: ${(response.confidence || 0).toFixed(2)} | Method: webllm`);
+        console.log(`🔍 Ghost Score: ${response.analysis.ghostProbability.toFixed(3)} (${response.analysis.verdict.toUpperCase()})`);
+        console.log(`✅ Status: ${response.success ? 'SUCCESS' : 'FAILED'}`);
+        console.log('📊 ===== END SUMMARY =====');
+        
         console.log('Returning response:', JSON.stringify(response, null, 2));
         return res.status(200).json(response);
         
@@ -249,8 +261,21 @@ async function performSmartExtraction(html, url) {
             console.log('🎯 Workday URL extraction:', urlExtraction);
         } else if (platform === 'LinkedIn') {
             const urlExtraction = extractFromLinkedInUrl(url);
-            extraction = { ...extraction, ...urlExtraction };
-            console.log('🎯 LinkedIn URL extraction:', urlExtraction);
+            // LinkedIn URL extraction provides metadata but not title/company
+            // Use the confidence boost if we have a valid job ID structure
+            if (urlExtraction.urlStructureValid) {
+                extraction.confidence = Math.max(extraction.confidence || 0.3, urlExtraction.confidence);
+                extraction.jobId = urlExtraction.jobId;
+                extraction.platformMetadata = {
+                    validJobIdFormat: true,
+                    extractionMethod: urlExtraction.extractionMethod
+                };
+            }
+            console.log('🎯 LinkedIn URL extraction:', {
+                jobId: urlExtraction.jobId,
+                validFormat: urlExtraction.urlStructureValid,
+                confidenceBoost: urlExtraction.confidence
+            });
         }
     }
     
@@ -520,21 +545,35 @@ function extractFromLinkedInUrl(url) {
     try {
         // Extract job ID and attempt smart parsing
         const jobIdMatch = url.match(/\/view\/(\d+)/);
-        
-        // For LinkedIn, we'll need to rely more on HTML content
-        // But can extract some context from URL structure
         const jobId = jobIdMatch ? jobIdMatch[1] : null;
         
-        console.log(`🎯 LinkedIn URL extraction: Job ID ${jobId}`);
+        // For LinkedIn, we have limited URL-based extraction capabilities
+        // But we can provide contextual information for better processing
+        
+        // LinkedIn jobs are typically from companies, not ghost jobs if they have valid job IDs
+        // This is a confidence boost for real job detection
+        const hasValidJobId = jobId && jobId.length >= 8; // LinkedIn job IDs are typically long
+        
+        console.log(`🎯 LinkedIn URL extraction: Job ID ${jobId} (${hasValidJobId ? 'valid format' : 'invalid format'})`);
+        
         return {
-            title: null, // Rely on HTML extraction
-            company: null, // Rely on HTML extraction  
+            title: null, // Must rely on HTML extraction for LinkedIn
+            company: null, // Must rely on HTML extraction for LinkedIn
             jobId,
-            confidence: 0.3
+            platform: 'LinkedIn',
+            confidence: hasValidJobId ? 0.4 : 0.2, // Slight confidence boost for valid IDs
+            urlStructureValid: hasValidJobId,
+            extractionMethod: 'linkedin-url-analysis'
         };
     } catch (error) {
         console.error('❌ LinkedIn URL extraction failed:', error);
-        return { title: null, company: null, jobId: null, confidence: 0.1 };
+        return { 
+            title: null, 
+            company: null, 
+            jobId: null, 
+            confidence: 0.1,
+            extractionMethod: 'linkedin-url-error'
+        };
     }
 }
 
