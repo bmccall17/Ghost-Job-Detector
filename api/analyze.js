@@ -28,11 +28,21 @@ export default async function handler(req, res) {
         let parsingConfidence = 0.0;
         let parsingMetadata = {};
         
-        // Check if we have manual data or need to extract
-        const hasManualData = title && company;
+        // Enhanced logic to handle all frontend data scenarios
+        const hasValidManualData = (title && title.trim().length > 0 && title !== 'Unknown Position') && 
+                                   (company && company.trim().length > 0 && company !== 'Unknown Company');
+                                   
+        const shouldExtract = !hasValidManualData;
         
-        if (!hasManualData) {
-            console.log('🤖 No manual data provided, attempting WebLLM parsing...');
+        console.log(`📊 Data assessment:`, {
+            title: title || 'undefined',
+            company: company || 'undefined',
+            hasValidManualData,
+            shouldExtract
+        });
+        
+        if (shouldExtract) {
+            console.log('🤖 Triggering WebLLM extraction - no valid manual data provided');
             
             try {
                 // Attempt WebLLM extraction
@@ -68,7 +78,7 @@ export default async function handler(req, res) {
                 parsingConfidence = 0.3;
             }
         } else {
-            console.log('📝 Using provided manual data');
+            console.log('📝 Using provided manual data - valid title and company detected');
             extractionMethod = 'manual';
             parsingConfidence = 1.0;
         }
@@ -445,11 +455,39 @@ async function smartExtractFromHtml(html, url, platform) {
         descriptionConfidence = 0.5;
     }
     
+    // Step 2: If HTML extraction fails, use URL-based extraction
+    if (!title || title === 'Unknown Position' || !company || company === 'Unknown Company') {
+        console.log('🔄 HTML extraction incomplete, trying URL-based extraction...');
+        
+        if (platform === 'Workday') {
+            const urlExtraction = extractFromWorkdayUrl(url);
+            if (urlExtraction.title && urlExtraction.title !== 'Unknown Position') {
+                title = urlExtraction.title;
+                titleConfidence = urlExtraction.confidence;
+            }
+            if (urlExtraction.company && urlExtraction.company !== 'Unknown Company') {
+                company = urlExtraction.company;
+                companyConfidence = urlExtraction.confidence;
+            }
+            console.log('🎯 Workday URL extraction applied:', { title, company });
+        } else if (platform === 'LinkedIn') {
+            const urlExtraction = extractFromLinkedInUrl(url);
+            if (urlExtraction.jobId) {
+                console.log(`🎯 LinkedIn URL extraction: Job ID ${urlExtraction.jobId}`);
+            }
+        }
+    }
+    
+    // Final validation and cleanup
+    title = title || 'Unknown Position';
+    company = company || 'Unknown Company';
+    
     // Overall confidence calculation
     const confidence = (titleConfidence + companyConfidence + descriptionConfidence) / 3;
     
     const processingTime = Date.now() - startTime;
     console.log(`🎯 Extraction completed in ${processingTime}ms with ${Math.round(confidence * 100)}% confidence`);
+    console.log(`🎯 Final extraction result: "${title}" at "${company}"`);
     
     return {
         title,
@@ -844,6 +882,69 @@ async function fetchUrlContent(url) {
 }
 
 // Extract platform from URL
+// URL-based extraction functions for when HTML parsing fails
+function extractFromWorkdayUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        
+        // Extract company: bostondynamics.wd1.myworkdayjobs.com → "Boston Dynamics"
+        const hostname = urlObj.hostname.toLowerCase();
+        const companyMatch = hostname.match(/([^.]+)\.wd\d*\.myworkdayjobs\.com/);
+        let company = 'Unknown Company';
+        
+        if (companyMatch) {
+            const rawCompany = companyMatch[1];
+            // Convert bostondynamics → Boston Dynamics
+            company = rawCompany
+                .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase split
+                .replace(/([a-z])(\d)/g, '$1 $2')     // letter-number split  
+                .split(/[-_\s]+/)                     // split on separators
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+        }
+        
+        // Extract title from URL path: R-D-Product-Manager_R1675 → "R&D Product Manager"
+        const pathMatch = url.match(/\/([^\/]+)_R\d+/);
+        let title = 'Unknown Position';
+        
+        if (pathMatch) {
+            title = pathMatch[1]
+                .replace(/[-_]/g, ' ')
+                .replace(/\bR D\b/g, 'R&D')
+                .replace(/\b\w+/g, word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+        }
+        
+        console.log(`🎯 Workday URL extraction: ${company} - ${title}`);
+        return { title, company, confidence: 0.8 };
+        
+    } catch (error) {
+        console.error('❌ Workday URL extraction failed:', error);
+        return { title: 'Unknown Position', company: 'Unknown Company', confidence: 0.1 };
+    }
+}
+
+function extractFromLinkedInUrl(url) {
+    try {
+        // Extract job ID and attempt smart parsing
+        const jobIdMatch = url.match(/\/view\/(\d+)/);
+        
+        // For LinkedIn, we'll need to rely more on HTML content
+        // But can extract some context from URL structure
+        const jobId = jobIdMatch ? jobIdMatch[1] : null;
+        
+        console.log(`🎯 LinkedIn URL extraction: Job ID ${jobId}`);
+        return {
+            title: null, // Rely on HTML extraction
+            company: null, // Rely on HTML extraction  
+            jobId,
+            confidence: 0.3
+        };
+    } catch (error) {
+        console.error('❌ LinkedIn URL extraction failed:', error);
+        return { title: null, company: null, jobId: null, confidence: 0.1 };
+    }
+}
+
 function extractPlatformFromUrl(url) {
     try {
         const hostname = new URL(url).hostname.toLowerCase();

@@ -51,8 +51,22 @@ export default async function handler(req, res) {
             let extractionMethod = 'debug_manual';
             let parsingConfidence = 0.0;
             
-            if (!title || !company) {
+            // Enhanced logic to handle all frontend data scenarios
+            const hasValidManualData = (title && title.trim().length > 0 && title !== 'Unknown Position') && 
+                                       (company && company.trim().length > 0 && company !== 'Unknown Company');
+                                       
+            const shouldExtract = !hasValidManualData;
+            
+            console.log(`📊 Debug data assessment:`, {
+                title: title || 'undefined',
+                company: company || 'undefined',
+                hasValidManualData,
+                shouldExtract
+            });
+            
+            if (shouldExtract) {
                 try {
+                    console.log('🤖 Triggering WebLLM debug extraction - no valid manual data provided');
                     console.log('🌐 Fetching URL content for extraction...');
                     const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
                     const htmlData = await response.json();
@@ -73,6 +87,10 @@ export default async function handler(req, res) {
                 } catch (extractionError) {
                     console.error('❌ WebLLM extraction failed:', extractionError);
                 }
+            } else {
+                console.log('📝 Using provided manual data - valid title and company detected');
+                extractionMethod = 'manual';
+                parsingConfidence = 1.0;
             }
             
             // Use extracted data or fallback
@@ -217,6 +235,35 @@ async function performSmartExtraction(html, url) {
                          .replace(/<!--[\s\S]*?-->/g, '');
     
     console.log(`🎯 Performing ${platform} extraction...`);
+    
+    // Step 1: Try HTML content extraction
+    let extraction = await extractFromHtmlContent(cleanHtml, platform);
+    
+    // Step 2: If HTML extraction fails, use URL-based extraction  
+    if (!extraction.title || extraction.title === 'Unknown Position') {
+        console.log('🔄 HTML extraction insufficient, trying URL-based extraction...');
+        
+        if (platform === 'Workday') {
+            const urlExtraction = extractFromWorkdayUrl(url);
+            extraction = { ...extraction, ...urlExtraction };
+            console.log('🎯 Workday URL extraction:', urlExtraction);
+        } else if (platform === 'LinkedIn') {
+            const urlExtraction = extractFromLinkedInUrl(url);
+            extraction = { ...extraction, ...urlExtraction };
+            console.log('🎯 LinkedIn URL extraction:', urlExtraction);
+        }
+    }
+    
+    // Step 3: Final validation and cleanup
+    extraction.title = extraction.title || 'Unknown Position';
+    extraction.company = extraction.company || 'Unknown Company';
+    extraction.confidence = Math.max(extraction.confidence || 0.5, 0.1);
+    
+    return extraction;
+}
+
+// HTML content extraction (original logic)
+async function extractFromHtmlContent(cleanHtml, platform) {
     
     let title = null;
     let company = null;
@@ -426,6 +473,69 @@ function performEnhancedAnalysis(jobData, url) {
         keyFactors,
         confidence
     };
+}
+
+// URL-based extraction functions for when HTML parsing fails
+function extractFromWorkdayUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        
+        // Extract company: bostondynamics.wd1.myworkdayjobs.com → "Boston Dynamics"
+        const hostname = urlObj.hostname.toLowerCase();
+        const companyMatch = hostname.match(/([^.]+)\.wd\d*\.myworkdayjobs\.com/);
+        let company = 'Unknown Company';
+        
+        if (companyMatch) {
+            const rawCompany = companyMatch[1];
+            // Convert bostondynamics → Boston Dynamics
+            company = rawCompany
+                .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase split
+                .replace(/([a-z])(\d)/g, '$1 $2')     // letter-number split  
+                .split(/[-_\s]+/)                     // split on separators
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+        }
+        
+        // Extract title from URL path: R-D-Product-Manager_R1675 → "R&D Product Manager"
+        const pathMatch = url.match(/\/([^\/]+)_R\d+/);
+        let title = 'Unknown Position';
+        
+        if (pathMatch) {
+            title = pathMatch[1]
+                .replace(/[-_]/g, ' ')
+                .replace(/\bR D\b/g, 'R&D')
+                .replace(/\b\w+/g, word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+        }
+        
+        console.log(`🎯 Workday URL extraction: ${company} - ${title}`);
+        return { title, company, confidence: 0.8 };
+        
+    } catch (error) {
+        console.error('❌ Workday URL extraction failed:', error);
+        return { title: 'Unknown Position', company: 'Unknown Company', confidence: 0.1 };
+    }
+}
+
+function extractFromLinkedInUrl(url) {
+    try {
+        // Extract job ID and attempt smart parsing
+        const jobIdMatch = url.match(/\/view\/(\d+)/);
+        
+        // For LinkedIn, we'll need to rely more on HTML content
+        // But can extract some context from URL structure
+        const jobId = jobIdMatch ? jobIdMatch[1] : null;
+        
+        console.log(`🎯 LinkedIn URL extraction: Job ID ${jobId}`);
+        return {
+            title: null, // Rely on HTML extraction
+            company: null, // Rely on HTML extraction  
+            jobId,
+            confidence: 0.3
+        };
+    } catch (error) {
+        console.error('❌ LinkedIn URL extraction failed:', error);
+        return { title: null, company: null, jobId: null, confidence: 0.1 };
+    }
 }
 
 // Extract platform from URL
