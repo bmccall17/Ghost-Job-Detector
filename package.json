@@ -25,15 +25,15 @@
     "@vercel/kv": "^3.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "isomorphic-dompurify": "^2.26.0",
     "lucide-react": "^0.288.0",
     "prisma": "^6.14.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.47.0",
+    "validator": "^13.12.0",
     "zod": "^3.25.76",
-    "zustand": "^4.4.4",
-    "isomorphic-dompurify": "^2.14.0",
-    "validator": "^13.12.0"
+    "zustand": "^4.4.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",

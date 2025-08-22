@@ -22,6 +22,7 @@ export interface ContentHashResult {
   fullHash: string;          // Hash of all content
   titleHash: string;         // Hash of just title
   companyHash: string;       // Hash of normalized company
+  locationHash: string;      // Hash of normalized location
   descriptionHash: string;   // Hash of description (first 500 chars)
   combinedHash: string;      // Hash of title + company + location
 }
@@ -190,6 +191,7 @@ export class EnhancedDuplicateDetection {
       fullHash,
       titleHash,
       companyHash,
+      locationHash,
       descriptionHash,
       combinedHash
     };

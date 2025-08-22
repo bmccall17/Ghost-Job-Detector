@@ -4,7 +4,7 @@
  * Following Implementation Guide specifications
  */
 import React, { useState, useEffect } from 'react';
-import { X, Check, AlertTriangle, Edit3, Save, RotateCcw, Loader2 } from 'lucide-react';
+import { X, Check, AlertTriangle, RotateCcw, Loader2 } from 'lucide-react';
 import { ParsePreviewResponse, ExtractedJobData, ParsedJobConfirmation } from '@/types';
 import { ParsedJobDisplay } from './ParsedJobDisplay';
 
@@ -88,7 +88,7 @@ export const ParsedJobConfirmationModal: React.FC<ParsedJobConfirmationModalProp
   };
 
   const getRecommendationUI = () => {
-    const { recommendedAction, confidence, duplicateCheck } = previewData;
+    const { recommendedAction, duplicateCheck } = previewData;
 
     switch (recommendedAction) {
       case 'auto_proceed':

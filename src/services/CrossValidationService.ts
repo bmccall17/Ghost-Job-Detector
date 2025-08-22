@@ -46,9 +46,6 @@ export interface CrossValidationResult {
 }
 
 export class CrossValidationService {
-  private maxValidationTimeMs = 3000; // 3 second timeout per spec
-  private rateLimitDelay = 500; // 500ms between requests
-  private maxConcurrentRequests = 3;
 
   /**
    * Main entry point for cross-validation
@@ -501,7 +498,7 @@ export class CrossValidationService {
       name: 'Industry Standards Validation',
       confidence,
       status: 'success',
-      data: { title: jobTitle, industry: match?.industry },
+      data: { title: jobTitle },
       responseTime: Date.now() - startTime
     };
   }
@@ -530,7 +527,7 @@ export class CrossValidationService {
   /**
    * Utility methods
    */
-  private calculateConsistencyScore(data: ExtractedJobData, sources: ValidationSource[]): number {
+  private calculateConsistencyScore(_data: ExtractedJobData, sources: ValidationSource[]): number {
     if (sources.length === 0) return 0.5;
 
     // Check consistency across validation sources

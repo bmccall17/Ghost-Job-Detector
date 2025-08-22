@@ -4,7 +4,7 @@
  * Following Implementation Guide specifications
  */
 import { prisma } from '../../lib/db.js';
-import { ExtractedJobData, ParsingResult } from './WebLLMParsingService';
+import { ParsingResult } from './WebLLMParsingService';
 import { CrossValidationResult } from './CrossValidationService';
 
 // Type definitions
@@ -60,7 +60,7 @@ export class ParsingAttemptsTracker {
           processingTimeMs: result.processingTimeMs,
           extractionMethod: result.extractionMethod,
           confidenceScore: result.confidence,
-          validationData: validationResult ? {
+          validationData: validationResult ? JSON.parse(JSON.stringify({
             overallConfidence: validationResult.overallConfidence,
             validationSources: validationResult.validationSources.length,
             companyValidation: validationResult.companyValidation.confidence,
@@ -68,7 +68,7 @@ export class ParsingAttemptsTracker {
             consistencyScore: validationResult.consistencyScore,
             issues: validationResult.issues,
             processingTimeMs: validationResult.processingTimeMs
-          } : null,
+          })) : null,
           userAgentUsed: userAgent,
           ipAddress: this.hashIpAddress(clientIp)
         }

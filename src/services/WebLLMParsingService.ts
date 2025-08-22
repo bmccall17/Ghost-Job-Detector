@@ -4,7 +4,7 @@
  * Following Implementation Guide specifications
  */
 import { WebLLMManager } from '@/lib/webllm';
-import DOMPurify from 'dompurify';
+import DOMPurify from 'isomorphic-dompurify';
 
 // Type definitions for extracted job data
 export interface ExtractedJobData {
@@ -45,20 +45,11 @@ export interface ContentExtractionResult {
 
 export class WebLLMParsingService {
   private webllmManager: WebLLMManager;
-  private maxParsingTimeMs: number;
   private rateLimitDelay = 1000; // 1 second between requests to same domain  
   private lastRequestTimes: Map<string, number> = new Map();
-  private confidenceThreshold: number;
-  private maxAttempts: number;
-  private rateLimitPerHour: number;
 
   constructor() {
     this.webllmManager = WebLLMManager.getInstance();
-    // Load configuration from environment variables
-    this.maxParsingTimeMs = parseInt(process.env.AUTO_PARSING_TIMEOUT_MS || '10000');
-    this.confidenceThreshold = parseFloat(process.env.AUTO_PARSING_CONFIDENCE_THRESHOLD || '0.8');
-    this.maxAttempts = parseInt(process.env.AUTO_PARSING_MAX_ATTEMPTS || '3');
-    this.rateLimitPerHour = parseInt(process.env.AUTO_PARSING_RATE_LIMIT_PER_HOUR || '100');
   }
 
   /**
