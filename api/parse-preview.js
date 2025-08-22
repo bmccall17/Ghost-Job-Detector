@@ -1,6 +1,14 @@
 /**
- * Parse Preview API Endpoint
- * Provides URL parsing preview with confidence scores before full analysis
+ * Parse Preview and Learning API Endpoint
+ * 
+ * Modes:
+ * - preview (default): URL parsing preview with confidence scores before full analysis
+ * - learning: Real-time learning from parsing failures (consolidated from /api/learning/ingest-failure)
+ * 
+ * Usage:
+ * - POST /api/parse-preview (or ?mode=preview) - Standard parsing preview
+ * - POST /api/parse-preview?mode=learning - Process parsing failures for learning improvements
+ * 
  * Following Implementation Guide specifications
  */
 import { WebLLMParsingService } from '../src/services/WebLLMParsingService.js';
@@ -8,6 +16,7 @@ import { CrossValidationService } from '../src/services/CrossValidationService.j
 import { EnhancedDuplicateDetection } from '../src/services/EnhancedDuplicateDetection.js';
 import { ParsingAttemptsTracker } from '../src/services/ParsingAttemptsTracker.js';
 import { ParsingErrorHandler } from '../src/utils/errorHandling.js';
+import { ParsingLearningService } from '../src/services/parsing/ParsingLearningService.js';
 import { prisma } from '../lib/db.js';
 import { securityValidator } from '../lib/security.js';
 
@@ -21,10 +30,13 @@ export default async function handler(req, res) {
         res.setHeader(key, value);
     });
     
-    // Only allow POST requests
+    // Handle both parse-preview (POST) and learning/ingest-failure (POST) modes
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    // Determine mode based on request body or query parameter
+    const mode = req.query.mode || (req.body?.failedResult ? 'learning' : 'preview');
 
     try {
         // Get client IP for logging and rate limiting
@@ -32,6 +44,11 @@ export default async function handler(req, res) {
                   req.connection.remoteAddress || 
                   req.socket.remoteAddress ||
                   (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
+        // Handle learning/ingest-failure mode
+        if (mode === 'learning') {
+            return await handleLearningMode(req, res, clientIP, startTime);
+        }
 
         // Check rate limiting for parsing endpoints
         const parseRateLimit = securityValidator.checkRateLimit(clientIP, 'parsing');
@@ -324,5 +341,59 @@ function extractPlatform(url) {
         return 'Other';
     } catch (error) {
         return 'Unknown';
+    }
+}
+
+// Handle learning/ingest-failure mode (consolidated from /api/learning/ingest-failure)
+async function handleLearningMode(req, res, clientIP, startTime) {
+    try {
+        const { url, html, failedResult, userAgent } = req.body;
+
+        if (!url || !failedResult) {
+            return res.status(400).json({ error: 'Missing required fields: url, failedResult' });
+        }
+
+        console.log(`📥 Ingesting parsing failure for: ${url}`);
+
+        const learningService = ParsingLearningService.getInstance();
+        
+        // Trigger real-time learning from the failed parse
+        const improvements = await learningService.learnFromFailedParse(
+            url,
+            html || '',
+            {
+                title: failedResult.title,
+                company: failedResult.company,
+                location: failedResult.location
+            }
+        );
+
+        console.log(`🎓 Learning completed:`, improvements);
+
+        // Return the improvements to be applied immediately
+        return res.status(200).json({
+            success: true,
+            improvements: improvements.improvements,
+            learnedData: {
+                title: improvements.title || failedResult.title,
+                company: improvements.company || failedResult.company,
+                location: improvements.location || failedResult.location
+            },
+            metadata: {
+                improvementsCount: improvements.improvements.length,
+                hasImprovements: improvements.improvements.length > 0,
+                userAgent,
+                timestamp: new Date().toISOString(),
+                processingTimeMs: Date.now() - startTime
+            }
+        });
+
+    } catch (error) {
+        console.error('Failed to process parsing failure:', error);
+        return res.status(500).json({ 
+            error: 'Failed to process parsing failure',
+            details: error.message,
+            processingTimeMs: Date.now() - startTime
+        });
     }
 }
