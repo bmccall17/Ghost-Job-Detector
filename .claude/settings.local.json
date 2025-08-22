@@ -82,6 +82,9 @@
       "Bash(export DATABASE_URL=\"file:./dev.db\")"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "/mnt/c/Users"
+    ]
   }
 }
