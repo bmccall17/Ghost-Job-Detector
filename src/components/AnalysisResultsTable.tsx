@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Download, ExternalLink, Calendar, Filter } from 'lucide-react'
+import { Download, ExternalLink, Calendar, Filter, Cpu, Target, CheckCircle } from 'lucide-react'
 import { JobAnalysis } from '@/types'
 import { GhostJobBadge } from './GhostJobBadge'
 import { RiskTooltip } from './RiskTooltip'
@@ -163,9 +163,10 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                   className="rounded border-gray-300"
                 />
               </th>
-              <th className="w-2/5 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Job</th>
-              <th className="w-1/5 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Company</th>
+              <th className="w-1/3 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Job</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Company</th>
               <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Ghost Risk</th>
+              <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Extraction</th>
               <th className="w-1/6 text-left px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">Analyzed</th>
               <th className="w-16 px-4 py-3"></th>
             </tr>
@@ -218,6 +219,32 @@ export const AnalysisResultsTable: React.FC<AnalysisResultsTableProps> = ({
                       />
                     </div>
                   </RiskTooltip>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-1">
+                      {result.extractionMethod === 'webllm' ? (
+                        <Cpu className="w-3 h-3 text-blue-600" />
+                      ) : result.extractionMethod === 'manual' ? (
+                        <Target className="w-3 h-3 text-gray-600" />
+                      ) : (
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                      )}
+                      <span className="text-xs font-medium text-gray-900 dark:text-gray-100 capitalize">
+                        {result.extractionMethod || 'manual'}
+                      </span>
+                    </div>
+                    {result.parsingConfidence && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {Math.round(result.parsingConfidence * 100)}% confidence
+                      </div>
+                    )}
+                    {result.validationSources && result.validationSources.length > 0 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {result.validationSources.length} sources validated
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400">

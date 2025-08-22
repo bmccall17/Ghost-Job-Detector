@@ -3,6 +3,10 @@ import { QueueManager } from '../lib/queue.js';
 import { BlobStorage } from '../lib/storage.js';
 import { CompanyNormalizationService } from '../src/services/CompanyNormalizationService.js';
 import { securityValidator } from '../lib/security.js';
+import { WebLLMParsingService } from '../src/services/WebLLMParsingService.js';
+import { CrossValidationService } from '../src/services/CrossValidationService.js';
+import { EnhancedDuplicateDetection } from '../src/services/EnhancedDuplicateDetection.js';
+import { ParsingAttemptsTracker } from '../src/services/ParsingAttemptsTracker.js';
 import crypto from 'crypto';
 
 // Ghost Job Analysis Service for Vercel (Production)
@@ -66,11 +70,11 @@ export default async function handler(req, res) {
 
         // Validate and sanitize input
         const sanitizedInput = securityValidator.validateAnalysisRequest(req.body);
-        const { url, title, company, description, location } = sanitizedInput;
+        let { url, title, company, description, location } = sanitizedInput;
         
         // Extract additional fields from request body
-        const postedAt = req.body.postedAt || null;
-        const remoteFlag = req.body.remote !== undefined ? Boolean(req.body.remote) : undefined;
+        let postedAt = req.body.postedAt || null;
+        let remoteFlag = req.body.remote !== undefined ? Boolean(req.body.remote) : undefined;
         const sourceType = 'url'; // Default to URL source type
         
         // Additional validation
@@ -80,6 +84,129 @@ export default async function handler(req, res) {
                 reason: 'Missing URL parameter'
             });
             return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Initialize parsing and validation services
+        const parsingService = new WebLLMParsingService();
+        const validationService = new CrossValidationService();
+        const duplicateDetector = new EnhancedDuplicateDetection();
+        const tracker = new ParsingAttemptsTracker();
+        
+        let extractionMethod = 'manual';
+        let parsingConfidence = null;
+        let validationSources = null;
+        let crossReferenceData = null;
+        let parsingAttemptId = null;
+
+        // Check if auto-parsing is enabled and no manual data provided
+        const isAutoParsingEnabled = process.env.ENABLE_AUTO_PARSING !== 'false';
+        const hasManualData = title || company || description;
+        
+        if (isAutoParsingEnabled && !hasManualData) {
+            console.log('🤖 Auto-parsing enabled, attempting to extract job data from URL');
+            
+            try {
+                // Attempt WebLLM parsing
+                const parsingResult = await parsingService.extractJob(url);
+                
+                // Log the parsing attempt
+                parsingAttemptId = await tracker.logParsingAttempt(
+                    url,
+                    parsingResult,
+                    null, // validation result will be added later
+                    req.headers['user-agent'],
+                    clientIP
+                );
+                
+                if (parsingResult.success && parsingResult.data) {
+                    // Use extracted data
+                    title = title || parsingResult.data.title;
+                    company = company || parsingResult.data.company;
+                    location = location || parsingResult.data.location;
+                    description = description || parsingResult.data.description;
+                    postedAt = postedAt || parsingResult.data.postedAt;
+                    
+                    extractionMethod = parsingResult.extractionMethod;
+                    parsingConfidence = parsingResult.confidence;
+                    
+                    // Perform cross-validation if confidence is high enough
+                    if (parsingResult.confidence > 0.5) {
+                        try {
+                            const validationResult = await validationService.validateJobData(
+                                parsingResult.data, 
+                                url
+                            );
+                            
+                            validationSources = {
+                                sources: validationResult.validationSources.map(s => s.name),
+                                overallConfidence: validationResult.overallConfidence,
+                                companyValidation: validationResult.companyValidation.confidence,
+                                titleValidation: validationResult.titleValidation.confidence
+                            };
+                            
+                            crossReferenceData = {
+                                validationResults: validationResult,
+                                validatedAt: new Date().toISOString(),
+                                issues: validationResult.issues,
+                                recommendations: validationResult.recommendations
+                            };
+                            
+                            console.log(`✅ Cross-validation completed with ${Math.round(validationResult.overallConfidence * 100)}% confidence`);
+                            
+                        } catch (validationError) {
+                            console.warn('Cross-validation failed:', validationError);
+                            // Continue with extracted data even if validation fails
+                        }
+                    }
+                    
+                    console.log(`✅ Auto-parsing successful with ${Math.round(parsingResult.confidence * 100)}% confidence`);
+                } else {
+                    console.log('⚠️ Auto-parsing failed, falling back to manual entry mode');
+                    extractionMethod = 'fallback';
+                    
+                    // Ensure we have minimal data to continue
+                    if (!title && !company && !description) {
+                        return res.status(400).json({
+                            error: 'Insufficient data',
+                            message: 'Auto-parsing failed and no manual data provided. Please provide job title, company, or description.',
+                            parsingError: parsingResult.errorMessage
+                        });
+                    }
+                }
+                
+            } catch (parsingError) {
+                console.error('Auto-parsing error:', parsingError);
+                
+                // Log the parsing failure
+                await tracker.logParsingFailure(
+                    url,
+                    parsingError.message || 'Auto-parsing failed',
+                    Date.now() - startTime,
+                    'webllm',
+                    req.headers['user-agent'],
+                    clientIP
+                );
+                
+                extractionMethod = 'fallback';
+                
+                // Ensure we have minimal data to continue
+                if (!hasManualData) {
+                    return res.status(400).json({
+                        error: 'Parsing failed',
+                        message: 'Auto-parsing failed and no manual data provided. Please provide job details manually.',
+                        parsingError: parsingError.message
+                    });
+                }
+            }
+        } else if (hasManualData) {
+            console.log('📝 Using manual job data entry');
+            extractionMethod = 'manual';
+        } else {
+            console.log('🔒 Auto-parsing disabled, requiring manual data');
+            return res.status(400).json({
+                error: 'Manual data required',
+                message: 'Auto-parsing is disabled. Please provide job title, company, and description manually.'
+            });
         }
 
         // Generate content hash for deduplication

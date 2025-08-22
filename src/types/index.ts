@@ -9,6 +9,11 @@ export interface JobAnalysis {
   analyzedAt: Date
   status: 'pending' | 'completed' | 'failed'
   isNewContribution?: boolean
+  
+  // WebLLM parsing fields
+  extractionMethod?: 'webllm' | 'manual' | 'fallback' | 'hybrid'
+  parsingConfidence?: number
+  validationSources?: string[]
   metadata?: {
     // New detailed analyzer processing data
     algorithmAssessment?: {
@@ -222,4 +227,68 @@ export interface BulkAnalysisJob {
   createdAt: Date
   completedAt?: Date
   results: JobAnalysis[]
+}
+
+// WebLLM Parsing interfaces
+export interface ParsePreviewRequest {
+  url: string
+}
+
+export interface ParsePreviewResponse {
+  url: string
+  extractedData: ExtractedJobData | null
+  confidence: number
+  extractionMethod: 'webllm' | 'manual' | 'fallback'
+  validationResult?: {
+    overallConfidence: number
+    companyValidation: {
+      isValid: boolean
+      confidence: number
+      legitimacyScore: number
+    }
+    titleValidation: {
+      isValid: boolean
+      confidence: number
+      industryMatch: boolean
+    }
+    issues: string[]
+    recommendations: string[]
+  }
+  duplicateCheck?: {
+    isDuplicate: boolean
+    matchingScore: number
+    matchingFactors: string[]
+    matchedJobId?: string
+    recommendedAction: string
+  }
+  processingTimeMs: number
+  message: string
+  recommendedAction: 'auto_proceed' | 'user_confirm' | 'manual_entry' | 'duplicate_found'
+  metadata?: {
+    parsingEnabled: boolean
+    platform: string
+    timestamp: string
+  }
+}
+
+export interface ExtractedJobData {
+  title: string | null
+  company: string | null
+  location: string | null
+  description: string | null
+  salary: string | null
+  jobType: string | null
+  postedAt: string | null
+  jobId: string | null
+  contactDetails: string | null
+  originalSource: string
+}
+
+export interface ParsedJobConfirmation {
+  url: string
+  extractedData: ExtractedJobData
+  confidence: number
+  userConfirmed: boolean
+  editedFields?: Partial<ExtractedJobData>
+  userNotes?: string
 }

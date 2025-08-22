@@ -63,11 +63,20 @@ model JobListing {
   canonicalUrl      String?  // Canonical job URL
   rawParsedJson     Json     // Original parsing results
   normalizedKey     String   @unique // Unique identifier for deduplication
+  
+  // WebLLM parsing fields
+  parsingConfidence Decimal? @db.Decimal(3,2) // Confidence score (0.00-1.00)
+  extractionMethod  String   @default("manual") // 'webllm', 'manual', 'hybrid'
+  validationSources Json?    // Cross-validation source results
+  crossReferenceData Json?   // Additional validation metadata
+  parsingAttemptId  String?  // Reference to parsing attempt
+  
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
   // Relations
   source            Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  parsingAttempt    ParsingAttempt? @relation("ParsingAttemptToJobListing", fields: [parsingAttemptId], references: [id])
   analyses          Analysis[]
   keyFactors        KeyFactor[]
   corrections       JobCorrection[]
@@ -77,6 +86,9 @@ model JobListing {
   @@index([company])
   @@index([normalizedKey])
   @@index([postedAt])
+  @@index([extractionMethod])
+  @@index([parsingConfidence])
+  @@index([parsingAttemptId])
   @@map("job_listings")
 }
 
@@ -200,6 +212,31 @@ model JobCorrection {
   @@index([correctedBy])
   @@index([createdAt])
   @@map("job_corrections")
+}
+
+// Parsing attempts tracking for WebLLM performance
+model ParsingAttempt {
+  id               String   @id @default(cuid()) // UUID primary key
+  sourceUrl        String   // URL being parsed
+  attemptedAt      DateTime @default(now())
+  successStatus    Boolean  @default(false)
+  errorMessage     String?  // Error details if failed
+  processingTimeMs Int?     // Time taken for parsing
+  extractionMethod String   // 'webllm', 'fallback', etc.
+  confidenceScore  Decimal? @db.Decimal(3,2) // Overall extraction confidence
+  validationData   Json?    // Cross-validation results
+  userAgentUsed    String?  // Browser user agent for debugging
+  ipAddress        String?  // Client IP for rate limiting
+  
+  // Relations
+  jobListings      JobListing[] @relation("ParsingAttemptToJobListing")
+  
+  // Indexes
+  @@index([sourceUrl])
+  @@index([attemptedAt])
+  @@index([successStatus])
+  @@index([extractionMethod])
+  @@map("parsing_attempts")
 }
 
 // Algorithm feedback and learning data

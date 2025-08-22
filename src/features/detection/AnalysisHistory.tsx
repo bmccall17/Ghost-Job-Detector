@@ -33,6 +33,10 @@ export const AnalysisHistory: React.FC = () => {
           analyzedAt: new Date(analysis.timestamp),
           status: 'completed' as const,
           isNewContribution: analysis.isNewContribution || false,
+          // Include WebLLM parsing fields if available
+          extractionMethod: analysis.extractionMethod || 'manual',
+          parsingConfidence: analysis.parsingConfidence,
+          validationSources: analysis.validationSources,
           // Include metadata if available
           metadata: {
             algorithmAssessment: analysis.metadata?.algorithmAssessment,
