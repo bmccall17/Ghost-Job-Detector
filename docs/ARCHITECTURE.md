@@ -1,5 +1,5 @@
-# Ghost Job Detector - Production Architecture v0.1.1
-**Version:** 0.1.1 | **Status:** ENHANCED INTELLIGENCE MILESTONE ✅ | **Last Updated:** August 18, 2025
+# Ghost Job Detector - Production Architecture v0.1.8
+**Version:** 0.1.8 | **Status:** PRODUCTION-FIRST TESTING ✅ | **Last Updated:** August 20, 2025
 
 ---
 
@@ -240,14 +240,77 @@ Before implementing ANY new API endpoint, you MUST:
 
 ---
 
+## **🚀 Production-First Testing & Deployment**
+
+### **PRIMARY RULE: Always Test in Production Environment**
+
+**Never run database operations locally. Always test on live production environment.**
+
+#### **Required Testing Workflow:**
+```bash
+# 1. Deploy changes immediately
+git add .
+git commit -m "Phase X: [description]"
+git push origin main
+
+# 2. Verify deployment
+vercel --prod
+
+# 3. Test endpoints against production
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url":"test-url","title":"Engineer","company":"Test Co"}'
+
+# 4. Check production logs
+vercel logs --prod
+```
+
+#### **Database Operations - Production Only:**
+- **Schema changes**: Edit `prisma/schema.prisma` then deploy
+- **Migrations**: Let Vercel auto-run migrations on deployment  
+- **Testing**: Use `/api/db-check` endpoint instead of local Prisma commands
+- **Debugging**: Check Neon dashboard for database issues
+
+#### **⛔ Never Run Locally:**
+- `npm run dev` (development server)
+- `npx prisma migrate` (database migrations)
+- `npx prisma studio` (database browser)
+- `npx prisma generate` (client generation)
+- Any direct database connections
+
+#### **Production Testing Endpoints:**
+```bash
+# Test main analysis endpoint
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/job",
+    "title": "Software Engineer", 
+    "company": "Test Corp",
+    "description": "Test job description"
+  }'
+
+# Check database connectivity
+curl https://ghost-job-detector-lilac.vercel.app/api/db-check
+
+# Verify analysis history
+curl https://ghost-job-detector-lilac.vercel.app/api/analyses
+
+# Health check
+curl https://ghost-job-detector-lilac.vercel.app/api/health
+```
+
+---
+
 ## **Current Architecture Status**
 
-**✅ MVP COMPLETED - Version 0.1 Milestone Achieved**
+**✅ MVP COMPLETED - Version 0.1.8 Milestone Achieved**
 
 - **Database Integration:** Universal data persistence across all browsers ✅
 - **API Architecture:** Production-ready endpoints with error handling ✅
 - **Frontend Synchronization:** Real-time history access and analysis ✅
-- **Analysis Engine:** Functional rule-based detection with detailed results ✅
+- **Analysis Engine:** Enhanced v0.1.7 rule-based detection with detailed results ✅
+- **Production-First Testing:** Comprehensive testing workflow implemented ✅
 
 **📈 Next Milestone:** Enhanced Intelligence & Machine Learning (v0.2)  
 **🎯 Target Date:** September 2025

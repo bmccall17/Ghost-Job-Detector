@@ -173,11 +173,71 @@
 - **Indexing**: Index all foreign keys and frequently queried fields
 - **Connection Pooling**: Maximum 20 connections per service instance
 
-## Testing Requirements
+## Production-First Testing Strategy
+
+### 🚀 **PRIMARY RULE: Always Test in Production Environment**
+
+**Never run database operations locally. Always test on live production environment.**
+
+#### Required Testing Workflow:
+```bash
+# 1. Deploy changes immediately
+git add .
+git commit -m "Phase X: [description]"
+git push origin main
+
+# 2. Verify deployment
+vercel --prod
+
+# 3. Test endpoints against production
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url":"test-url"}'
+
+# 4. Check production logs
+vercel logs --prod
+```
+
+#### Database Operations - Production Only:
+- **Schema changes**: Edit `prisma/schema.prisma` then deploy
+- **Migrations**: Let Vercel auto-run migrations on deployment  
+- **Testing**: Use `/api/db-check` endpoint instead of local Prisma commands
+- **Debugging**: Check Neon dashboard for database issues
+
+#### ⛔ Never Run Locally:
+- `npm run dev` (development server)
+- `npx prisma migrate` (database migrations)
+- `npx prisma studio` (database browser)
+- `npx prisma generate` (client generation)
+- Any direct database connections
+
+#### Production Testing Commands:
+```bash
+# Test main analysis endpoint
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/job",
+    "title": "Software Engineer",
+    "company": "Test Corp",
+    "description": "Test job description"
+  }'
+
+# Check database connectivity
+curl https://ghost-job-detector-lilac.vercel.app/api/db-check
+
+# Verify analysis history
+curl https://ghost-job-detector-lilac.vercel.app/api/analyses
+
+# Health check
+curl https://ghost-job-detector-lilac.vercel.app/api/health
+```
+
+### Traditional Testing (Supplementary)
 - **Unit Tests**: Jest + Testing Library for React components
-- **API Tests**: pytest with FastAPI TestClient for all endpoints
-- **ML Tests**: Test model accuracy against holdout dataset (>95% accuracy requirement)
-- **Integration Tests**: Test critical user flows end-to-end
+- **API Tests**: Production endpoint testing with curl/Postman
+- **ML Tests**: Test model accuracy against holdout dataset (>95% accuracy requirement)  
+- **Integration Tests**: Test critical user flows end-to-end in production
 - **Coverage**: Minimum 80% code coverage for all new features
 
 ## Security Standards

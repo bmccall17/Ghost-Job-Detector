@@ -67,11 +67,13 @@
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
-- npm or yarn
-- Git
+- Git for deployment
+- Basic understanding of curl for API testing
+- Access to Vercel dashboard for monitoring
 
-## 🚀 Quick Start
+## 🚀 Production-First Development Approach
+
+**PRIMARY RULE:** Never run database operations locally. Always test on live production environment.
 
 ### 1. Clone the Repository
 
@@ -80,41 +82,72 @@ git clone https://github.com/your-username/Ghost-Job-Detector.git
 cd Ghost-Job-Detector
 ```
 
-### 2. Install Dependencies
+### 2. Production Deployment Workflow
 
 ```bash
-npm install
+# Make code changes in files
+# Then immediately deploy to production:
+
+git add .
+git commit -m "Phase X: [description of changes]"
+git push origin main
+
+# Verify deployment
+vercel --prod
 ```
 
-### 3. Set up Environment Variables
+### 3. Test in Production Environment
 
 ```bash
-cp .env.local.example .env.local
+# Test main analysis endpoint
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/job",
+    "title": "Software Engineer",
+    "company": "Test Corp",
+    "description": "Test job description"
+  }'
+
+# Check database connectivity  
+curl https://ghost-job-detector-lilac.vercel.app/api/db-check
+
+# Verify analysis history
+curl https://ghost-job-detector-lilac.vercel.app/api/analyses
 ```
 
-Edit `.env.local` with your API configuration:
-```env
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-```
-
-### 4. Start Development Server
+### 4. Monitor Production Logs
 
 ```bash
-npm run dev
+# Check production logs
+vercel logs --prod
+
+# Monitor deployment status
+vercel --prod
 ```
 
-Open [http://localhost:5173](http://localhost:5173) to view the dashboard.
+## 📚 Production Commands
 
-## 📚 Available Scripts
+| Command | Description | When to Use |
+|---------|-------------|-------------|
+| `git push origin main` | **Deploy to production** | After every code change |
+| `vercel --prod` | Verify deployment status | After pushing changes |
+| `vercel logs --prod` | View production logs | For debugging issues |
+| `npm run typecheck` | Check TypeScript errors | Before committing |
+| `npm run lint` | Run ESLint | Before committing |
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run test` | Run test suite |
+### ⛔ **Never Run Locally:**
+- `npm run dev` - Development server
+- `npx prisma migrate` - Database migrations  
+- `npx prisma studio` - Database browser
+- `npx prisma generate` - Client generation
+- Any direct database connections
+
+### Database Operations - Production Only:
+- **Schema changes**: Edit `prisma/schema.prisma` then deploy
+- **Migrations**: Let Vercel auto-run migrations on deployment
+- **Testing**: Use `/api/db-check` endpoint
+- **Debugging**: Check Neon dashboard
 
 ## 🏗 Project Structure
 
@@ -167,28 +200,31 @@ src/
 - **Interactive controls**: Minimize, fullscreen, copy logs, download as file
 - **Educational value**: Learn how ghost job detection algorithms work
 
-### Environment Variables
+## 🔧 Production API Endpoints
 
-Set these in your `.env.local` file:
+All testing done against live production environment:
 
-```env
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-AGENT_ENABLED=true
-NEXT_PUBLIC_AGENT_ENABLED=true
-AGENT_USE_SERVER_FALLBACK=true
-GROQ_API_KEY=your_groq_api_key
+### Available API Endpoints
+
+- `POST /api/analyze` - **Primary job analysis endpoint**
+- `GET /api/db-check` - Database connectivity health check
+- `GET /api/analyses` - Analysis history retrieval
+- `GET /api/health` - Application health status
+
+### Production Testing Examples
+
+```bash
+# Basic analysis test
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url":"test-url","title":"Engineer","company":"Test Co"}'
+
+# Database health check
+curl https://ghost-job-detector-lilac.vercel.app/api/db-check
+
+# System health check
+curl https://ghost-job-detector-lilac.vercel.app/api/health
 ```
-
-## 🔧 API Integration
-
-The dashboard uses a REST API for job analysis. Currently configured with mock responses for development.
-
-### Expected API Endpoints
-
-- `POST /api/v1/detection/analyze` - Single job analysis
-- `POST /api/v1/detection/bulk-analyze` - Bulk CSV upload
-- `GET /api/v1/detection/bulk-analyze/{id}` - Check bulk job status
-- `POST /api/v1/detection/export` - Export analysis results
 
 ### Mock Data Structure
 

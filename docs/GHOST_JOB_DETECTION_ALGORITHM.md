@@ -299,19 +299,49 @@ To add new detection rules following the enhanced framework:
 - **Exception Role Checking:** Adds ~0.5ms for government/academic/executive role detection
 - **URL Pattern Analysis:** Minimal performance impact for company-site verification
 
-## Testing and Validation
+## Production-First Testing and Validation
+
+### **PRIMARY RULE: Always Test in Production Environment**
+
+**Never run database operations locally. Always test on live production environment.**
+
+#### **Production Testing Workflow:**
+```bash
+# 1. Deploy algorithm changes immediately
+git add .
+git commit -m "Algorithm v0.1.7: [description]"
+git push origin main
+
+# 2. Test algorithm against production endpoint
+curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/job",
+    "title": "Software Engineer",
+    "company": "Test Corp",
+    "description": "Urgent hiring! Competitive salary."
+  }'
+
+# 3. Monitor production logs
+vercel logs --prod
+```
 
 ### Current Test Coverage
-- Unit tests for individual risk factor detection
-- Integration tests for full analysis pipeline  
-- Performance benchmarks for response time
-- Database transaction integrity tests
+- **Production API Testing:** All algorithm changes tested via live endpoints
+- **Real-world Data Validation:** Using actual job postings in production
+- **Performance Benchmarks:** Response time monitoring via Vercel logs
+- **Database Integration Tests:** Via `/api/db-check` endpoint
 
 ### Validation Metrics
-- **Accuracy:** Measured against manually labeled dataset
+- **Accuracy:** Measured against manually labeled production dataset
 - **Precision:** Percentage of flagged jobs that are actually ghost jobs
 - **Recall:** Percentage of ghost jobs successfully identified
 - **F1 Score:** Harmonic mean of precision and recall
+
+### ⛔ **Never Run Locally:**
+- Algorithm testing with local data
+- Database schema changes locally
+- Performance benchmarks on local machine
 
 ## Monitoring and Logging
 
