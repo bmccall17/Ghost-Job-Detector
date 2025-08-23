@@ -97,17 +97,25 @@ model Analysis {
   jobListingId      String
   score             Decimal  @db.Decimal(3,2) // 0.00 to 1.00 (Phase 1: optimized precision)
   verdict           AnalysisVerdict
-  reasonsJson       Json     // Detailed reason codes and factors
+  // PHASE 2: reasonsJson simplified - main factor data normalized to KeyFactor relations
+  reasonsJson       Json?    // Legacy metadata only (extractionMethod, parsingConfidence)
   modelVersion      String
   processingTimeMs  Int?     // Analysis duration
   createdAt         DateTime @default(now())
   
-  // Detailed analyzer processing data
-  algorithmAssessment Json?   // Ghost probability, model confidence, assessment text
-  riskFactorsAnalysis Json?   // Warning signs, positive indicators, detailed factors
-  recommendation      Json?   // Final recommendation and reasoning
-  analysisDetails     Json?   // Analysis ID, processing metadata, technical details
+  // Phase 2: Derived calculated fields (replacing JSON redundancy)
   modelConfidence     Decimal? @db.Decimal(3,2) // Model confidence score (0-1) - Phase 1: optimized precision
+  riskFactorCount     Int?     @default(0)      // Count of risk factors (calculated)
+  positiveFactorCount Int?     @default(0)      // Count of positive factors (calculated)
+  recommendationAction String? @default("investigate") // 'avoid', 'proceed', 'investigate'
+  platform            String?                  // Extracted platform for analysis
+  extractionMethod    String?  @default("manual") // WebLLM extraction method
+  
+  // PHASE 2 REMOVALS: Redundant JSON fields being consolidated
+  // REMOVED: algorithmAssessment (data derivable from score, verdict, confidence)
+  // REMOVED: riskFactorsAnalysis (normalized to KeyFactor relations) 
+  // REMOVED: recommendation (derived from verdict and score)
+  // REMOVED: analysisDetails (metadata moved to separate fields)
   // REMOVED: ghostProbability (redundant with score field)
   // REMOVED: analysisId (redundant with primary key id)
   

@@ -122,30 +122,86 @@ export default async function handler(req, res) {
             const jobListing = existingSource.jobListings[0];
             const latestAnalysis = jobListing.analyses[0];
             
-            return res.status(200).json({
-                id: latestAnalysis?.id || jobListing.id,
-                url: existingSource.url,
-                jobData: {
-                    title: jobListing.title,
-                    company: jobListing.company,
-                    description: jobData.description,
-                    location: jobListing.location,
-                    remote: jobListing.remoteFlag
-                },
-                ghostProbability: latestAnalysis ? Number(latestAnalysis.score) : 0,
-                riskLevel: latestAnalysis?.verdict || 'uncertain',
-                riskFactors: latestAnalysis?.reasonsJson?.riskFactors || [],
-                keyFactors: latestAnalysis?.reasonsJson?.keyFactors || [],
-                metadata: {
-                    storage: 'postgres',
-                    version: '2.0',
-                    cached: true,
-                    extractionMethod,
-                    parsingConfidence,
-                    parsingMetadata,
-                    analysisDate: latestAnalysis?.createdAt
-                }
-            });
+            if (latestAnalysis) {
+                // Get KeyFactor relations for cached response
+                const cachedKeyFactors = await prisma.keyFactor.findMany({
+                    where: { jobListingId: jobListing.id },
+                    orderBy: { createdAt: 'asc' }
+                });
+
+                // Phase 2: Generate cached response from relational data
+                const cachedAlgorithmAssessment = {
+                    ghostProbability: Math.round(Number(latestAnalysis.score) * 100),
+                    modelConfidence: `${latestAnalysis.modelConfidence >= 0.8 ? 'High' : latestAnalysis.modelConfidence >= 0.6 ? 'Medium' : 'Low'} (${Math.round(Number(latestAnalysis.modelConfidence) * 100)}%)`,
+                    assessmentText: latestAnalysis.verdict === 'likely_ghost' 
+                        ? 'This job posting shows signs of being a ghost job with multiple red flags.'
+                        : latestAnalysis.verdict === 'likely_real'
+                        ? 'This job posting appears legitimate with positive indicators.'
+                        : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
+                };
+
+                const cachedRiskFactorsAnalysis = {
+                    warningSignsCount: latestAnalysis.riskFactorCount || 0,
+                    warningSignsTotal: (latestAnalysis.riskFactorCount || 0) + (latestAnalysis.positiveFactorCount || 0),
+                    riskFactors: cachedKeyFactors.filter(f => f.factorType === 'risk').map(factor => ({
+                        type: 'warning',
+                        description: factor.factorDescription,
+                        impact: 'medium'
+                    })),
+                    positiveIndicators: cachedKeyFactors.filter(f => f.factorType === 'positive').map(factor => ({
+                        type: 'positive',
+                        description: factor.factorDescription,
+                        impact: 'low'
+                    }))
+                };
+
+                return res.status(200).json({
+                    id: latestAnalysis.id,
+                    url: existingSource.url,
+                    jobData: {
+                        title: jobListing.title,
+                        company: jobListing.company,
+                        description: jobData.description,
+                        location: jobListing.location,
+                        remote: jobListing.remoteFlag
+                    },
+                    ghostProbability: Number(latestAnalysis.score),
+                    riskLevel: latestAnalysis.verdict === 'likely_ghost' ? 'high' :
+                              latestAnalysis.verdict === 'likely_real' ? 'low' : 'medium',
+                    riskFactors: cachedKeyFactors.filter(f => f.factorType === 'risk').map(f => f.factorDescription),
+                    keyFactors: cachedKeyFactors.filter(f => f.factorType === 'positive').map(f => f.factorDescription),
+                    metadata: {
+                        storage: 'postgres',
+                        version: '2.0-phase2',
+                        cached: true,
+                        extractionMethod: latestAnalysis.extractionMethod || extractionMethod,
+                        parsingConfidence,
+                        parsingMetadata,
+                        analysisDate: latestAnalysis.createdAt,
+                        // Phase 2: Dynamically generated from cached relational data
+                        algorithmAssessment: cachedAlgorithmAssessment,
+                        riskFactorsAnalysis: cachedRiskFactorsAnalysis,
+                        recommendation: {
+                            action: latestAnalysis.recommendationAction || 'investigate',
+                            message: latestAnalysis.recommendationAction === 'avoid'
+                                ? 'Consider avoiding this opportunity. Multiple risk factors suggest this may be a ghost job posting.'
+                                : latestAnalysis.recommendationAction === 'proceed'
+                                ? 'This appears to be a legitimate opportunity. Consider applying if it matches your qualifications.'
+                                : 'Exercise caution with this posting. Conduct additional research before applying.',
+                            confidence: latestAnalysis.modelConfidence >= 0.8 ? 'high' : 'medium'
+                        },
+                        analysisDetails: {
+                            modelVersion: latestAnalysis.modelVersion,
+                            processingTimeMs: latestAnalysis.processingTimeMs,
+                            analysisDate: latestAnalysis.createdAt.toISOString(),
+                            algorithmType: 'rule_based_v1.8_webllm',
+                            dataSource: 'cached_analysis',
+                            platform: latestAnalysis.platform || extractPlatformFromUrl(url),
+                            extractionMethod: latestAnalysis.extractionMethod || extractionMethod
+                        }
+                    }
+                });
+            }
         }
 
         // Create new source record
@@ -181,16 +237,17 @@ export default async function handler(req, res) {
                 remoteFlag: jobData.remoteFlag,
                 postedAt: jobData.postedAt ? new Date(jobData.postedAt) : null,
                 canonicalUrl: url,
+                // Phase 2: Simplified rawParsedJson - removed field duplications
                 rawParsedJson: {
                     originalTitle: jobData.title,
                     originalCompany: jobData.company,
                     originalDescription: jobData.description,
                     originalLocation: jobData.location,
                     extractedAt: new Date().toISOString(),
-                    extractionMethod,
-                    parsingConfidence,
+                    // REMOVED: extractionMethod (now in separate field)
+                    // REMOVED: parsingConfidence (now in separate field)
+                    // REMOVED: platform (now in separate field) 
                     parsingMetadata,
-                    platform: extractPlatformFromUrl(url),
                     sources: [{
                         url: url,
                         platform: extractPlatformFromUrl(url),
@@ -227,82 +284,123 @@ export default async function handler(req, res) {
                 score: analysis.ghostProbability,
                 verdict: analysis.riskLevel === 'high' ? 'likely_ghost' : 
                          analysis.riskLevel === 'low' ? 'likely_real' : 'uncertain',
+                // Phase 2: Simplified reasonsJson - only legacy metadata
                 reasonsJson: {
-                    riskFactors: analysis.riskFactors,
-                    keyFactors: analysis.keyFactors,
-                    confidence: analysis.confidence,
                     extractionMethod,
-                    parsingConfidence
+                    parsingConfidence,
+                    confidence: analysis.confidence
                 },
                 modelVersion: 'v0.1.8-webllm',
                 processingTimeMs: processingTime,
                 
-                // Enhanced analyzer processing data
-                algorithmAssessment: {
-                    ghostProbability: Math.round(analysis.ghostProbability * 100),
-                    modelConfidence: `${analysis.confidence >= 0.8 ? 'High' : analysis.confidence >= 0.6 ? 'Medium' : 'Low'} (${Math.round(analysis.confidence * 100)}%)`,
-                    assessmentText: analysis.riskLevel === 'high' 
-                        ? 'This job posting shows signs of being a ghost job with multiple red flags.'
-                        : analysis.riskLevel === 'low'
-                        ? 'This job posting appears legitimate with positive indicators.'
-                        : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
-                },
-                
-                riskFactorsAnalysis: {
-                    warningSignsCount: analysis.riskFactors.length,
-                    warningSignsTotal: analysis.riskFactors.length + analysis.keyFactors.length,
-                    riskFactors: analysis.riskFactors.map(factor => ({
-                        type: 'warning',
-                        description: factor,
-                        impact: 'medium'
-                    })),
-                    positiveIndicators: analysis.keyFactors.map(factor => ({
-                        type: 'positive',
-                        description: factor,
-                        impact: 'low'
-                    }))
-                },
-                
-                recommendation: {
-                    action: analysis.riskLevel === 'high' ? 'avoid' : 
-                           analysis.riskLevel === 'low' ? 'proceed' : 'investigate',
-                    message: analysis.riskLevel === 'high'
-                        ? 'Consider avoiding this opportunity. Multiple risk factors suggest this may be a ghost job posting.'
-                        : analysis.riskLevel === 'low'
-                        ? 'This appears to be a legitimate opportunity. Consider applying if it matches your qualifications.'
-                        : 'Exercise caution with this posting. Conduct additional research before applying.',
-                    confidence: analysis.confidence >= 0.8 ? 'high' : 'medium'
-                },
-                
-                analysisDetails: {
-                    modelVersion: 'v0.1.8-webllm',
-                    processingTimeMs: processingTime,
-                    analysisDate: new Date().toISOString(),
-                    algorithmType: 'rule_based_v1.8_webllm',
-                    dataSource: 'webllm_extraction',
-                    platform: extractPlatformFromUrl(url),
-                    extractionMethod,
-                    parsingConfidence
-                }
+                // Phase 2: Calculated fields instead of JSON redundancy
+                modelConfidence: analysis.confidence,
+                riskFactorCount: analysis.riskFactors.length,
+                positiveFactorCount: analysis.keyFactors.length,
+                recommendationAction: analysis.riskLevel === 'high' ? 'avoid' : 
+                                    analysis.riskLevel === 'low' ? 'proceed' : 'investigate',
+                platform: extractPlatformFromUrl(url),
+                extractionMethod: extractionMethod
             }
         });
 
         console.log('✅ Analysis record created successfully with ID:', analysisRecord.id);
+        
+        // Create KeyFactor records to normalize reasonsJson data
+        console.log('🔄 Creating KeyFactor records...');
+        
+        // Create risk factor records
+        for (const factor of analysis.riskFactors) {
+            await prisma.keyFactor.create({
+                data: {
+                    jobListingId: jobListing.id,
+                    factorType: 'risk',
+                    factorDescription: factor,
+                    impactScore: 0.15 // Default medium impact
+                }
+            });
+        }
+        
+        // Create positive factor records
+        for (const factor of analysis.keyFactors) {
+            await prisma.keyFactor.create({
+                data: {
+                    jobListingId: jobListing.id,
+                    factorType: 'positive', 
+                    factorDescription: factor,
+                    impactScore: 0.10 // Default positive impact
+                }
+            });
+        }
+        
+        console.log(`✅ Created ${analysis.riskFactors.length} risk factors and ${analysis.keyFactors.length} positive factors`);
         console.log(`✅ Analysis complete: ${analysis.ghostProbability.toFixed(3)} ghost probability (${extractionMethod} extraction)`);
+
+        // Get KeyFactor relations for response
+        const keyFactors = await prisma.keyFactor.findMany({
+            where: { jobListingId: jobListing.id },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Phase 2: Generate JSON structures dynamically from relational data
+        const algorithmAssessment = {
+            ghostProbability: Math.round(Number(analysisRecord.score) * 100),
+            modelConfidence: `${analysisRecord.modelConfidence >= 0.8 ? 'High' : analysisRecord.modelConfidence >= 0.6 ? 'Medium' : 'Low'} (${Math.round(Number(analysisRecord.modelConfidence) * 100)}%)`,
+            assessmentText: analysisRecord.verdict === 'likely_ghost' 
+                ? 'This job posting shows signs of being a ghost job with multiple red flags.'
+                : analysisRecord.verdict === 'likely_real'
+                ? 'This job posting appears legitimate with positive indicators.'
+                : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
+        };
+
+        const riskFactorsAnalysis = {
+            warningSignsCount: analysisRecord.riskFactorCount || 0,
+            warningSignsTotal: (analysisRecord.riskFactorCount || 0) + (analysisRecord.positiveFactorCount || 0),
+            riskFactors: keyFactors.filter(f => f.factorType === 'risk').map(factor => ({
+                type: 'warning',
+                description: factor.factorDescription,
+                impact: 'medium'
+            })),
+            positiveIndicators: keyFactors.filter(f => f.factorType === 'positive').map(factor => ({
+                type: 'positive',
+                description: factor.factorDescription,
+                impact: 'low'
+            }))
+        };
+
+        const recommendation = {
+            action: analysisRecord.recommendationAction || 'investigate',
+            message: analysisRecord.recommendationAction === 'avoid'
+                ? 'Consider avoiding this opportunity. Multiple risk factors suggest this may be a ghost job posting.'
+                : analysisRecord.recommendationAction === 'proceed'
+                ? 'This appears to be a legitimate opportunity. Consider applying if it matches your qualifications.'
+                : 'Exercise caution with this posting. Conduct additional research before applying.',
+            confidence: analysisRecord.modelConfidence >= 0.8 ? 'high' : 'medium'
+        };
+
+        const analysisDetails = {
+            modelVersion: analysisRecord.modelVersion,
+            processingTimeMs: analysisRecord.processingTimeMs,
+            analysisDate: analysisRecord.createdAt.toISOString(),
+            algorithmType: 'rule_based_v1.8_webllm',
+            dataSource: 'webllm_extraction',
+            platform: analysisRecord.platform || extractPlatformFromUrl(url),
+            extractionMethod: analysisRecord.extractionMethod
+        };
 
         // 📊 COMPREHENSIVE EXTRACTION SUMMARY
         console.log('📊 ===== PRODUCTION EXTRACTION SUMMARY =====');
         console.log(`🔗 URL: ${url}`);
-        console.log(`🏷️  Platform: ${extractPlatformFromUrl(url)}`);
+        console.log(`🏷️  Platform: ${analysisRecord.platform || extractPlatformFromUrl(url)}`);
         console.log(`📝 Input Data: title="${title || 'EMPTY'}", company="${company || 'EMPTY'}"`);
         console.log(`🤖 WebLLM Triggered: ${shouldExtract ? 'YES' : 'NO'} (${shouldExtract ? 'no valid manual data' : 'valid manual data provided'})`);
         console.log(`🎯 Final Results: title="${jobData.title}", company="${jobData.company}"`);
         console.log(`📈 Extraction Confidence: ${parsingConfidence.toFixed(2)} | Method: ${extractionMethod}`);
-        console.log(`🔍 Ghost Score: ${analysis.ghostProbability.toFixed(3)} (${analysis.riskLevel.toUpperCase()})`);
+        console.log(`🔍 Ghost Score: ${Number(analysisRecord.score).toFixed(3)} (${analysisRecord.verdict.toUpperCase()})`);
         console.log(`✅ Database Write: SUCCESS (ID: ${analysisRecord.id})`);
         console.log('📊 ===== END PRODUCTION SUMMARY =====');
 
-        // Return analysis result
+        // Return analysis result with backward compatible structure
         return res.status(200).json({
             id: analysisRecord.id,
             url,
@@ -313,22 +411,24 @@ export default async function handler(req, res) {
                 location: jobListing.location,
                 remote: jobListing.remoteFlag
             },
-            ghostProbability: Number(analysis.ghostProbability),
-            riskLevel: analysis.riskLevel,
-            riskFactors: analysis.riskFactors,
-            keyFactors: analysis.keyFactors,
+            ghostProbability: Number(analysisRecord.score),
+            riskLevel: analysisRecord.verdict === 'likely_ghost' ? 'high' :
+                      analysisRecord.verdict === 'likely_real' ? 'low' : 'medium',
+            riskFactors: keyFactors.filter(f => f.factorType === 'risk').map(f => f.factorDescription),
+            keyFactors: keyFactors.filter(f => f.factorType === 'positive').map(f => f.factorDescription),
             metadata: {
                 storage: 'postgres',
-                version: '2.0-webllm',
+                version: '2.0-phase2',
                 cached: false,
-                extractionMethod,
+                extractionMethod: analysisRecord.extractionMethod,
                 parsingConfidence,
                 parsingMetadata,
                 analysisDate: analysisRecord.createdAt,
-                algorithmAssessment: analysisRecord.algorithmAssessment,
-                riskFactorsAnalysis: analysisRecord.riskFactorsAnalysis,
-                recommendation: analysisRecord.recommendation,
-                analysisDetails: analysisRecord.analysisDetails,
+                // Phase 2: Dynamically generated from relational data
+                algorithmAssessment,
+                riskFactorsAnalysis,
+                recommendation,
+                analysisDetails,
                 processingTimeMs: Date.now() - startTime
             }
         });
