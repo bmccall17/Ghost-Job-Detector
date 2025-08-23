@@ -240,11 +240,24 @@ export class ParserRegistry {
     try {
       // Use AllOrigins proxy for CORS handling
       const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
       const data = await response.json()
       return data.contents || ''
     } catch (error) {
-      console.error('Failed to fetch HTML:', error)
-      throw new Error(`Failed to fetch content from ${url}`)
+      console.error('Failed to fetch HTML from CORS proxy:', error)
+      
+      // For LinkedIn and other protected sites, this is expected
+      // Return empty string to trigger manual entry fallback
+      if (url.includes('linkedin.com') || url.includes('glassdoor.com')) {
+        console.warn(`CORS proxy blocked by ${url} - this is expected for protected sites`)
+        return ''
+      }
+      
+      throw new Error(`Failed to fetch content from ${url}: ${error.message}`)
     }
   }
 

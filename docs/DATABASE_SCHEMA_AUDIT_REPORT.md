@@ -261,7 +261,6 @@ CREATE INDEX analyses_verdict_score_idx ON analyses(verdict, score);
 ## 🚀 Implementation Strategy
 
 ### **Phase 1: Quick Wins** ⚠️ **IMMEDIATE PRIORITY**
-**Timeline**: 2-3 days  
 **Risk**: LOW  
 **Impact**: 15-25% savings
 

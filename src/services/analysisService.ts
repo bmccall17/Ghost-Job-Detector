@@ -877,8 +877,8 @@ export class AnalysisService {
         console.warn('Could not fetch HTML for learning analysis:', htmlError)
       }
 
-      // Call our learning API endpoint
-      const response = await fetch('/api/learning/ingest-failure', {
+      // Call our learning API endpoint (consolidated into parse-preview)
+      const response = await fetch('/api/parse-preview?mode=learning', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
