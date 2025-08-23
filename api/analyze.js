@@ -939,12 +939,17 @@ function extractFromWorkdayUrl(url) {
         if (companyMatch) {
             const rawCompany = companyMatch[1];
             // Convert bostondynamics → Boston Dynamics
-            company = rawCompany
-                .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase split
-                .replace(/([a-z])(\d)/g, '$1 $2')     // letter-number split  
-                .split(/[-_\s]+/)                     // split on separators
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(' ');
+            // Special case for known company patterns
+            if (rawCompany === 'bostondynamics') {
+                company = 'Boston Dynamics';
+            } else {
+                company = rawCompany
+                    .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase split
+                    .replace(/([a-z])(\d)/g, '$1 $2')     // letter-number split  
+                    .split(/[-_\s]+/)                     // split on separators
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+            }
         }
         
         // Extract title from URL path: R-D-Product-Manager_R1675 → "R&D Product Manager"
