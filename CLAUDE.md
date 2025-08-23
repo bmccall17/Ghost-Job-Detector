@@ -1,15 +1,16 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
-## Project Status: v0.1.8 🎨
+## Project Status: v0.1.8-WebLLM 🚀
 
-**Latest Updates (v0.1.8):**
-- ✅ **Fun Ghost+Prohibition Logo**: New engaging logo design with ghost character and "no ghost jobs" prohibition symbol
-- ✅ **Dark Theme Implementation**: Complete dark theme with light/dark toggle, localStorage persistence, professional color palette
-- ✅ **Dark Theme Contrast Fixes**: Comprehensive visibility improvements for all UI elements in dark mode
-- ✅ **Form Control Theming**: All input fields, dropdowns, and modals properly styled for dark theme
-- ✅ **Modal Close Button Fixes**: All X buttons now properly visible with appropriate contrast
-- ✅ **Database Writing Issue Resolution**: Fixed critical Prisma schema and API endpoint configuration issues
-- ✅ **Security Hardening**: Enterprise-grade security framework with GDPR/CCPA compliance, rate limiting, input validation
+**Latest Updates (v0.1.8-WebLLM):**
+- ✅ **WebLLM Integration Complete**: Full implementation of Llama-3.1-8B-Instruct for automated job parsing
+- ✅ **Platform-Specific Extraction**: Enhanced URL-based extraction for Workday, LinkedIn, Greenhouse, Lever.co
+- ✅ **Learning System Optimization**: ParsingLearningService enhanced with WebLLM extraction insights and real-time pattern learning
+- ✅ **Duplicate Detection Enhancement**: WebLLM confidence-aware similarity matching and extraction method preferences
+- ✅ **Cross-Validation Integration**: WebLLM metadata integration with confidence scoring and validation source tracking
+- ✅ **Lever.co Intelligence**: Complete parsing solution for Lever.co URLs with company extraction and title cleaning
+- ✅ **Algorithm Version Updates**: All version references updated from v0.1.7 to v0.1.8-WebLLM with enhanced criteria display
+- ✅ **Phase 2 & 3 Complete**: Systematic optimization of extraction logic and learning systems based on production testing
 
 **Previous Updates (v0.1.7):**
 - ✅ **News & Impact Feature**: Complete implementation replacing "Powered by AI" text

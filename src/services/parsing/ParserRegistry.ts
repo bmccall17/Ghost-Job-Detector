@@ -3,6 +3,7 @@ import { LinkedInParser } from './parsers/LinkedInParser'
 import { IndeedParser } from './parsers/IndeedParser'
 import { CompanyCareerParser } from './parsers/CompanyCareerParser'
 import { GreenhouseParser } from './parsers/GreenhouseParser'
+import { LeverParser } from './parsers/LeverParser'
 import { GenericParser } from './parsers/GenericParser'
 import { ParsingLearningService, initializeParsingLearning } from './ParsingLearningService'
 import { DuplicateDetectionService } from '../DuplicateDetectionService'
@@ -46,6 +47,7 @@ export class ParserRegistry {
       new LinkedInParser(),
       new IndeedParser(),
       new GreenhouseParser(),
+      new LeverParser(), // WebLLM v0.1.8: Lever.co support with learning integration
       new CompanyCareerParser()
     ]
   }
@@ -72,6 +74,19 @@ export class ParserRegistry {
       
       if (improvements.improvements.length > 0) {
         console.log(`🎓 Applied ${improvements.improvements.length} learned improvements:`, improvements.improvements)
+        
+        // WebLLM v0.1.8: Track Lever.co specific learning
+        if (parser.name === 'LeverParser') {
+          await this.recordLeverLearning({
+            sourceUrl: url,
+            extractedTitle: result.title,
+            extractedCompany: result.company,
+            cleanedTitle: improvements.title !== result.title ? improvements.title : undefined,
+            companyFromUrl: improvements.company !== result.company ? improvements.company : undefined,
+            confidence: result.metadata.confidence.overall
+          })
+        }
+        
         result.title = improvements.title
         result.company = improvements.company
         
@@ -246,7 +261,7 @@ export class ParserRegistry {
   }
 
   /**
-   * Record a parsing correction to improve future results
+   * Record a parsing correction to improve future results - WebLLM v0.1.8 Enhanced
    */
   public async recordCorrection(correction: {
     sourceUrl: string
@@ -258,6 +273,22 @@ export class ParserRegistry {
   }): Promise<void> {
     const parser = this.findBestParser(correction.sourceUrl)
     
+    // WebLLM v0.1.8: Enhanced correction tracking with URL-based extraction method detection
+    let urlExtractionMethod: 'workday' | 'linkedin' | 'greenhouse' | 'lever' | 'generic' | undefined = undefined
+    const url = correction.sourceUrl.toLowerCase()
+    
+    if (url.includes('workday') || url.includes('myworkday')) {
+      urlExtractionMethod = 'workday'
+    } else if (url.includes('linkedin.com')) {
+      urlExtractionMethod = 'linkedin'  
+    } else if (url.includes('greenhouse')) {
+      urlExtractionMethod = 'greenhouse'
+    } else if (url.includes('lever.co')) {
+      urlExtractionMethod = 'lever'
+    } else {
+      urlExtractionMethod = 'generic'
+    }
+    
     await this.learningService.recordCorrection({
       sourceUrl: correction.sourceUrl,
       originalTitle: correction.originalTitle,
@@ -267,8 +298,67 @@ export class ParserRegistry {
       parserUsed: parser.name,
       parserVersion: parser.version,
       correctionReason: correction.correctionReason,
-      correctedBy: 'manual_correction'
+      correctedBy: 'manual_correction',
+      // WebLLM v0.1.8 enhancements
+      webllmExtracted: parser.name === 'LeverParser' || parser.name === 'LinkedInParser' || parser.name === 'GenericParser',
+      urlExtractionMethod,
+      extractionConfidence: this.calculateExtractionConfidence(correction, parser.name)
     })
+  }
+
+  /**
+   * WebLLM v0.1.8: Record Lever.co specific learning patterns
+   */
+  public async recordLeverLearning(leverData: {
+    sourceUrl: string
+    extractedTitle: string
+    extractedCompany: string
+    cleanedTitle?: string
+    companyFromUrl?: string
+    confidence: number
+  }): Promise<void> {
+    // Record automatic learning from successful Lever.co extractions
+    if (leverData.cleanedTitle && leverData.cleanedTitle !== leverData.extractedTitle) {
+      await this.recordCorrection({
+        sourceUrl: leverData.sourceUrl,
+        originalTitle: leverData.extractedTitle,
+        correctTitle: leverData.cleanedTitle,
+        correctionReason: 'Lever.co title cleaning pattern applied'
+      })
+    }
+    
+    if (leverData.companyFromUrl && leverData.companyFromUrl !== leverData.extractedCompany) {
+      await this.recordCorrection({
+        sourceUrl: leverData.sourceUrl,
+        originalCompany: leverData.extractedCompany,
+        correctCompany: leverData.companyFromUrl,
+        correctionReason: 'Lever.co URL-based company extraction'
+      })
+    }
+  }
+
+  /**
+   * WebLLM v0.1.8: Calculate extraction confidence based on correction context
+   */
+  private calculateExtractionConfidence(correction: any, parserName: string): number {
+    let confidence = 0.5 // Base confidence
+    
+    // Higher confidence for specific parsers
+    if (parserName === 'LeverParser') confidence += 0.2
+    if (parserName === 'LinkedInParser') confidence += 0.15
+    if (parserName === 'GreenhouseParser') confidence += 0.1
+    
+    // Adjust based on correction type
+    if (correction.correctTitle && correction.correctTitle.length > 5) confidence += 0.1
+    if (correction.correctCompany && correction.correctCompany.length > 3) confidence += 0.1
+    
+    // URL-based extraction gets higher confidence
+    const url = correction.sourceUrl.toLowerCase()
+    if (url.includes('lever.co') || url.includes('workday') || url.includes('greenhouse')) {
+      confidence += 0.15
+    }
+    
+    return Math.min(0.95, confidence)
   }
 
   /**
