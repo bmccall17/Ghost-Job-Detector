@@ -207,7 +207,7 @@ export class CrossValidationService {
       name: `WebLLM ${webllmMetadata.extractionMethod} Validation`,
       confidence: Math.max(0, Math.min(1, confidence)),
       status,
-      data: { extractionMethod: webllmMetadata.extractionMethod },
+      data: { originalSource: sourceUrl },
       responseTime: Date.now() - startTime,
       extractionMethod: webllmMetadata.extractionMethod,
       webllmConfidence: webllmMetadata.confidence,
