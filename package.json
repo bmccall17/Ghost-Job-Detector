@@ -1,6 +1,7 @@
 {
   "name": "ghost-job-detector-dashboard",
   "version": "0.1.8",
+  "description": "WebLLM-powered ghost job detection platform with intelligent parsing and automated analysis",
   "type": "module",
   "scripts": {
     "dev": "vite",

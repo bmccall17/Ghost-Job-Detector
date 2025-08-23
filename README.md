@@ -1,32 +1,31 @@
-# Ghost Job Detector v0.1.7 🚀 December 18, 2024
+# Ghost Job Detector v0.1.8-WebLLM 🚀 August 23, 2025
 
-**MAJOR RELEASE:** News & Impact feature with comprehensive educational resources, interactive statistics, and curated research library. Version 0.1.7 transforms the app from a detection tool into a complete educational platform for understanding and combating ghost jobs.
+**BREAKTHROUGH RELEASE:** WebLLM integration with Llama-3.1-8B-Instruct for intelligent job parsing and automated extraction. Version 0.1.8 transforms the platform from manual input to automated URL-based analysis with advanced learning systems.
 
-**MILESTONE ACHIEVED:** A comprehensive ghost job detection and education platform with AI transparency, database persistence, and a complete resource library. Version 0.1.7 successfully delivers News & Impact functionality, enhanced user education, and consolidated documentation.
+**MILESTONE ACHIEVED:** Complete WebLLM integration with platform-specific extraction intelligence, real-time learning systems, and comprehensive parsing automation. Version 0.1.8 delivers next-generation job analysis with AI-powered extraction and enhanced accuracy.
 
-## 🎯 v0.1.7 Features Delivered
+## 🎯 v0.1.8-WebLLM Features Delivered
 
-### ✅ **News & Impact Feature - NEW**
-- **Interactive Button**: Replaces "Powered by AI" with engaging educational content access
-- **Statistics Tooltip**: Hover displays key ghost job stats (43% prevalence, 67-day duration)  
-- **Blog-Style Page**: Full-screen news experience with professional layout
-- **Resource Library**: 9 curated articles from reputable sources (WSJ, Indeed, NY Post, etc.)
-- **Content Management**: Smart filtering by type, tags, and chronological sorting
-- **Responsive Design**: Mobile-optimized interface with touch-friendly controls
+### ✅ **WebLLM Integration - BREAKTHROUGH**
+- **Llama-3.1-8B-Instruct Model**: Complete browser-based AI with WebGPU acceleration
+- **Automated URL Parsing**: Intelligent extraction from job URLs without manual input
+- **Platform Intelligence**: Specialized parsers for Workday, LinkedIn, Greenhouse, Lever.co
+- **Real-time Learning**: Continuous pattern improvement from successful extractions
+- **Confidence Scoring**: Advanced metrics with extraction method tracking
 
-### ✅ **Educational Content System**
-- **Comprehensive Research**: Articles from Wikipedia, Indeed, Wall Street Journal, New York Post
-- **Expert Insights**: Staffing industry perspectives and professional guidance
-- **Community Resources**: Reddit discussions and real-world user experiences
-- **Solution Highlighting**: Featured upstream solution (hiring.cafe) for employers
-- **Action-Oriented**: Job seeker tips and practical avoidance strategies
+### ✅ **Advanced Parsing Intelligence**
+- **URL-Based Extraction**: Direct company and title extraction from URL patterns
+- **Content Analysis**: HTML parsing with CSS selectors and structured data detection  
+- **Multi-Strategy Approach**: JSON-LD, meta tags, DOM traversal with learning fallbacks
+- **Cross-Validation**: Multiple source verification with confidence weighting
+- **Error Recovery**: Graceful degradation with comprehensive logging
 
-### ✅ **Enhanced Intelligent Parsing System**
-- **Advanced Duplicate Detection**: Cross-platform recognition with smart similarity thresholds
-- **Company Normalization**: AI-powered company name matching and canonicalization
-- **Title Normalization**: Intelligent handling of punctuation and formatting variations
-- **Source Platform Tracking**: Multi-platform support (LinkedIn, company career sites)
-- **Update-only Logic**: Existing jobs updated rather than creating duplicates
+### ✅ **Learning System Architecture**
+- **Pattern Recognition**: 15+ advanced metrics tracking extraction effectiveness
+- **Confidence Distribution**: Real-time analysis of parsing accuracy across platforms
+- **Domain Intelligence**: Platform-specific optimization with success rate monitoring
+- **Automatic Correction**: Self-improving parsers based on validation feedback
+- **Statistical Analytics**: Comprehensive reporting on learning velocity and improvements
 
 ### ✅ **Core Analysis Engine**
 - **URL-based Analysis**: Submit job posting URLs for instant intelligent analysis
@@ -62,7 +61,7 @@
 - **Icons**: Lucide React
 - **Build Tool**: Vite
 - **Testing**: Jest + Testing Library
-- **AI Processing**: WebLLM + Groq API fallback
+- **AI Processing**: WebLLM (Llama-3.1-8B-Instruct) + Agent validation with server fallback
 - **Database**: PostgreSQL with Prisma ORM
 
 ## 📋 Prerequisites
@@ -206,10 +205,14 @@ All testing done against live production environment:
 
 ### Available API Endpoints
 
-- `POST /api/analyze` - **Primary job analysis endpoint**
-- `GET /api/db-check` - Database connectivity health check
-- `GET /api/analyses` - Analysis history retrieval
-- `GET /api/health` - Application health status
+- `POST /api/analyze` - **Primary WebLLM-powered job analysis endpoint**  
+- `POST /api/analyze-debug` - Debug endpoint with enhanced logging
+- `POST /api/parse-preview` - URL extraction preview with parsing metadata
+- `GET /api/validation-status` - WebLLM validation status and capabilities
+- `POST /api/agent/fallback` - Server-side agent validation fallback
+- `POST /api/agent/ingest` - Agent result ingestion for learning
+- `GET /api/analysis-history` - Enhanced analysis history with parsing metadata
+- `GET /api/stats` - Application statistics and metrics
 
 ### Production Testing Examples
 
@@ -274,7 +277,7 @@ npm run test:coverage
 
 **IMPORTANT:** This project is limited to **12 serverless functions** on Vercel Hobby plan.
 
-**Current Status:** 10/12 functions used (2 slots remaining)
+**Current Status:** 11/12 functions used (1 slot remaining)
 
 **Before adding new API endpoints:**
 1. Run `node scripts/verify-function-count.js` to check current count

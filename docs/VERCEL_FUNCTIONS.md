@@ -1,13 +1,14 @@
 # Vercel Serverless Functions - Deployment Tracking
 
-**Last Updated:** August 18, 2025  
-**Current Status:** 10/12 functions used on Hobby plan
+**Last Updated:** August 23, 2025  
+**Current Status:** 11/12 functions used on Hobby plan  
+**WebLLM v0.1.8 Status:** OPTIMIZED ✅
 
 ## ⚠️ CRITICAL CONSTRAINT
 
 **Vercel Hobby Plan Limit: 12 Serverless Functions Maximum**
 
-This project is currently using **10 out of 12** available slots, leaving only **2 remaining**.
+This project is currently using **11 out of 12** available slots, leaving only **1 remaining**.
 
 ## 🔍 Current Function Inventory
 
@@ -17,17 +18,19 @@ Run the verification script to get current status:
 node scripts/verify-function-count.js
 ```
 
-### Active Functions (10/12)
+### Active Functions (11/12)
 
-1. `/api/agent/fallback.js` - Server-side AI validation using Groq API
-2. `/api/agent/ingest.js` - Agent validation result persistence 
-3. `/api/analysis/tick.js` - Background analysis processing (cron job)
-4. `/api/analysis-history.js` - Consolidated analysis history endpoint
-5. `/api/analyze.js` - Primary job posting analysis endpoint
-6. `/api/analyze-debug.js` - Analysis debugging and testing
-7. `/api/blob-upload.js` - File upload handling for PDFs/documents
-8. `/api/db-check.js` - Database health check and statistics
-9. `/api/ingest/tick.js` - Background document ingestion (cron job)
+1. `/api/admin/dashboard.js` - Admin dashboard with system metrics
+2. `/api/agent/fallback.js` - Server-side AI validation using fallback API
+3. `/api/agent/ingest.js` - Agent validation result persistence for learning
+4. `/api/analysis-history.js` - Enhanced analysis history with WebLLM metadata
+5. `/api/analyze.js` - Primary WebLLM-powered job analysis endpoint
+6. `/api/analyze-debug.js` - Debug analysis with enhanced logging
+7. `/api/parse-preview.js` - URL extraction preview with parsing metadata
+8. `/api/privacy.js` - Privacy policy and data handling information
+9. `/api/scheduler.js` - Background task scheduling and management
+10. `/api/stats.js` - Application statistics and performance metrics
+11. `/api/validation-status.js` - WebLLM validation capabilities and status
 10. `/api/queue.js` - Queue management for background tasks
 
 ### Removed Functions (Historical)
