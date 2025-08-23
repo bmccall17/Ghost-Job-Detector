@@ -180,6 +180,15 @@ export class DuplicateDetectionService {
         }
       }
       
+      // Lever.co: WebLLM v0.1.8 screenshot analysis learning
+      if (hostname.includes('lever.co')) {
+        const pathParts = urlObj.pathname.split('/').filter(p => p)
+        if (pathParts.length >= 1) {
+          const companySlug = pathParts[0]
+          return `${urlObj.protocol}//${hostname}/${companySlug}/`
+        }
+      }
+      
       // Indeed: normalize to basic search structure
       if (hostname.includes('indeed.com')) {
         return `${urlObj.protocol}//${hostname}/viewjob`
@@ -318,6 +327,7 @@ export class DuplicateDetectionService {
     else if (domain.includes('linkedin.com')) score += 25 // Reduced LinkedIn preference due to extraction challenges
     else if (domain.includes('careers.') || domain.includes('jobs.')) score += 35 // Company sites preferred
     else if (domain.includes('greenhouse.io')) score += 30 // WebLLM enhanced: Greenhouse structured data
+    else if (domain.includes('lever.co')) score += 28 // WebLLM v0.1.8: Lever.co learning from screenshot analysis
     else if (domain.includes('indeed.com')) score += 15
     else score += 10
     

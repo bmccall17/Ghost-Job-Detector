@@ -544,6 +544,8 @@ export class CrossValidationService {
       
       if (platform === 'LinkedIn' && companyName.length > 2) confidence = 0.8;
       else if (platform === 'Indeed' && companyName.length > 2) confidence = 0.7;
+      else if (platform === 'Greenhouse' && companyName.length > 2) confidence = 0.85;
+      else if (platform === 'Lever' && companyName.length > 2) confidence = 0.82; // WebLLM v0.1.8 learning
       else if (platform === 'Company Career Site') confidence = 0.9;
 
       return {
@@ -749,6 +751,8 @@ export class CrossValidationService {
     if (hostname.includes('linkedin.com')) return 'LinkedIn';
     if (hostname.includes('indeed.com')) return 'Indeed';
     if (hostname.includes('glassdoor.com')) return 'Glassdoor';
+    if (hostname.includes('greenhouse.io')) return 'Greenhouse';
+    if (hostname.includes('lever.co')) return 'Lever'; // WebLLM v0.1.8 screenshot learning
     if (hostname.includes('careers.') || hostname.includes('jobs.')) return 'Company Career Site';
     return 'Other';
   }

@@ -534,6 +534,34 @@ async function smartExtractFromHtml(html, url, platform) {
                 validFormat: urlExtraction.urlStructureValid,
                 confidenceBoost: urlExtraction.confidence
             });
+        } else if (platform === 'Lever') {
+            const urlExtraction = extractFromLeverUrl(url);
+            if (urlExtraction.company && urlExtraction.company !== 'Unknown Company') {
+                company = urlExtraction.company;
+                companyConfidence = urlExtraction.confidence;
+            }
+            // Note: Lever titles need content scraping, URL doesn't contain title info
+            console.log('🎯 Lever URL extraction applied:', { company, companyConfidence });
+        }
+    }
+    
+    // WebLLM v0.1.8: Clean Lever.co titles that include company prefixes
+    if (platform === 'Lever' && title && title !== 'Unknown Position' && company && company !== 'Unknown Company') {
+        // Remove patterns like "Highspot - Sr. Product Manager, Eco Platform"
+        const patterns = [
+            new RegExp(`^${company}\\s*[-:]\\s*`, 'i'),
+            new RegExp(`^${company}\\s+`, 'i')
+        ];
+        
+        for (const pattern of patterns) {
+            if (pattern.test(title)) {
+                const cleanedTitle = title.replace(pattern, '').trim();
+                if (cleanedTitle.length > 5) { // Ensure we have meaningful title left
+                    console.log(`🧹 Cleaned Lever title: "${title}" → "${cleanedTitle}"`);
+                    title = cleanedTitle;
+                    break;
+                }
+            }
         }
     }
     
@@ -984,6 +1012,51 @@ function extractFromWorkdayUrl(url) {
     } catch (error) {
         console.error('❌ Workday URL extraction failed:', error);
         return { title: 'Unknown Position', company: 'Unknown Company', confidence: 0.1 };
+    }
+}
+
+// WebLLM v0.1.8: Lever.co URL extraction - Learning from screenshot analysis
+function extractFromLeverUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        
+        // Pattern: jobs.lever.co/company/job-id or jobs.lever.co/company/job-id/apply
+        let company = 'Unknown Company';
+        
+        if (pathParts.length >= 1) {
+            const companySlug = pathParts[0];
+            
+            // Map known Lever companies based on screenshot analysis
+            const leverCompanyMappings = {
+                'highspot': 'Highspot',
+                'stripe': 'Stripe',
+                'figma': 'Figma',
+                'notion': 'Notion',
+                'segment': 'Segment',
+                'lever': 'Lever',
+                'postman': 'Postman',
+                'rippling': 'Rippling'
+            };
+            
+            company = leverCompanyMappings[companySlug] || 
+                     companySlug.charAt(0).toUpperCase() + companySlug.slice(1).toLowerCase();
+        }
+        
+        console.log(`🎯 Lever URL extraction: ${company} from ${url}`);
+        
+        // Note: Lever titles need content scraping, URL doesn't contain job title info
+        // Return company extraction with medium confidence
+        return { 
+            title: 'Unknown Position', // Lever URLs don't contain title info
+            company, 
+            confidence: 0.75,
+            requiresContentScraping: true,
+            companyFromUrl: true
+        };
+    } catch (error) {
+        console.error('❌ Lever URL extraction failed:', error);
+        return { title: 'Unknown Position', company: 'Unknown Company', confidence: 0.3 };
     }
 }
 

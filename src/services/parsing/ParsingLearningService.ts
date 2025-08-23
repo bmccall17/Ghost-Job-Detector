@@ -15,7 +15,7 @@ interface ParsingCorrection {
   correctedBy?: string
   // WebLLM v0.1.8 enhancements
   webllmExtracted?: boolean
-  urlExtractionMethod?: 'workday' | 'linkedin' | 'greenhouse' | 'generic'
+  urlExtractionMethod?: 'workday' | 'linkedin' | 'greenhouse' | 'lever' | 'generic'
   extractionConfidence?: number
 }
 
@@ -246,6 +246,35 @@ export class ParsingLearningService {
       webllmExtracted: true,
       urlExtractionMethod: 'linkedin',
       extractionConfidence: 0.75
+    })
+    
+    // Lever.co parsing corrections - WebLLM v0.1.8 screenshot analysis learning
+    await this.recordCorrection({
+      sourceUrl: 'https://jobs.lever.co/highspot/966ab8c6-e0b9-44d9-99d8-907a418925a7/apply?source=LinkedIn',
+      originalTitle: 'Highspot - Sr. Product Manager, Eco Platform',
+      correctTitle: 'Sr. Product Manager, Eco Platform',
+      parserUsed: 'LeverParser',
+      parserVersion: '0.1.8-webllm',
+      correctionReason: 'Remove company name prefix from Lever.co job titles',
+      confidence: 0.95,
+      correctedBy: 'lever_title_cleanup_learning',
+      webllmExtracted: true,
+      urlExtractionMethod: 'lever',
+      extractionConfidence: 0.8
+    })
+    
+    await this.recordCorrection({
+      sourceUrl: 'https://jobs.lever.co/highspot/966ab8c6-e0b9-44d9-99d8-907a418925a7/apply?source=LinkedIn',
+      originalCompany: 'Jobs',
+      correctCompany: 'Highspot',
+      parserUsed: 'LeverParser',
+      parserVersion: '0.1.8-webllm',
+      correctionReason: 'Extract company from URL path, not domain generic terms',
+      confidence: 1.0,
+      correctedBy: 'lever_url_company_learning',
+      webllmExtracted: true,
+      urlExtractionMethod: 'lever',
+      extractionConfidence: 0.9
     })
 
     console.log(`✅ Initialized ${this.corrections.length} known corrections (v0.1.8-WebLLM enhanced)`)
@@ -482,8 +511,14 @@ export class ParsingLearningService {
       const discoveredData = await this.discoverPatternsFromHtml(url, html, failedResult)
       
       if (discoveredData.title && discoveredData.title !== failedResult.title) {
-        result.title = discoveredData.title
-        improvements.push(`Discovered better title pattern: "${discoveredData.title}"`)
+        // WebLLM v0.1.8: Apply Lever.co title cleaning
+        const cleanedTitle = this.cleanLeverTitle(discoveredData.title, url)
+        result.title = cleanedTitle
+        improvements.push(`Discovered better title pattern: "${cleanedTitle}"`)
+        
+        if (cleanedTitle !== discoveredData.title) {
+          improvements.push(`Applied Lever.co title cleaning`)
+        }
       }
       
       if (discoveredData.company && discoveredData.company !== failedResult.company) {
@@ -689,7 +724,9 @@ export class ParsingLearningService {
       'job-title', 'position-title', 'role-title', 'posting-title',
       // WebLLM learned patterns
       'job-posting-title', 'career-title', 'opening-title',
-      'workday-job-title', 'gh-job-title', 'linkedin-job-title'
+      'workday-job-title', 'gh-job-title', 'linkedin-job-title',
+      // Lever.co specific patterns from screenshot analysis
+      'posting-name', 'lever-job-title', 'job-name'
     ]
     for (const className of jobClasses) {
       const classRegex = new RegExp(`class="[^"]*${className}[^"]*"[^>]*>([^<]+)`, 'gi')
@@ -907,6 +944,12 @@ export class ParsingLearningService {
         if (pathCompany) return pathCompany
       }
       
+      // Lever pattern: jobs.lever.co/company/ - WebLLM v0.1.8 Lever.co learning
+      if (domain.includes('lever.co')) {
+        const pathCompany = this.extractLeverCompany(url)
+        if (pathCompany) return pathCompany
+      }
+      
       // Direct company domains - WebLLM v0.1.8 enhanced patterns
       const directMappings: Record<string, string> = {
         'apple.com': 'Apple',
@@ -956,6 +999,34 @@ export class ParsingLearningService {
           'twitch': 'Twitch'
         }
         return greenhouseMappings[slug] || this.formatCompanyName(slug)
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+  
+  /**
+   * Extract company name from Lever URL - WebLLM v0.1.8 Lever.co learning
+   */
+  private extractLeverCompany(url: string): string | null {
+    try {
+      // Pattern: https://jobs.lever.co/company/job-id or https://jobs.lever.co/company/job-id/apply
+      const match = url.match(/lever\.co\/([^/]+)/)
+      if (match && match[1]) {
+        const slug = match[1]
+        // Common Lever company mappings based on screenshot analysis
+        const leverMappings: Record<string, string> = {
+          'highspot': 'Highspot',
+          'stripe': 'Stripe',
+          'figma': 'Figma',
+          'notion': 'Notion',
+          'segment': 'Segment',
+          'lever': 'Lever',
+          'postman': 'Postman',
+          'rippling': 'Rippling'
+        }
+        return leverMappings[slug] || this.formatCompanyName(slug)
       }
       return null
     } catch {
@@ -1110,6 +1181,35 @@ export class ParsingLearningService {
       console.log(`⚠️ WebLLM extraction failed for ${domain}: ${extractionData.method}`)
       this.failureAnalytics.set(`${domain}_webllm`, (this.failureAnalytics.get(`${domain}_webllm`) || 0) + 1)
     }
+  }
+
+  /**
+   * WebLLM v0.1.8: Clean Lever.co titles that include company prefixes
+   */
+  private cleanLeverTitle(title: string, url: string): string {
+    if (!url.includes('lever.co')) return title
+    
+    // Extract company name from URL to remove from title
+    const companyFromUrl = this.extractLeverCompany(url)
+    if (!companyFromUrl) return title
+    
+    // Remove company prefix patterns: "Company - Title" or "Company: Title"
+    const patterns = [
+      new RegExp(`^${this.escapeRegex(companyFromUrl)}\s*[-:]\s*`, 'i'),
+      new RegExp(`^${this.escapeRegex(companyFromUrl)}\s+`, 'i')
+    ]
+    
+    for (const pattern of patterns) {
+      if (pattern.test(title)) {
+        const cleaned = title.replace(pattern, '').trim()
+        if (cleaned.length > 5) { // Ensure we have meaningful title left
+          console.log(`🧹 Cleaned Lever.co title: "${title}" → "${cleaned}"`);
+          return cleaned
+        }
+      }
+    }
+    
+    return title
   }
 
   /**
