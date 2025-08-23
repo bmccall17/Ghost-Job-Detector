@@ -301,8 +301,8 @@ export default async function handler(req, res) {
         console.log(`🏷️  Platform: ${extractPlatformFromUrl(url)}`);
         console.log(`📝 Input Data: title="${title || 'EMPTY'}", company="${company || 'EMPTY'}"`);
         console.log(`🤖 WebLLM Triggered: ${shouldExtract ? 'YES' : 'NO'} (${shouldExtract ? 'no valid manual data' : 'valid manual data provided'})`);
-        console.log(`🎯 Final Results: title="${extracted.title}", company="${extracted.company}"`);
-        console.log(`📈 Extraction Confidence: ${(extracted.confidence || 0).toFixed(2)} | Method: ${extractionMethod}`);
+        console.log(`🎯 Final Results: title="${jobData.title}", company="${jobData.company}"`);
+        console.log(`📈 Extraction Confidence: ${parsingConfidence.toFixed(2)} | Method: ${extractionMethod}`);
         console.log(`🔍 Ghost Score: ${analysis.ghostProbability.toFixed(3)} (${analysis.riskLevel.toUpperCase()})`);
         console.log(`✅ Database Write: SUCCESS (ID: ${analysisRecord.id})`);
         console.log('📊 ===== END PRODUCTION SUMMARY =====');
