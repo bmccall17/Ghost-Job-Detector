@@ -511,7 +511,10 @@ export const JobAnalysisDashboard: React.FC = () => {
           )}
 
           {/* Debug: Check currentAnalysis state at render time */}
-          {console.log('🎨 Render check: currentAnalysis =', currentAnalysis ? `${currentAnalysis.title} (${currentAnalysis.id})` : 'null')}
+          {(() => {
+            console.log('🎨 Render check: currentAnalysis =', currentAnalysis ? `${currentAnalysis.title} (${currentAnalysis.id})` : 'null');
+            return null;
+          })()}
           
           {currentAnalysis && (
             <div className="border-t pt-6">
