@@ -155,7 +155,15 @@ export default async function handler(req, res) {
             .update(`${url}:${jobData.company.toLowerCase()}:${jobData.title.toLowerCase()}`)
             .digest('hex');
 
-        // Create job listing with parsing metadata
+        // 🔄 Attempting database write - JobListing
+        console.log('🔄 Creating job listing in database...');
+        console.log('📋 JobListing data preview:', { 
+            title: jobData.title, 
+            company: jobData.company, 
+            url, 
+            extractionMethod 
+        });
+        
         const jobListing = await prisma.jobListing.create({
             data: {
                 sourceId: source.id,
@@ -197,9 +205,18 @@ export default async function handler(req, res) {
         const processingTime = Date.now() - analysisStartTime;
         
         // Generate unique analysis ID
+        console.log('✅ JobListing created successfully with ID:', jobListing.id);
+        
         const analysisId = `webllm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-        // Create analysis record
+        // 🔄 Attempting database write - Analysis  
+        console.log('🔄 Creating analysis record in database...');
+        console.log('📊 Analysis data preview:', { 
+            jobListingId: jobListing.id, 
+            score: analysis.ghostProbability, 
+            analysisId 
+        });
+        
         const analysisRecord = await prisma.analysis.create({
             data: {
                 jobListingId: jobListing.id,
@@ -267,6 +284,7 @@ export default async function handler(req, res) {
             }
         });
 
+        console.log('✅ Analysis record created successfully with ID:', analysisRecord.id);
         console.log(`✅ Analysis complete: ${analysis.ghostProbability.toFixed(3)} ghost probability (${extractionMethod} extraction)`);
 
         // 📊 COMPREHENSIVE EXTRACTION SUMMARY
