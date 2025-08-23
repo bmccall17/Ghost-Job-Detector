@@ -189,6 +189,10 @@ export default async function handler(req, res) {
                 keyFactors: analysis?.reasonsJson?.keyFactors || [],
                 timestamp: analysis?.createdAt || job.createdAt,
                 isNewContribution: false,
+                // WebLLM parsing fields
+                extractionMethod: analysis?.reasonsJson?.extractionMethod || job.extractionMethod || 'manual',
+                parsingConfidence: analysis?.reasonsJson?.parsingConfidence || job.parsingConfidence || 0,
+                validationSources: job.validationSources || [],
                 // Include detailed analyzer processing data
                 metadata: {
                     storage: 'postgres',
