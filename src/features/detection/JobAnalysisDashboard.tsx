@@ -160,11 +160,21 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       console.log('📊 Final analysis object created:', analysis);
       console.log('🎯 Setting current analysis in state...');
+      
+      // Add debugging for state update
+      console.log('📋 Current analysis state before update:', currentAnalysis ? 'exists' : 'null');
       setCurrentAnalysis(analysis)
+      console.log('📋 setCurrentAnalysis called with:', { id: analysis.id, title: analysis.title });
+      
       addToHistory(analysis)
       triggerHistoryRefresh() // Refresh database history in History tab
       urlForm.reset()
       console.log('✅ Analysis state updated successfully!');
+      
+      // Verify state was set (this will run on next render)
+      setTimeout(() => {
+        console.log('🔍 Verification: currentAnalysis state after 100ms:', currentAnalysis ? 'exists' : 'still null');
+      }, 100);
     } catch (error) {
       console.error('Analysis failed:', error)
     } finally {
@@ -500,6 +510,9 @@ export const JobAnalysisDashboard: React.FC = () => {
             </div>
           )}
 
+          {/* Debug: Check currentAnalysis state at render time */}
+          {console.log('🎨 Render check: currentAnalysis =', currentAnalysis ? `${currentAnalysis.title} (${currentAnalysis.id})` : 'null')}
+          
           {currentAnalysis && (
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-4">
