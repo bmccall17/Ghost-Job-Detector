@@ -1,5 +1,6 @@
-// Duplicate Detection Service
+// Duplicate Detection Service v0.1.8-WebLLM Enhanced
 // Identifies and manages duplicate job postings across different sources
+// Enhanced with WebLLM parsing patterns and URL-based extraction insights
 
 interface JobPosting {
   id: string
@@ -10,6 +11,14 @@ interface JobPosting {
   normalizedKey: string
   sourceId: string
   createdAt: Date
+  // WebLLM v0.1.8 enhancements
+  extractionMethod?: 'webllm' | 'manual' | 'url-extraction' | 'content-scraping'
+  extractionConfidence?: number
+  parsingMetadata?: {
+    urlExtractionSuccess?: boolean
+    workdayCompany?: string
+    linkedinJobId?: string
+  }
 }
 
 interface DuplicateGroup {
@@ -141,7 +150,7 @@ export class DuplicateDetectionService {
   }
 
   /**
-   * Extract canonical job URL (remove job-specific IDs but keep company/position info)
+   * Extract canonical job URL - Enhanced v0.1.8-WebLLM with learned patterns
    */
   private extractCanonicalUrl(url: string): string {
     try {
@@ -156,17 +165,39 @@ export class DuplicateDetectionService {
         }
       }
       
-      // Greenhouse: keep company but remove job ID
+      // Workday: WebLLM v0.1.8 enhanced - preserve company subdomain
+      if (hostname.includes('myworkdayjobs.com')) {
+        const subdomain = hostname.split('.')[0]
+        return `${urlObj.protocol}//${subdomain}.wd5.myworkdayjobs.com/`
+      }
+      
+      // Greenhouse: keep company but remove job ID - WebLLM enhanced
       if (hostname.includes('greenhouse.io')) {
         const pathParts = urlObj.pathname.split('/').filter(p => p)
-        if (pathParts.length >= 2) {
-          return `${urlObj.protocol}//${hostname}/${pathParts[0]}/`
+        if (pathParts.length >= 1) {
+          const companySlug = pathParts[0]
+          return `${urlObj.protocol}//${hostname}/${companySlug}/`
         }
       }
       
       // Indeed: normalize to basic search structure
       if (hostname.includes('indeed.com')) {
         return `${urlObj.protocol}//${hostname}/viewjob`
+      }
+      
+      // WebLLM v0.1.8: Enhanced direct company site detection
+      const directCompanySites = [
+        'apple.com', 'microsoft.com', 'amazon.com', 'google.com',
+        'meta.com', 'tesla.com', 'spacex.com', 'bostondynamics.com', 'nvidia.com'
+      ]
+      
+      if (directCompanySites.some(site => hostname.includes(site))) {
+        // For company sites, use just the domain + careers path
+        const pathParts = urlObj.pathname.split('/').filter(p => p)
+        const careersPath = pathParts.find(part => 
+          ['careers', 'jobs', 'positions', 'opportunities'].includes(part.toLowerCase())
+        )
+        return careersPath ? `${urlObj.protocol}//${hostname}/${careersPath}/` : `${urlObj.protocol}//${hostname}/`
       }
       
       // For other sites, use domain + first path segment
@@ -180,21 +211,26 @@ export class DuplicateDetectionService {
   }
 
   /**
-   * Check if two jobs have similar content (title + company + location)
+   * Check if two jobs have similar content - Enhanced v0.1.8-WebLLM
    */
   private areContentSimilar(job1: JobPosting, job2: JobPosting): boolean {
-    // Company similarity (high weight)
-    const companySimilarity = this.calculateStringSimilarity(
+    // WebLLM v0.1.8: Consider extraction confidence in similarity assessment
+    const confidenceBonus = this.calculateConfidenceBonus(job1, job2)
+    
+    // Company similarity (high weight) - Enhanced with WebLLM patterns
+    const companySimilarity = this.calculateEnhancedStringSimilarity(
       this.normalizeCompanyName(job1.company),
-      this.normalizeCompanyName(job2.company)
+      this.normalizeCompanyName(job2.company),
+      'company'
     )
     
     if (companySimilarity < 0.8) return false // Companies must be very similar
     
-    // Title similarity (medium weight)
-    const titleSimilarity = this.calculateStringSimilarity(
+    // Title similarity (medium weight) - Enhanced with WebLLM patterns
+    const titleSimilarity = this.calculateEnhancedStringSimilarity(
       this.normalizeJobTitle(job1.title),
-      this.normalizeJobTitle(job2.title)
+      this.normalizeJobTitle(job2.title),
+      'title'
     )
     
     if (titleSimilarity < 0.7) return false // Titles must be fairly similar
@@ -208,11 +244,12 @@ export class DuplicateDetectionService {
       )
     }
     
-    // Weighted score
+    // WebLLM v0.1.8: Enhanced weighted score with confidence bonus
     const overallSimilarity = 
       (companySimilarity * 0.4) + 
       (titleSimilarity * 0.4) + 
-      (locationSimilarity * 0.2)
+      (locationSimilarity * 0.2) +
+      confidenceBonus // Up to 0.1 bonus for high-confidence WebLLM extractions
     
     return overallSimilarity >= 0.8
   }
@@ -259,29 +296,122 @@ export class DuplicateDetectionService {
   }
 
   /**
-   * Calculate a quality score for job selection
+   * Calculate a quality score for job selection - Enhanced v0.1.8-WebLLM
    */
   private calculateJobQualityScore(job: JobPosting): number {
     let score = 0
     
-    // Platform preference
+    // WebLLM v0.1.8: Extraction method preference (highest priority)
+    if (job.extractionMethod === 'webllm' && (job.extractionConfidence || 0) > 0.8) {
+      score += 40 // Highest preference for high-confidence WebLLM
+    } else if (job.extractionMethod === 'url-extraction' && (job.extractionConfidence || 0) > 0.7) {
+      score += 35 // High preference for URL-based extraction
+    } else if (job.extractionMethod === 'content-scraping' && (job.extractionConfidence || 0) > 0.6) {
+      score += 25 // Medium preference for content scraping
+    } else if (job.extractionMethod === 'manual') {
+      score += 15 // Lower preference for manual entries
+    }
+    
+    // Platform preference - WebLLM enhanced
     const domain = this.getDomain(job.url)
-    if (domain.includes('linkedin.com')) score += 30
-    else if (domain.includes('careers.') || domain.includes('jobs.')) score += 25
-    else if (domain.includes('greenhouse.io')) score += 20
+    if (domain.includes('myworkdayjobs.com')) score += 30 // WebLLM learned: Workday often has complete data
+    else if (domain.includes('linkedin.com')) score += 25 // Reduced LinkedIn preference due to extraction challenges
+    else if (domain.includes('careers.') || domain.includes('jobs.')) score += 35 // Company sites preferred
+    else if (domain.includes('greenhouse.io')) score += 30 // WebLLM enhanced: Greenhouse structured data
     else if (domain.includes('indeed.com')) score += 15
     else score += 10
     
-    // Data completeness
-    if (job.title && job.title !== 'Unknown Position' && job.title.length > 3) score += 20
-    if (job.company && job.company !== 'Unknown Company' && job.company.length > 2) score += 20
+    // Data completeness - WebLLM enhanced validation
+    if (job.title && !this.isGenericTitle(job.title) && job.title.length > 3) score += 25
+    if (job.company && !this.isGenericCompany(job.company) && job.company.length > 2) score += 25
     if (job.location && job.location.length > 2) score += 10
+    
+    // WebLLM v0.1.8: Specific extraction success bonuses
+    if (job.parsingMetadata?.urlExtractionSuccess) score += 15
+    if (job.parsingMetadata?.workdayCompany) score += 10
+    if (job.parsingMetadata?.linkedinJobId) score += 5
     
     // Recency (newer is better)
     const ageInDays = (Date.now() - job.createdAt.getTime()) / (1000 * 60 * 60 * 24)
     score += Math.max(0, 20 - ageInDays) // Up to 20 points for very recent jobs
     
     return score
+  }
+  
+  /**
+   * WebLLM v0.1.8: Enhanced generic title detection
+   */
+  private isGenericTitle(title: string): boolean {
+    const genericTitles = [
+      'unknown position', 'position', 'job', 'career', 'opportunity',
+      'opening', 'role', 'untitled', 'no title'
+    ]
+    return genericTitles.some(generic => title.toLowerCase().includes(generic))
+  }
+  
+  /**
+   * WebLLM v0.1.8: Enhanced generic company detection
+   */
+  private isGenericCompany(company: string): boolean {
+    const genericCompanies = [
+      'unknown company', 'company', 'employer', 'organization',
+      'corporation', 'linkedin', 'indeed', 'no company'
+    ]
+    return genericCompanies.some(generic => company.toLowerCase().includes(generic))
+  }
+
+  /**
+   * WebLLM v0.1.8: Calculate confidence bonus for high-quality extractions
+   */
+  private calculateConfidenceBonus(job1: JobPosting, job2: JobPosting): number {
+    const conf1 = job1.extractionConfidence || 0
+    const conf2 = job2.extractionConfidence || 0
+    
+    // If both jobs have high WebLLM extraction confidence, give slight bonus
+    if (conf1 > 0.8 && conf2 > 0.8) {
+      return 0.05 // Small bonus for high-confidence matches
+    }
+    
+    // If one is WebLLM high-confidence and other is manual/low-confidence
+    if ((conf1 > 0.8 && conf2 < 0.5) || (conf2 > 0.8 && conf1 < 0.5)) {
+      return 0.02 // Very small bonus for mixed confidence
+    }
+    
+    return 0
+  }
+  
+  /**
+   * Calculate enhanced string similarity with WebLLM patterns
+   */
+  private calculateEnhancedStringSimilarity(str1: string, str2: string, type: 'company' | 'title'): number {
+    if (str1 === str2) return 1.0
+    
+    // WebLLM v0.1.8: Special handling for known extraction patterns
+    if (type === 'company') {
+      // Handle Boston Dynamics variations learned from WebLLM
+      const bostondynamicsVariants = ['bostondynamics', 'boston dynamics', 'bd']
+      if (bostondynamicsVariants.some(variant => str1.includes(variant)) &&
+          bostondynamicsVariants.some(variant => str2.includes(variant))) {
+        return 0.95
+      }
+      
+      // Handle other common company name variations
+      const companyMappings = {
+        'microsoft': ['msft', 'ms'],
+        'amazon': ['amzn'],
+        'google': ['alphabet'],
+        'meta': ['facebook', 'fb']
+      }
+      
+      for (const [canonical, variants] of Object.entries(companyMappings)) {
+        if ((str1.includes(canonical) && variants.some(v => str2.includes(v))) ||
+            (str2.includes(canonical) && variants.some(v => str1.includes(v)))) {
+          return 0.9
+        }
+      }
+    }
+    
+    return this.calculateStringSimilarity(str1, str2)
   }
 
   /**

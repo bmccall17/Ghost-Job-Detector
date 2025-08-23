@@ -178,7 +178,7 @@ export const DetailedAnalyzerView: React.FC<DetailedAnalyzerViewProps> = ({
                 {analysisData.algorithmAssessment.assessmentText}
               </p>
               <div className="text-sm text-gray-600">
-                Based on Ghost Job Detection Algorithm v0.1.7 with enhanced criteria analysis
+                Based on Ghost Job Detection Algorithm v0.1.8-WebLLM with enhanced criteria analysis
               </div>
             </div>
             
@@ -226,7 +226,7 @@ export const DetailedAnalyzerView: React.FC<DetailedAnalyzerViewProps> = ({
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
             <AlertTriangle className="w-5 h-5 text-orange-600" />
             <span>Risk Factors Analysis</span>
-            <span className="text-sm font-normal text-gray-500">— Enhanced v0.1.7 Criteria</span>
+            <span className="text-sm font-normal text-gray-500">— Enhanced v0.1.8 WebLLM Criteria</span>
           </h3>
           
           {/* Warning Signs */}
