@@ -79,7 +79,6 @@ model JobListing {
   parsingAttempt    ParsingAttempt? @relation("ParsingAttemptToJobListing", fields: [parsingAttemptId], references: [id])
   analyses          Analysis[]
   keyFactors        KeyFactor[]
-  corrections       JobCorrection[]
   
   // Indexes
   @@index([sourceId])
@@ -92,11 +91,11 @@ model JobListing {
   @@map("job_listings")
 }
 
-// Analysis results and scoring
+// Analysis results and scoring - Phase 1 optimized
 model Analysis {
   id                String   @id @default(cuid())
   jobListingId      String
-  score             Decimal  @db.Decimal(5,4) // 0.0000 to 1.0000
+  score             Decimal  @db.Decimal(3,2) // 0.00 to 1.00 (Phase 1: optimized precision)
   verdict           AnalysisVerdict
   reasonsJson       Json     // Detailed reason codes and factors
   modelVersion      String
@@ -108,29 +107,29 @@ model Analysis {
   riskFactorsAnalysis Json?   // Warning signs, positive indicators, detailed factors
   recommendation      Json?   // Final recommendation and reasoning
   analysisDetails     Json?   // Analysis ID, processing metadata, technical details
-  modelConfidence     Decimal? @db.Decimal(5,4) // Model confidence score (0-1)
-  ghostProbability    Decimal? @db.Decimal(5,4) // Ghost job probability (0-1)
-  analysisId          String?  // Unique analysis identifier for tracking
+  modelConfidence     Decimal? @db.Decimal(3,2) // Model confidence score (0-1) - Phase 1: optimized precision
+  // REMOVED: ghostProbability (redundant with score field)
+  // REMOVED: analysisId (redundant with primary key id)
   
   // Relations
   jobListing        JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
   
-  // Indexes
+  // Indexes - Phase 1 optimized
   @@index([jobListingId, createdAt(sort: Desc)])
   @@index([verdict])
   @@index([modelVersion])
-  @@index([ghostProbability])
-  @@index([analysisId])
+  @@index([score])  // Phase 1: Changed from ghostProbability to score
+  // REMOVED: @@index([analysisId]) - field removed
   @@map("analyses")
 }
 
-// Risk and positive factors for each job
+// Risk and positive factors for each job - Phase 1 optimized
 model KeyFactor {
   id                String     @id @default(cuid())
   jobListingId      String
   factorType        FactorType // 'risk' or 'positive'
   factorDescription String
-  impactScore       Decimal    @db.Decimal(5,4) // Impact weight
+  impactScore       Decimal    @db.Decimal(3,2) // Impact weight - Phase 1: optimized precision
   createdAt         DateTime   @default(now())
   
   // Relations
@@ -186,33 +185,8 @@ model ParsingCorrection {
   @@map("parsing_corrections")
 }
 
-// Manual job listing corrections by users
-model JobCorrection {
-  id                String      @id @default(cuid())
-  jobListingId      String      // Reference to JobListing
-  fieldName         String      // 'title', 'company', 'location', etc.
-  oldValue          String?     // Original value
-  newValue          String      // Corrected value
-  userVerified      Boolean     @default(true) // User confirmed correction
-  algorithmVerified Boolean     @default(false) // Algorithm confirmed correction
-  learningWeight    Decimal     @db.Decimal(3,2) @default(0.6) // Weight for ML training
-  correctionReason  String?     // Why correction was needed
-  validationData    Json?       // Validation results and metadata
-  isForceCommit     Boolean     @default(false) // Manual override flag
-  correctedBy       String      @default("user") // Who made the correction
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  
-  // Relations
-  jobListing        JobListing  @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([jobListingId])
-  @@index([fieldName])
-  @@index([correctedBy])
-  @@index([createdAt])
-  @@map("job_corrections")
-}
+// Manual job listing corrections by users - REMOVED in Phase 1 optimization  
+// UI feature was removed in v0.1.5 per CLAUDE.md, table no longer needed
 
 // Parsing attempts tracking for WebLLM performance
 model ParsingAttempt {
@@ -239,25 +213,8 @@ model ParsingAttempt {
   @@map("parsing_attempts")
 }
 
-// Algorithm feedback and learning data
-model AlgorithmFeedback {
-  id                String   @id @default(cuid())
-  sourceUrl         String   // Original job posting URL
-  extractedData     Json     // What algorithm extracted
-  correctedData     Json     // What it should have been
-  confidenceScore   Decimal  @db.Decimal(5,4) // Algorithm confidence
-  learningWeight    Decimal  @db.Decimal(3,2) // Weight for training
-  feedbackType      String   // 'manual_correction', 'validation_result', etc.
-  improvementAreas  Json?    // Areas where algorithm can improve
-  validationMethod  String?  // How correction was validated
-  createdAt         DateTime @default(now())
-  
-  // Indexes
-  @@index([sourceUrl])
-  @@index([feedbackType])
-  @@index([createdAt])
-  @@map("algorithm_feedback")
-}
+// Algorithm feedback and learning data - REMOVED in Phase 1 optimization
+// Table was unused with no API references, removed to save storage and improve performance
 
 // System events and audit trail
 model Event {

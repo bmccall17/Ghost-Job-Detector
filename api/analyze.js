@@ -212,17 +212,13 @@ export default async function handler(req, res) {
         const analysis = analyzeJobListing(jobData, url);
         const processingTime = Date.now() - analysisStartTime;
         
-        // Generate unique analysis ID
         console.log('✅ JobListing created successfully with ID:', jobListing.id);
-        
-        const analysisId = `webllm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
         // 🔄 Attempting database write - Analysis  
         console.log('🔄 Creating analysis record in database...');
         console.log('📊 Analysis data preview:', { 
             jobListingId: jobListing.id, 
-            score: analysis.ghostProbability, 
-            analysisId 
+            score: analysis.ghostProbability
         });
         
         const analysisRecord = await prisma.analysis.create({
@@ -279,7 +275,6 @@ export default async function handler(req, res) {
                 },
                 
                 analysisDetails: {
-                    analysisId: analysisId,
                     modelVersion: 'v0.1.8-webllm',
                     processingTimeMs: processingTime,
                     analysisDate: new Date().toISOString(),
@@ -334,8 +329,7 @@ export default async function handler(req, res) {
                 riskFactorsAnalysis: analysisRecord.riskFactorsAnalysis,
                 recommendation: analysisRecord.recommendation,
                 analysisDetails: analysisRecord.analysisDetails,
-                processingTimeMs: Date.now() - startTime,
-                analysisId: analysisId
+                processingTimeMs: Date.now() - startTime
             }
         });
 

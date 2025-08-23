@@ -103,8 +103,7 @@ export default async function handler(req, res) {
                         riskFactorsAnalysis: analysis.riskFactorsAnalysis,
                         recommendation: analysis.recommendation,
                         analysisDetails: analysis.analysisDetails,
-                        processingTimeMs: analysis.processingTimeMs,
-                        analysisId: analysis.analysisId
+                        processingTimeMs: analysis.processingTimeMs
                     }
                 };
             });
@@ -207,8 +206,7 @@ export default async function handler(req, res) {
                     riskFactorsAnalysis: analysis?.riskFactorsAnalysis,
                     recommendation: analysis?.recommendation,
                     analysisDetails: analysis?.analysisDetails,
-                    processingTimeMs: analysis?.processingTimeMs,
-                    analysisId: analysis?.analysisId
+                    processingTimeMs: analysis?.processingTimeMs
                 }
             };
         });

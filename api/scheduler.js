@@ -378,7 +378,6 @@ async function processAnalysisJob(job) {
             refTable: 'job_listings',
             refId: jobListingId,
             meta: {
-                analysisId: analysisRecord.id,
                 score: Number(analysis.ghostProbability),
                 verdict: analysisRecord.verdict,
                 processingTimeMs: processingTime

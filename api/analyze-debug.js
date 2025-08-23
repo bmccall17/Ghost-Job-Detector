@@ -106,8 +106,6 @@ export default async function handler(req, res) {
             
             // Enhanced analysis with real data
             const analysis = performEnhancedAnalysis(finalJobData, url);
-            const analysisId = `webllm_debug_${Date.now()}`;
-            const ghostProbability = analysis.ghostProbability;
             
             console.log('Creating source record...');
             const source = await prisma.source.create({
@@ -161,7 +159,7 @@ export default async function handler(req, res) {
                     modelVersion: 'webllm-debug-v1.8',
                     // Enhanced analyzer processing data
                     algorithmAssessment: {
-                        ghostProbability: Math.round(ghostProbability * 100),
+                        score: Math.round(analysis.ghostProbability * 100),
                         modelConfidence: `${analysis.confidence >= 0.8 ? 'High' : 'Medium'} (${Math.round(analysis.confidence * 100)}%)`,
                         assessmentText: 'WebLLM extraction and analysis completed successfully.'
                     }
@@ -179,7 +177,7 @@ export default async function handler(req, res) {
                     location: finalJobData.location,
                     remote: finalJobData.remoteFlag
                 },
-                ghostProbability,
+                ghostProbability: analysis.ghostProbability,
                 riskLevel: analysis.riskLevel,
                 riskFactors: analysis.riskFactors,
                 keyFactors: analysis.keyFactors,
