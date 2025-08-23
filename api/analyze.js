@@ -9,8 +9,16 @@ const prisma = new PrismaClient();
 export default async function handler(req, res) {
     const startTime = Date.now();
     
+    // CRITICAL DEBUG: Log all incoming requests
+    console.log('🚨 ANALYZE ENDPOINT CALLED:', {
+        method: req.method,
+        url: req.body?.url?.substring(0, 50) + '...',
+        timestamp: new Date().toISOString()
+    });
+    
     // Only allow POST requests
     if (req.method !== 'POST') {
+        console.log('❌ Method not allowed:', req.method);
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
@@ -332,11 +340,18 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error('Analysis error:', error);
+        console.error('🚨 CRITICAL ANALYZE ERROR:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString(),
+            processingTime: Date.now() - startTime
+        });
         
         return res.status(500).json({ 
             error: 'Analysis failed',
             message: error.message,
+            details: error.name,
             processingTimeMs: Date.now() - startTime
         });
     } finally {

@@ -37,27 +37,50 @@ export class AnalysisService {
       }
     }
 
+    const requestBody = { 
+      url: jobUrl,
+      title: jobData?.title,
+      company: jobData?.company,
+      description: jobData?.description || '',
+      location: jobData?.location,
+      remoteFlag: jobData?.remoteFlag,
+      postedAt: jobData?.postedAt
+    };
+
+    console.log('🚀 AnalysisService: Making API call to /analyze', {
+      url: jobUrl.substring(0, 50) + '...',
+      apiBase: this.API_BASE,
+      requestBody
+    });
+
     const response = await fetch(`${this.API_BASE}/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        url: jobUrl,
-        title: jobData?.title,
-        company: jobData?.company,
-        description: jobData?.description || '',
-        location: jobData?.location,
-        remoteFlag: jobData?.remoteFlag,
-        postedAt: jobData?.postedAt
-      }),
+      body: JSON.stringify(requestBody),
     })
 
+    console.log('📡 AnalysisService: Response received', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
     if (!response.ok) {
-      throw new Error(`Analysis failed: ${response.statusText}`)
+      const errorText = await response.text();
+      console.error('❌ AnalysisService: API error response:', errorText);
+      throw new Error(`Analysis failed: ${response.statusText} - ${errorText}`)
     }
 
-    return response.json()
+    const result = await response.json();
+    console.log('✅ AnalysisService: API response parsed successfully', {
+      hasId: !!result.id,
+      hasJobData: !!result.jobData,
+      hasGhostProbability: typeof result.ghostProbability === 'number'
+    });
+
+    return result;
   }
 
   static async uploadBulkAnalysis(file: File): Promise<BulkAnalysisJob> {
