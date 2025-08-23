@@ -132,7 +132,13 @@ export default async function handler(req, res) {
                 // Phase 2: Generate cached response from relational data
                 const cachedAlgorithmAssessment = {
                     ghostProbability: Math.round(Number(latestAnalysis.score) * 100),
-                    modelConfidence: `${latestAnalysis.modelConfidence >= 0.8 ? 'High' : latestAnalysis.modelConfidence >= 0.6 ? 'Medium' : 'Low'} (${Math.round(Number(latestAnalysis.modelConfidence) * 100)}%)`,
+                    modelConfidence: (() => {
+                        // Handle legacy data: use modelConfidence field or fall back to reasonsJson.confidence
+                        const confidence = latestAnalysis.modelConfidence || latestAnalysis.reasonsJson?.confidence || 0.5;
+                        const confidencePercent = Math.round(Number(confidence) * 100);
+                        const confidenceLevel = confidence >= 0.8 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low';
+                        return `${confidenceLevel} (${confidencePercent}%)`;
+                    })(),
                     assessmentText: latestAnalysis.verdict === 'likely_ghost' 
                         ? 'This job posting shows signs of being a ghost job with multiple red flags.'
                         : latestAnalysis.verdict === 'likely_real'
@@ -140,20 +146,37 @@ export default async function handler(req, res) {
                         : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
                 };
 
-                const cachedRiskFactorsAnalysis = {
-                    warningSignsCount: latestAnalysis.riskFactorCount || 0,
-                    warningSignsTotal: (latestAnalysis.riskFactorCount || 0) + (latestAnalysis.positiveFactorCount || 0),
-                    riskFactors: cachedKeyFactors.filter(f => f.factorType === 'risk').map(factor => ({
-                        type: 'warning',
-                        description: factor.factorDescription,
-                        impact: 'medium'
-                    })),
-                    positiveIndicators: cachedKeyFactors.filter(f => f.factorType === 'positive').map(factor => ({
-                        type: 'positive',
-                        description: factor.factorDescription,
-                        impact: 'low'
-                    }))
-                };
+                const cachedRiskFactorsAnalysis = (() => {
+                    // Handle legacy data: use KeyFactor relations or fall back to reasonsJson
+                    const legacyRiskFactors = latestAnalysis.reasonsJson?.riskFactors || [];
+                    const legacyKeyFactors = latestAnalysis.reasonsJson?.keyFactors || [];
+                    
+                    const finalRiskFactors = cachedKeyFactors.filter(f => f.factorType === 'risk');
+                    const finalPositiveFactors = cachedKeyFactors.filter(f => f.factorType === 'positive');
+                    
+                    const useRiskFactors = finalRiskFactors.length > 0 ? finalRiskFactors : legacyRiskFactors;
+                    const usePositiveFactors = finalPositiveFactors.length > 0 ? finalPositiveFactors : legacyKeyFactors;
+                    
+                    return {
+                        warningSignsCount: latestAnalysis.riskFactorCount || (Array.isArray(useRiskFactors) ? useRiskFactors.length : 0),
+                        warningSignsTotal: (latestAnalysis.riskFactorCount || (Array.isArray(useRiskFactors) ? useRiskFactors.length : 0)) + 
+                                         (latestAnalysis.positiveFactorCount || (Array.isArray(usePositiveFactors) ? usePositiveFactors.length : 0)),
+                        riskFactors: Array.isArray(useRiskFactors)
+                            ? useRiskFactors.map(factor => ({
+                                type: 'warning',
+                                description: typeof factor === 'string' ? factor : factor.factorDescription,
+                                impact: 'medium'
+                            }))
+                            : [],
+                        positiveIndicators: Array.isArray(usePositiveFactors)
+                            ? usePositiveFactors.map(factor => ({
+                                type: 'positive',
+                                description: typeof factor === 'string' ? factor : factor.factorDescription,
+                                impact: 'low'
+                            }))
+                            : []
+                    };
+                })();
 
                 return res.status(200).json({
                     id: latestAnalysis.id,
@@ -168,8 +191,21 @@ export default async function handler(req, res) {
                     ghostProbability: Number(latestAnalysis.score),
                     riskLevel: latestAnalysis.verdict === 'likely_ghost' ? 'high' :
                               latestAnalysis.verdict === 'likely_real' ? 'low' : 'medium',
-                    riskFactors: cachedKeyFactors.filter(f => f.factorType === 'risk').map(f => f.factorDescription),
-                    keyFactors: cachedKeyFactors.filter(f => f.factorType === 'positive').map(f => f.factorDescription),
+                    // Handle legacy data: use KeyFactor relations or fall back to reasonsJson
+                    riskFactors: (() => {
+                        const relationalRiskFactors = cachedKeyFactors.filter(f => f.factorType === 'risk');
+                        if (relationalRiskFactors.length > 0) {
+                            return relationalRiskFactors.map(f => f.factorDescription);
+                        }
+                        return latestAnalysis.reasonsJson?.riskFactors || [];
+                    })(),
+                    keyFactors: (() => {
+                        const relationalPositiveFactors = cachedKeyFactors.filter(f => f.factorType === 'positive');
+                        if (relationalPositiveFactors.length > 0) {
+                            return relationalPositiveFactors.map(f => f.factorDescription);
+                        }
+                        return latestAnalysis.reasonsJson?.keyFactors || [];
+                    })(),
                     metadata: {
                         storage: 'postgres',
                         version: '2.0-phase2',

@@ -175,7 +175,13 @@ export default async function handler(req, res) {
             // Phase 2: Generate JSON structures dynamically from relational data
             const algorithmAssessment = analysis ? {
                 ghostProbability: Math.round(Number(analysis.score) * 100),
-                modelConfidence: `${analysis.modelConfidence >= 0.8 ? 'High' : analysis.modelConfidence >= 0.6 ? 'Medium' : 'Low'} (${Math.round(Number(analysis.modelConfidence || 0.5) * 100)}%)`,
+                modelConfidence: (() => {
+                    // Handle legacy data: use modelConfidence field or fall back to reasonsJson.confidence
+                    const confidence = analysis.modelConfidence || analysis.reasonsJson?.confidence || 0.5;
+                    const confidencePercent = Math.round(Number(confidence) * 100);
+                    const confidenceLevel = confidence >= 0.8 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low';
+                    return `${confidenceLevel} (${confidencePercent}%)`;
+                })(),
                 assessmentText: analysis.verdict === 'likely_ghost' 
                     ? 'This job posting shows signs of being a ghost job with multiple red flags.'
                     : analysis.verdict === 'likely_real'
@@ -183,20 +189,33 @@ export default async function handler(req, res) {
                     : 'This job posting has mixed indicators. Exercise caution and additional research is recommended.'
             } : null;
 
-            const riskFactorsAnalysis = analysis ? {
-                warningSignsCount: analysis.riskFactorCount || riskFactors.length,
-                warningSignsTotal: (analysis.riskFactorCount || riskFactors.length) + (analysis.positiveFactorCount || positiveFactors.length),
-                riskFactors: riskFactors.map(factor => ({
-                    type: 'warning',
-                    description: factor.factorDescription,
-                    impact: 'medium'
-                })),
-                positiveIndicators: positiveFactors.map(factor => ({
-                    type: 'positive',
-                    description: factor.factorDescription,
-                    impact: 'low'
-                }))
-            } : null;
+            const riskFactorsAnalysis = analysis ? (() => {
+                // Handle legacy data: use KeyFactor relations or fall back to reasonsJson
+                const legacyRiskFactors = analysis.reasonsJson?.riskFactors || [];
+                const legacyKeyFactors = analysis.reasonsJson?.keyFactors || [];
+                
+                const finalRiskFactors = riskFactors.length > 0 ? riskFactors : legacyRiskFactors;
+                const finalPositiveFactors = positiveFactors.length > 0 ? positiveFactors : legacyKeyFactors;
+                
+                return {
+                    warningSignsCount: analysis.riskFactorCount || finalRiskFactors.length,
+                    warningSignsTotal: (analysis.riskFactorCount || finalRiskFactors.length) + (analysis.positiveFactorCount || finalPositiveFactors.length),
+                    riskFactors: Array.isArray(finalRiskFactors) 
+                        ? finalRiskFactors.map(factor => ({
+                            type: 'warning',
+                            description: typeof factor === 'string' ? factor : factor.factorDescription,
+                            impact: 'medium'
+                        }))
+                        : [],
+                    positiveIndicators: Array.isArray(finalPositiveFactors)
+                        ? finalPositiveFactors.map(factor => ({
+                            type: 'positive',
+                            description: typeof factor === 'string' ? factor : factor.factorDescription,
+                            impact: 'low'
+                        }))
+                        : []
+                };
+            })() : null;
 
             const recommendation = analysis ? {
                 action: analysis.recommendationAction || 'investigate',
@@ -236,8 +255,19 @@ export default async function handler(req, res) {
                 ghostProbability: analysis ? Number(analysis.score) : 0,
                 riskLevel: analysis?.verdict === 'likely_ghost' ? 'high' :
                           analysis?.verdict === 'likely_real' ? 'low' : 'medium',
-                riskFactors: riskFactors.map(f => f.factorDescription),
-                keyFactors: positiveFactors.map(f => f.factorDescription),
+                // Handle legacy data: use KeyFactor relations or fall back to reasonsJson
+                riskFactors: (() => {
+                    if (riskFactors.length > 0) {
+                        return riskFactors.map(f => f.factorDescription);
+                    }
+                    return analysis?.reasonsJson?.riskFactors || [];
+                })(),
+                keyFactors: (() => {
+                    if (positiveFactors.length > 0) {
+                        return positiveFactors.map(f => f.factorDescription);
+                    }
+                    return analysis?.reasonsJson?.keyFactors || [];
+                })(),
                 timestamp: analysis?.createdAt || job.createdAt,
                 isNewContribution: false,
                 // WebLLM parsing fields
