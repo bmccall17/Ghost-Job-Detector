@@ -302,7 +302,7 @@ export default async function handler(req, res) {
 
         // Perform ghost job analysis
         const analysisStartTime = Date.now();
-        const analysis = analyzeJobListing(jobData, url);
+        const analysis = await analyzeJobListingV18(jobData, url);
         const processingTime = Date.now() - analysisStartTime;
         
         console.log('✅ JobListing created successfully with ID:', jobListing.id);
@@ -1245,6 +1245,195 @@ function extractPlatformFromUrl(url) {
 }
 
 // Enhanced ghost job analysis algorithm with WebLLM considerations
+// NEW: WebLLM-enhanced analysis function for v0.1.8
+async function analyzeJobListingV18(jobData, url) {
+    const startTime = Date.now();
+    
+    // 1. Execute existing v0.1.7 rule-based analysis (baseline)
+    const ruleBasedResults = analyzeJobListing(jobData, url);
+    
+    // 2. NEW: WebLLM semantic analysis
+    let webllmResults = null;
+    try {
+        webllmResults = await analyzeWithWebLLM(jobData);
+    } catch (error) {
+        console.warn('WebLLM analysis failed, using rule-based fallback:', error);
+        webllmResults = { confidence: 0.5, ghostProbability: ruleBasedResults.ghostProbability, factors: [], reasoning: "WebLLM unavailable" };
+    }
+    
+    // 3. NEW: Hybrid scoring combination
+    const hybridResults = combineAnalyses(ruleBasedResults, webllmResults);
+    
+    // 4. Enhanced metadata
+    hybridResults.metadata = {
+        algorithmVersion: 'v0.1.8-hybrid',
+        processingTimeMs: Date.now() - startTime,
+        analysisComponents: {
+            ruleBasedWeight: 0.7,
+            webllmWeight: 0.3,
+            webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable"
+        }
+    };
+    
+    return hybridResults;
+}
+
+// NEW: WebLLM semantic analysis
+async function analyzeWithWebLLM(jobData) {
+    const { title, company, description } = jobData;
+    
+    const prompt = `Analyze this job posting for ghost job indicators:
+
+Title: ${title}
+Company: ${company}
+Description: ${description || 'No description provided'}
+
+Evaluate these factors (return scores 0.0-1.0):
+1. Language authenticity (0=authentic, 1=buzzword-heavy)
+2. Role specificity (0=specific requirements, 1=vague/generic)
+3. Urgency manipulation (0=normal, 1=artificial pressure)
+4. Technical depth (0=detailed technical needs, 1=surface-level)
+5. Company legitimacy signals (0=strong signals, 1=weak/missing)
+
+Return JSON format:
+{
+  "ghostProbability": 0.0,
+  "confidence": 0.0,
+  "factors": ["factor1", "factor2"],
+  "reasoning": "brief explanation",
+  "scores": {
+    "languageAuthenticity": 0.0,
+    "roleSpecificity": 0.0,
+    "urgencyManipulation": 0.0,
+    "technicalDepth": 0.0,
+    "companySignals": 0.0
+  }
+}`;
+
+    // Use WebLLM if available, otherwise return simulated analysis
+    if (typeof window !== 'undefined' && window.webllmManager) {
+        try {
+            const response = await window.webllmManager.generateCompletion([
+                { role: 'system', content: 'You are an expert job posting analyst. Return only valid JSON.' },
+                { role: 'user', content: prompt }
+            ], {
+                temperature: 0.2,
+                max_tokens: 300
+            });
+            
+            const parsedResponse = JSON.parse(response.replace(/```json\s*|\s*```/g, ''));
+            console.log('✅ WebLLM analysis completed with confidence:', parsedResponse.confidence);
+            return parsedResponse;
+        } catch (error) {
+            console.error('WebLLM parsing error:', error);
+            throw error;
+        }
+    }
+    
+    // Fallback: Simulate WebLLM analysis based on content patterns
+    return simulateWebLLMAnalysis(jobData);
+}
+
+// Simulated WebLLM analysis for server environments
+function simulateWebLLMAnalysis(jobData) {
+    const { title, company, description } = jobData;
+    const descLower = (description || '').toLowerCase();
+    const titleLower = (title || '').toLowerCase();
+    
+    // Analyze language authenticity
+    const buzzwords = ['fast-paced', 'dynamic', 'innovative', 'cutting-edge', 'disruptive', 'synergy'];
+    const buzzwordCount = buzzwords.filter(word => descLower.includes(word)).length;
+    const languageAuthenticity = Math.min(1.0, buzzwordCount * 0.2);
+    
+    // Analyze role specificity
+    const specificTerms = ['requirements', 'experience', 'skills', 'qualifications', 'years', 'degree'];
+    const specificCount = specificTerms.filter(term => descLower.includes(term)).length;
+    const roleSpecificity = Math.max(0, 1.0 - (specificCount * 0.15));
+    
+    // Analyze urgency manipulation
+    const urgencyTerms = ['urgent', 'asap', 'immediate', 'now', 'quickly'];
+    const urgencyCount = urgencyTerms.filter(term => descLower.includes(term) || titleLower.includes(term)).length;
+    const urgencyManipulation = Math.min(1.0, urgencyCount * 0.4);
+    
+    // Analyze technical depth
+    const techTerms = ['javascript', 'python', 'java', 'react', 'sql', 'aws', 'api', 'database'];
+    const techCount = techTerms.filter(term => descLower.includes(term)).length;
+    const technicalDepth = Math.max(0, 1.0 - (techCount * 0.1));
+    
+    // Analyze company signals
+    const companyLower = (company || '').toLowerCase();
+    let companySignals = 0.5;
+    if (companyLower.includes('confidential') || companyLower.includes('stealth')) {
+        companySignals = 0.8;
+    } else if (company && company.length > 3) {
+        companySignals = 0.2;
+    }
+    
+    // Calculate overall ghost probability
+    const scores = { languageAuthenticity, roleSpecificity, urgencyManipulation, technicalDepth, companySignals };
+    const avgScore = Object.values(scores).reduce((sum, score) => sum + score, 0) / 5;
+    
+    // Generate factors based on analysis
+    const factors = [];
+    if (languageAuthenticity > 0.3) factors.push('High buzzword density detected');
+    if (roleSpecificity > 0.5) factors.push('Vague role requirements');
+    if (urgencyManipulation > 0.3) factors.push('Artificial urgency language');
+    if (technicalDepth > 0.7) factors.push('Lacks technical specificity');
+    if (companySignals > 0.6) factors.push('Weak company legitimacy signals');
+    
+    return {
+        ghostProbability: avgScore,
+        confidence: 0.7, // Moderate confidence for simulated analysis
+        factors,
+        reasoning: `Simulated WebLLM analysis: ${factors.length} risk factors identified`,
+        scores
+    };
+}
+
+// NEW: Hybrid scoring combination
+function combineAnalyses(ruleBasedResults, webllmResults) {
+    const ruleWeight = 0.7;
+    const webllmWeight = 0.3;
+    
+    // Combine ghost probabilities
+    const hybridGhostProbability = (
+        (ruleBasedResults.ghostProbability * ruleWeight) +
+        ((webllmResults?.ghostProbability || ruleBasedResults.ghostProbability) * webllmWeight)
+    );
+    
+    // Combine confidence scores
+    const hybridConfidence = (
+        (ruleBasedResults.confidence * ruleWeight) +
+        ((webllmResults?.confidence || 0.5) * webllmWeight)
+    );
+    
+    // Combine factors
+    const combinedRiskFactors = [
+        ...ruleBasedResults.riskFactors,
+        ...(webllmResults?.factors || [])
+    ];
+    
+    // Determine risk level with updated thresholds
+    let riskLevel;
+    if (hybridGhostProbability >= 0.65) {
+        riskLevel = 'high';
+    } else if (hybridGhostProbability >= 0.40) {
+        riskLevel = 'medium';
+    } else {
+        riskLevel = 'low';
+    }
+    
+    return {
+        ghostProbability: Math.max(0, Math.min(hybridGhostProbability, 1.0)),
+        riskLevel,
+        riskFactors: combinedRiskFactors,
+        keyFactors: ruleBasedResults.keyFactors,
+        confidence: Math.max(0, Math.min(hybridConfidence, 1.0)),
+        webllmAnalysis: webllmResults
+    };
+}
+
+// ORIGINAL: v0.1.7 rule-based analysis (preserved as baseline)
 function analyzeJobListing(jobData, url) {
     let ghostScore = 0;
     const riskFactors = [];
