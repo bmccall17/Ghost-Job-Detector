@@ -358,44 +358,75 @@ export const JobAnalysisDashboard: React.FC = () => {
   }) => {
     if (!feedbackData) return
 
-    const learningService = ParsingLearningService.getInstance()
-
-    if (feedback.feedbackType === 'correction') {
-      // User provided corrections - learn from them
-      const improvements = await learningService.learnFromFailedParse(
-        feedbackData.url,
-        '', // We don't have HTML here, but the method can work without it for user feedback
-        {
-          title: feedbackData.title,
-          company: feedbackData.company,
-          location: feedbackData.location
+    try {
+      // Submit feedback to the database via API
+      const response = await fetch('/api/agent?mode=feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
+        body: JSON.stringify({
+          url: feedbackData.url,
+          originalTitle: feedbackData.title,
+          originalCompany: feedbackData.company,
+          originalLocation: feedbackData.location,
           correctTitle: feedback.correctTitle,
           correctCompany: feedback.correctCompany,
-          correctLocation: feedback.correctLocation
+          correctLocation: feedback.correctLocation,
+          feedbackType: feedback.feedbackType,
+          notes: feedback.notes
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Feedback submitted successfully:', result.correctionId)
+        addLog('success', `✅ ${result.message}`)
+
+        // If this is a correction, update the current analysis display
+        if (feedback.feedbackType === 'correction' && currentAnalysis && currentAnalysis.jobUrl === feedbackData.url) {
+          const updatedAnalysis = { ...currentAnalysis }
+          if (feedback.correctTitle) updatedAnalysis.title = feedback.correctTitle
+          if (feedback.correctCompany) updatedAnalysis.company = feedback.correctCompany
+          if (feedback.correctLocation) updatedAnalysis.location = feedback.correctLocation
+          
+          setCurrentAnalysis(updatedAnalysis)
+          addToHistory(updatedAnalysis)
+          triggerHistoryRefresh() // Refresh database history in History tab
         }
-      )
-
-      console.log('🎓 User feedback learning result:', improvements)
-
-      // Show success message
-      addLog('success', `✅ Feedback received! ${improvements.improvements.length} improvements learned`)
-      
-      // Update current analysis with corrected data if it matches
-      if (currentAnalysis && currentAnalysis.jobUrl === feedbackData.url) {
-        const updatedAnalysis = { ...currentAnalysis }
-        if (feedback.correctTitle) updatedAnalysis.title = feedback.correctTitle
-        if (feedback.correctCompany) updatedAnalysis.company = feedback.correctCompany
-        
-        setCurrentAnalysis(updatedAnalysis)
-        addToHistory(updatedAnalysis)
-        triggerHistoryRefresh() // Refresh database history in History tab
+      } else {
+        throw new Error(result.message || 'Failed to submit feedback')
       }
-    } else {
-      // User confirmed the data is correct - record as positive feedback
-      console.log('✅ User confirmed parsing accuracy for:', feedbackData.url)
-      addLog('success', '✅ Thank you for confirming our parsing accuracy!')
+    } catch (error) {
+      console.error('Failed to submit feedback:', error)
+      addLog('error', `❌ Failed to submit feedback: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+
+    // Also update local learning service for immediate improvements
+    try {
+      const learningService = ParsingLearningService.getInstance()
+      
+      if (feedback.feedbackType === 'correction') {
+        const improvements = await learningService.learnFromFailedParse(
+          feedbackData.url,
+          '', // We don't have HTML here, but the method can work without it for user feedback
+          {
+            title: feedbackData.title,
+            company: feedbackData.company,
+            location: feedbackData.location
+          },
+          {
+            correctTitle: feedback.correctTitle,
+            correctCompany: feedback.correctCompany,
+            correctLocation: feedback.correctLocation
+          }
+        )
+        console.log('🎓 Local learning service updated:', improvements.improvements.length, 'improvements')
+      }
+    } catch (learningError) {
+      console.warn('⚠️ Local learning service update failed:', learningError)
+      // Don't show error to user since database submission was successful
     }
 
     setShowFeedbackModal(false)

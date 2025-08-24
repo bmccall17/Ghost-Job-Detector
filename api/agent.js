@@ -16,6 +16,8 @@ export default async function handler(req, res) {
   // Route to appropriate handler
   if (mode === 'ingest') {
     return handleIngest(req, res);
+  } else if (mode === 'feedback') {
+    return handleParsingFeedback(req, res);
   } else {
     return handleFallback(req, res);
   }
@@ -456,5 +458,109 @@ async function handleIngest(req, res, internal = false) {
 
     if (internal) return errorResponse;
     return res.status(500).json(errorResponse);
+  }
+}
+
+/**
+ * Parsing Feedback Handler
+ * Handles user corrections to parsing results and stores them for learning
+ */
+async function handleParsingFeedback(req, res) {
+  try {
+    const {
+      url,
+      originalTitle,
+      originalCompany,
+      originalLocation,
+      correctTitle,
+      correctCompany,
+      correctLocation,
+      feedbackType,
+      notes
+    } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    if (feedbackType === 'correction' && !correctTitle && !correctCompany && !correctLocation) {
+      return res.status(400).json({ error: 'At least one correction field is required' });
+    }
+
+    // Extract domain pattern for learning
+    const urlObj = new URL(url);
+    const domainPattern = urlObj.hostname;
+    const urlPattern = urlObj.pathname;
+
+    // Create parsing correction record
+    const parsingCorrection = await prisma.parsingCorrection.create({
+      data: {
+        sourceUrl: url,
+        originalTitle,
+        correctTitle: feedbackType === 'correction' ? correctTitle : null,
+        originalCompany,
+        correctCompany: feedbackType === 'correction' ? correctCompany : null,
+        parserUsed: 'webllm',
+        parserVersion: 'v1.0',
+        correctionReason: notes || (feedbackType === 'correction' ? 'User correction' : 'User confirmation'),
+        domainPattern,
+        urlPattern,
+        confidence: feedbackType === 'confirmation' ? 1.0 : 0.9,
+        correctedBy: 'user',
+        isVerified: true
+      }
+    });
+
+    console.log('📝 Created parsing correction record:', parsingCorrection.id);
+
+    // If this is a correction, try to update the corresponding JobListing
+    if (feedbackType === 'correction') {
+      try {
+        // Find the job listing by URL
+        const source = await prisma.source.findFirst({
+          where: { url },
+          include: { jobListings: true }
+        });
+
+        if (source && source.jobListings.length > 0) {
+          const jobListing = source.jobListings[0]; // Use the most recent job listing
+          
+          const updateData = {};
+          if (correctTitle) updateData.title = correctTitle;
+          if (correctCompany) updateData.company = correctCompany;
+          if (correctLocation) updateData.location = correctLocation;
+
+          if (Object.keys(updateData).length > 0) {
+            await prisma.jobListing.update({
+              where: { id: jobListing.id },
+              data: {
+                ...updateData,
+                updatedAt: new Date()
+              }
+            });
+
+            console.log('✅ Updated JobListing with corrections:', jobListing.id);
+          }
+        }
+      } catch (updateError) {
+        console.warn('⚠️ Failed to update JobListing:', updateError.message);
+        // Continue anyway - the correction is still recorded
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      correctionId: parsingCorrection.id,
+      message: feedbackType === 'correction' 
+        ? 'Thank you for your corrections! This will help improve our parsing accuracy.' 
+        : 'Thank you for confirming our parsing accuracy!'
+    });
+
+  } catch (error) {
+    console.error('💥 Parsing feedback error:', error);
+    return res.status(500).json({
+      error: 'internal_error',
+      message: 'Failed to process parsing feedback'
+    });
   }
 }
