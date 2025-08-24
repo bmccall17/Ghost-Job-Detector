@@ -84,7 +84,8 @@ export class AnalysisService {
       console.error('❌ AnalysisService: Failed to parse JSON response:', parseError);
       const responseText = await response.text();
       console.error('❌ AnalysisService: Raw response:', responseText);
-      throw new Error(`Failed to parse analysis response: ${parseError.message}`);
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
+      throw new Error(`Failed to parse analysis response: ${errorMessage}`);
     }
 
     console.log('✅ AnalysisService: API response parsed successfully', {
