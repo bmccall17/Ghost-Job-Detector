@@ -2,11 +2,11 @@
 // Fixed version that bypasses failing TypeScript imports
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
-import { CompanyVerificationService } from './services/CompanyVerificationService.js';
-import { RepostingDetectionService } from './services/RepostingDetectionService.js';
-import { IndustryClassificationService } from './services/IndustryClassificationService.js';
-import { CompanyReputationService } from './services/CompanyReputationService.js';
-import { EngagementSignalService } from './services/EngagementSignalService.js';
+import { CompanyVerificationService } from '../lib/services/CompanyVerificationService.js';
+import { RepostingDetectionService } from '../lib/services/RepostingDetectionService.js';
+import { IndustryClassificationService } from '../lib/services/IndustryClassificationService.js';
+import { CompanyReputationService } from '../lib/services/CompanyReputationService.js';
+import { EngagementSignalService } from '../lib/services/EngagementSignalService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
