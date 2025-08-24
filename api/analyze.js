@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { CompanyVerificationService } from './services/CompanyVerificationService.js';
 import { RepostingDetectionService } from './services/RepostingDetectionService.js';
 import { IndustryClassificationService } from './services/IndustryClassificationService.js';
+import { CompanyReputationService } from './services/CompanyReputationService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
@@ -1301,33 +1302,52 @@ async function analyzeJobListingV18(jobData, url) {
         jobData.description || ''
     );
     
+    // 5.5. NEW: Company reputation analysis
+    const reputationService = new CompanyReputationService();
+    let reputationResults = null;
+    try {
+        reputationResults = await reputationService.analyzeCompanyReputation(jobData.company || '');
+    } catch (error) {
+        console.warn('Company reputation analysis failed:', error);
+        reputationResults = { 
+            company: jobData.company || '',
+            reputationScore: 0.5, 
+            assessment: { level: 'unrated', description: 'Analysis failed', confidence: 0.2 },
+            error: error.message 
+        };
+    }
+    
     // 6. NEW: Enhanced hybrid scoring with all components
-    const hybridResults = combineAllAnalysesV4(
+    const hybridResults = combineAllAnalysesV5(
         ruleBasedResults, 
         webllmResults, 
         verificationResults, 
         repostingResults,
         industryAnalysis,
+        reputationResults,
         jobData
     );
     
     // 7. Enhanced metadata
     hybridResults.metadata = {
-        algorithmVersion: 'v0.1.8-hybrid-v4',
+        algorithmVersion: 'v0.1.8-hybrid-v5',
         processingTimeMs: Date.now() - startTime,
         verificationResults,
         repostingResults,
         industryAnalysis,
+        reputationResults,
         analysisComponents: {
-            ruleBasedWeight: 0.30,
-            webllmWeight: 0.25,
-            verificationWeight: 0.20,
+            ruleBasedWeight: 0.25,
+            webllmWeight: 0.22,
+            verificationWeight: 0.18,
             repostingWeight: 0.15,
             industryWeight: 0.10,
+            reputationWeight: 0.10,
             webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable",
             verificationAttempted: true,
             repostingAnalyzed: true,
-            industryClassified: true
+            industryClassified: true,
+            reputationAnalyzed: true
         }
     };
     
@@ -1447,6 +1467,35 @@ function simulateWebLLMAnalysis(jobData) {
 }
 
 // NEW: Enhanced hybrid scoring with industry intelligence
+// NEW: Enhanced hybrid scoring with reputation analysis
+function combineAllAnalysesV5(ruleBasedResults, webllmResults, verificationResults, repostingResults, industryAnalysis, reputationResults, jobData) {
+    // First, combine all previous analyses (v4)
+    let hybridResults = combineAllAnalysesV4(
+        ruleBasedResults, 
+        webllmResults, 
+        verificationResults, 
+        repostingResults,
+        industryAnalysis,
+        jobData
+    );
+    
+    // Then apply company reputation adjustments
+    if (reputationResults && reputationResults.assessment.level !== 'unrated') {
+        const reputationService = new CompanyReputationService();
+        hybridResults = reputationService.applyReputationAdjustment(hybridResults, reputationResults);
+    } else {
+        hybridResults.reputationAdjustment = {
+            applied: false,
+            reason: 'Insufficient reputation data or analysis failed'
+        };
+    }
+    
+    return {
+        ...hybridResults,
+        reputationAnalysis: reputationResults
+    };
+}
+
 function combineAllAnalysesV4(ruleBasedResults, webllmResults, verificationResults, repostingResults, industryAnalysis, jobData) {
     // First, combine all previous analyses
     let hybridResults = combineAllAnalysesV3(
