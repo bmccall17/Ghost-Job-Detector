@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "test-setup": "node test-setup.js",
     "start": "npm run dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "health-check": "node scripts/pre-commit-health-check.js",
+    "pre-commit": "npm run health-check && npm run typecheck"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
