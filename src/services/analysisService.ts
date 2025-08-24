@@ -64,7 +64,11 @@ export class AnalysisService {
     console.log('📡 AnalysisService: Response received', {
       status: response.status,
       statusText: response.statusText,
-      ok: response.ok
+      ok: response.ok,
+      headers: {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      }
     });
 
     if (!response.ok) {
@@ -73,12 +77,32 @@ export class AnalysisService {
       throw new Error(`Analysis failed: ${response.statusText} - ${errorText}`)
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (parseError) {
+      console.error('❌ AnalysisService: Failed to parse JSON response:', parseError);
+      const responseText = await response.text();
+      console.error('❌ AnalysisService: Raw response:', responseText);
+      throw new Error(`Failed to parse analysis response: ${parseError.message}`);
+    }
+
     console.log('✅ AnalysisService: API response parsed successfully', {
       hasId: !!result.id,
       hasJobData: !!result.jobData,
-      hasGhostProbability: typeof result.ghostProbability === 'number'
+      hasGhostProbability: typeof result.ghostProbability === 'number',
+      resultKeys: result ? Object.keys(result) : [],
+      ghostProbValue: result.ghostProbability,
+      jobDataKeys: result.jobData ? Object.keys(result.jobData) : []
     });
+
+    // Validate critical fields
+    if (!result.id) {
+      console.warn('⚠️ AnalysisService: Response missing id field');
+    }
+    if (typeof result.ghostProbability !== 'number') {
+      console.warn('⚠️ AnalysisService: Response missing or invalid ghostProbability:', result.ghostProbability);
+    }
 
     return result;
   }

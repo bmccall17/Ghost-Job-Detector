@@ -177,6 +177,20 @@ export const JobAnalysisDashboard: React.FC = () => {
       }, 100);
     } catch (error) {
       console.error('Analysis failed:', error)
+      
+      // Show user-friendly error message for specific cases
+      if (error instanceof Error) {
+        if (error.message.includes('Cannot automatically extract') && error.message.includes('anti-bot protection')) {
+          // LinkedIn/Glassdoor extraction blocked - show helpful message
+          alert(`🤖 ${error.message}\n\n💡 Tip: Copy the job title, company name, and description from the webpage and paste them into the manual entry form below.`)
+        } else if (error.message.includes('Failed to fetch content')) {
+          // CORS/network error - show general message  
+          alert(`🌐 Unable to automatically extract job details due to website restrictions.\n\nPlease enter the job information manually below.`)
+        } else {
+          // Other errors - show generic message
+          alert(`❌ Analysis failed: ${error.message}\n\nPlease try again or enter job details manually.`)
+        }
+      }
     } finally {
       setIsAnalyzing(false)
     }

@@ -59,6 +59,11 @@ export class ParserRegistry {
     // If no HTML provided, fetch it
     if (!html) {
       html = await this.fetchHtml(url)
+      
+      // If HTML is empty (CORS blocked), provide helpful message for protected sites
+      if (!html && (url.includes('linkedin.com') || url.includes('glassdoor.com'))) {
+        throw new Error(`Cannot automatically extract from ${url.includes('linkedin.com') ? 'LinkedIn' : 'Glassdoor'} due to anti-bot protection. Please enter job details manually.`)
+      }
     }
 
     try {
@@ -237,28 +242,68 @@ export class ParserRegistry {
   }
 
   private async fetchHtml(url: string): Promise<string> {
-    try {
-      // Use AllOrigins proxy for CORS handling
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    // Retry configuration
+    const maxRetries = 2;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🌐 Fetching HTML (attempt ${attempt}/${maxRetries}): ${url}`);
+        
+        // Use AllOrigins proxy for CORS handling with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`CORS proxy error: HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        
+        // Check if AllOrigins returned an error
+        if (data.status && data.status.http_code && data.status.http_code !== 200) {
+          throw new Error(`Target site returned HTTP ${data.status.http_code}`)
+        }
+        
+        // Success - return the content
+        console.log(`✅ Successfully fetched ${data.contents?.length || 0} characters from ${url}`);
+        return data.contents || ''
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`❌ Fetch attempt ${attempt} failed:`, lastError.message);
+        
+        // If this is the last attempt, handle the error
+        if (attempt === maxRetries) {
+          break;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
       }
-      
-      const data = await response.json()
-      return data.contents || ''
-    } catch (error) {
-      console.error('Failed to fetch HTML from CORS proxy:', error)
-      
-      // For LinkedIn and other protected sites, this is expected
-      // Return empty string to trigger manual entry fallback
-      if (url.includes('linkedin.com') || url.includes('glassdoor.com')) {
-        console.warn(`CORS proxy blocked by ${url} - this is expected for protected sites`)
-        return ''
-      }
-      
-      throw new Error(`Failed to fetch content from ${url}: ${error.message}`)
     }
+    
+    // All retries failed
+    console.error('Failed to fetch HTML from CORS proxy after all retries:', lastError?.message);
+    
+    // For LinkedIn and other protected sites, return empty string to trigger manual entry
+    if (url.includes('linkedin.com') || url.includes('glassdoor.com')) {
+      console.warn(`CORS proxy failed for ${url} - falling back to manual entry`);
+      return '';
+    }
+    
+    // For other sites, throw the error
+    throw new Error(`Failed to fetch content from ${url}: ${lastError?.message || 'Unknown error'}`);
   }
 
   public registerParser(parser: JobParser): void {
