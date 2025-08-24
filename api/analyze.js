@@ -2,6 +2,7 @@
 // Fixed version that bypasses failing TypeScript imports
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { CompanyVerificationService } from './services/CompanyVerificationService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
@@ -1261,17 +1262,30 @@ async function analyzeJobListingV18(jobData, url) {
         webllmResults = { confidence: 0.5, ghostProbability: ruleBasedResults.ghostProbability, factors: [], reasoning: "WebLLM unavailable" };
     }
     
-    // 3. NEW: Hybrid scoring combination
-    const hybridResults = combineAnalyses(ruleBasedResults, webllmResults);
+    // 3. NEW: Live company verification
+    const verificationService = new CompanyVerificationService();
+    let verificationResults = null;
+    try {
+        verificationResults = await verificationService.verifyJobOnCompanySite(jobData, url);
+    } catch (error) {
+        console.warn('Company verification failed:', error);
+        verificationResults = { verified: null, error: error.message, reason: 'Verification service error' };
+    }
     
-    // 4. Enhanced metadata
+    // 4. NEW: Enhanced hybrid scoring combination
+    const hybridResults = combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults);
+    
+    // 5. Enhanced metadata
     hybridResults.metadata = {
-        algorithmVersion: 'v0.1.8-hybrid',
+        algorithmVersion: 'v0.1.8-hybrid-v2',
         processingTimeMs: Date.now() - startTime,
+        verificationResults,
         analysisComponents: {
-            ruleBasedWeight: 0.7,
+            ruleBasedWeight: 0.4,
             webllmWeight: 0.3,
-            webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable"
+            verificationWeight: 0.3,
+            webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable",
+            verificationAttempted: true
         }
     };
     
@@ -1390,7 +1404,88 @@ function simulateWebLLMAnalysis(jobData) {
     };
 }
 
-// NEW: Hybrid scoring combination
+// NEW: Enhanced hybrid scoring with verification
+function combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults) {
+    const baseWeights = { rule: 0.4, webllm: 0.3, verification: 0.3 };
+    
+    // Adjust for missing components
+    let weights = { ...baseWeights };
+    if (!webllmResults || webllmResults.reasoning === "WebLLM unavailable") {
+        weights.rule += weights.webllm * 0.7;
+        weights.verification += weights.webllm * 0.3;
+        weights.webllm = 0;
+    }
+    
+    // Base ghost probability
+    let hybridGhostProbability = ruleBasedResults.ghostProbability * weights.rule;
+    
+    // Add WebLLM contribution
+    if (webllmResults && webllmResults.reasoning !== "WebLLM unavailable") {
+        hybridGhostProbability += webllmResults.ghostProbability * weights.webllm;
+    }
+    
+    // Add verification contribution
+    if (verificationResults?.verified === true) {
+        // Job verified on company site - strong legitimacy signal
+        hybridGhostProbability -= 0.20; // Reduce ghost probability
+        ruleBasedResults.keyFactors.push('Job verified on company career site');
+    } else if (verificationResults?.verified === false) {
+        // Job not found on company site - potential red flag
+        hybridGhostProbability += 0.15; // Increase ghost probability
+        ruleBasedResults.riskFactors.push('Job not found on company career site');
+    }
+    // If verified === null (error/rate limited), no adjustment
+    
+    // Final probability clamping
+    hybridGhostProbability = Math.max(0, Math.min(hybridGhostProbability, 1.0));
+    
+    // Combine confidence scores
+    let hybridConfidence = ruleBasedResults.confidence * weights.rule;
+    if (webllmResults && webllmResults.reasoning !== "WebLLM unavailable") {
+        hybridConfidence += webllmResults.confidence * weights.webllm;
+    } else {
+        hybridConfidence += 0.5 * weights.webllm; // Default confidence for missing WebLLM
+    }
+    
+    // Verification confidence
+    if (verificationResults?.verified === true) {
+        hybridConfidence += 0.9 * weights.verification; // High confidence when verified
+    } else if (verificationResults?.verified === false) {
+        hybridConfidence += 0.7 * weights.verification; // Good confidence when not found
+    } else {
+        hybridConfidence += 0.5 * weights.verification; // Default for errors
+    }
+    
+    hybridConfidence = Math.max(0, Math.min(hybridConfidence, 1.0));
+    
+    // Combine factors
+    const combinedRiskFactors = [
+        ...ruleBasedResults.riskFactors,
+        ...(webllmResults?.factors || [])
+    ];
+    
+    // Determine risk level
+    let riskLevel;
+    if (hybridGhostProbability >= 0.65) {
+        riskLevel = 'high';
+    } else if (hybridGhostProbability >= 0.40) {
+        riskLevel = 'medium';
+    } else {
+        riskLevel = 'low';
+    }
+    
+    return {
+        ghostProbability: hybridGhostProbability,
+        riskLevel,
+        riskFactors: combinedRiskFactors,
+        keyFactors: ruleBasedResults.keyFactors,
+        confidence: hybridConfidence,
+        webllmAnalysis: webllmResults,
+        verificationAnalysis: verificationResults
+    };
+}
+
+// LEGACY: Original hybrid scoring for backward compatibility
 function combineAnalyses(ruleBasedResults, webllmResults) {
     const ruleWeight = 0.7;
     const webllmWeight = 0.3;
