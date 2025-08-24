@@ -63,6 +63,7 @@ model JobListing {
   canonicalUrl      String?  // Canonical job URL
   rawParsedJson     Json     // Original parsing results
   normalizedKey     String   @unique // Unique identifier for deduplication
+  contentHash       String?  // NEW: Content hash for reposting detection
   
   // WebLLM parsing fields
   parsingConfidence Decimal? @db.Decimal(3,2) // Confidence score (0.00-1.00)
@@ -79,6 +80,7 @@ model JobListing {
   parsingAttempt    ParsingAttempt? @relation("ParsingAttemptToJobListing", fields: [parsingAttemptId], references: [id])
   analyses          Analysis[]
   keyFactors        KeyFactor[]
+  applicationOutcomes ApplicationOutcome[]
   
   // Indexes
   @@index([sourceId])
@@ -88,6 +90,8 @@ model JobListing {
   @@index([extractionMethod])
   @@index([parsingConfidence])
   @@index([parsingAttemptId])
+  @@index([contentHash])       // NEW: Index for fast duplicate lookups
+  @@index([company, title])    // NEW: Index for similar job searches
   @@map("job_listings")
 }
 
@@ -255,6 +259,25 @@ model User {
   // Indexes
   @@index([email])
   @@map("users")
+}
+
+// Application outcomes for engagement tracking (Phase 6)
+model ApplicationOutcome {
+  id                String    @id @default(cuid())
+  jobUrl            String
+  jobListingId      String?
+  userHash          String    // Anonymous user identifier
+  outcome           String    // 'applied', 'no_response', 'rejected', 'interviewed', 'hired'
+  responseTimeHours Int?      // Time to receive response in hours
+  notes             String?   // Optional user notes
+  createdAt         DateTime  @default(now())
+  
+  jobListing        JobListing? @relation(fields: [jobListingId], references: [id])
+  
+  @@index([jobUrl])
+  @@index([jobListingId])
+  @@index([createdAt])
+  @@map("application_outcomes")
 }
 
 // Enums

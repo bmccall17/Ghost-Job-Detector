@@ -3,6 +3,7 @@
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { CompanyVerificationService } from './services/CompanyVerificationService.js';
+import { RepostingDetectionService } from './services/RepostingDetectionService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
@@ -265,6 +266,14 @@ export default async function handler(req, res) {
             extractionMethod 
         });
         
+        // Generate content hash for reposting detection
+        const repostingService = new RepostingDetectionService();
+        const contentHash = repostingService.generateJobContentHash(
+            jobData.title, 
+            jobData.company, 
+            jobData.description || ''
+        );
+
         const jobListing = await prisma.jobListing.create({
             data: {
                 sourceId: source.id,
@@ -274,6 +283,7 @@ export default async function handler(req, res) {
                 remoteFlag: jobData.remoteFlag,
                 postedAt: jobData.postedAt ? new Date(jobData.postedAt) : null,
                 canonicalUrl: url,
+                contentHash, // NEW: Store content hash for reposting detection
                 // Phase 2: Simplified rawParsedJson - removed field duplications
                 rawParsedJson: {
                     originalTitle: jobData.title,
@@ -1272,20 +1282,33 @@ async function analyzeJobListingV18(jobData, url) {
         verificationResults = { verified: null, error: error.message, reason: 'Verification service error' };
     }
     
-    // 4. NEW: Enhanced hybrid scoring combination
-    const hybridResults = combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults);
+    // 4. NEW: Reposting pattern analysis
+    const repostingService = new RepostingDetectionService();
+    let repostingResults = null;
+    try {
+        repostingResults = await repostingService.analyzeRepostingPatterns(jobData);
+    } catch (error) {
+        console.warn('Reposting analysis failed:', error);
+        repostingResults = { isRepost: false, repostCount: 0, pattern: 'unknown', error: error.message };
+    }
     
-    // 5. Enhanced metadata
+    // 5. NEW: Enhanced hybrid scoring with all components
+    const hybridResults = combineAllAnalysesV3(ruleBasedResults, webllmResults, verificationResults, repostingResults);
+    
+    // 6. Enhanced metadata
     hybridResults.metadata = {
-        algorithmVersion: 'v0.1.8-hybrid-v2',
+        algorithmVersion: 'v0.1.8-hybrid-v3',
         processingTimeMs: Date.now() - startTime,
         verificationResults,
+        repostingResults,
         analysisComponents: {
-            ruleBasedWeight: 0.4,
-            webllmWeight: 0.3,
-            verificationWeight: 0.3,
+            ruleBasedWeight: 0.35,
+            webllmWeight: 0.25,
+            verificationWeight: 0.25,
+            repostingWeight: 0.15,
             webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable",
-            verificationAttempted: true
+            verificationAttempted: true,
+            repostingAnalyzed: true
         }
     };
     
@@ -1404,7 +1427,41 @@ function simulateWebLLMAnalysis(jobData) {
     };
 }
 
-// NEW: Enhanced hybrid scoring with verification
+// NEW: Enhanced hybrid scoring with reposting detection
+function combineAllAnalysesV3(ruleBasedResults, webllmResults, verificationResults, repostingResults) {
+    // First, combine previous analyses
+    let hybridResults = combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults);
+    
+    // Add reposting contribution
+    if (repostingResults?.isRepost && repostingResults.ghostProbabilityAdjustment > 0) {
+        hybridResults.ghostProbability += repostingResults.ghostProbabilityAdjustment;
+        hybridResults.riskFactors.push(`Job reposting pattern: ${repostingResults.pattern} (${repostingResults.repostCount} times)`);
+    } else if (repostingResults?.pattern === 'first_posting') {
+        hybridResults.keyFactors.push('First-time job posting (no previous reposts)');
+    }
+    
+    // Clamp final probability
+    hybridResults.ghostProbability = Math.max(0, Math.min(hybridResults.ghostProbability, 1.0));
+    
+    // Recalculate risk level
+    let riskLevel;
+    if (hybridResults.ghostProbability >= 0.65) {
+        riskLevel = 'high';
+    } else if (hybridResults.ghostProbability >= 0.40) {
+        riskLevel = 'medium';
+    } else {
+        riskLevel = 'low';
+    }
+    
+    hybridResults.riskLevel = riskLevel;
+    
+    return {
+        ...hybridResults,
+        repostingAnalysis: repostingResults
+    };
+}
+
+// PREVIOUS: Enhanced hybrid scoring with verification
 function combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults) {
     const baseWeights = { rule: 0.4, webllm: 0.3, verification: 0.3 };
     
