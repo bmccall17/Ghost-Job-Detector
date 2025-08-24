@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { CompanyVerificationService } from './services/CompanyVerificationService.js';
 import { RepostingDetectionService } from './services/RepostingDetectionService.js';
+import { IndustryClassificationService } from './services/IndustryClassificationService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
@@ -1292,23 +1293,41 @@ async function analyzeJobListingV18(jobData, url) {
         repostingResults = { isRepost: false, repostCount: 0, pattern: 'unknown', error: error.message };
     }
     
-    // 5. NEW: Enhanced hybrid scoring with all components
-    const hybridResults = combineAllAnalysesV3(ruleBasedResults, webllmResults, verificationResults, repostingResults);
+    // 5. NEW: Industry classification and adjustment
+    const industryService = new IndustryClassificationService();
+    const industryAnalysis = industryService.classifyJobIndustry(
+        jobData.title || '',
+        jobData.company || '',
+        jobData.description || ''
+    );
     
-    // 6. Enhanced metadata
+    // 6. NEW: Enhanced hybrid scoring with all components
+    const hybridResults = combineAllAnalysesV4(
+        ruleBasedResults, 
+        webllmResults, 
+        verificationResults, 
+        repostingResults,
+        industryAnalysis,
+        jobData
+    );
+    
+    // 7. Enhanced metadata
     hybridResults.metadata = {
-        algorithmVersion: 'v0.1.8-hybrid-v3',
+        algorithmVersion: 'v0.1.8-hybrid-v4',
         processingTimeMs: Date.now() - startTime,
         verificationResults,
         repostingResults,
+        industryAnalysis,
         analysisComponents: {
-            ruleBasedWeight: 0.35,
+            ruleBasedWeight: 0.30,
             webllmWeight: 0.25,
-            verificationWeight: 0.25,
+            verificationWeight: 0.20,
             repostingWeight: 0.15,
+            industryWeight: 0.10,
             webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable",
             verificationAttempted: true,
-            repostingAnalyzed: true
+            repostingAnalyzed: true,
+            industryClassified: true
         }
     };
     
@@ -1427,7 +1446,27 @@ function simulateWebLLMAnalysis(jobData) {
     };
 }
 
-// NEW: Enhanced hybrid scoring with reposting detection
+// NEW: Enhanced hybrid scoring with industry intelligence
+function combineAllAnalysesV4(ruleBasedResults, webllmResults, verificationResults, repostingResults, industryAnalysis, jobData) {
+    // First, combine all previous analyses
+    let hybridResults = combineAllAnalysesV3(
+        ruleBasedResults, 
+        webllmResults, 
+        verificationResults, 
+        repostingResults
+    );
+    
+    // Then apply industry-specific adjustments
+    const industryService = new IndustryClassificationService();
+    hybridResults = industryService.applyIndustryAdjustments(hybridResults, industryAnalysis, jobData);
+    
+    return {
+        ...hybridResults,
+        industryAnalysis
+    };
+}
+
+// PREVIOUS: Enhanced hybrid scoring with reposting detection
 function combineAllAnalysesV3(ruleBasedResults, webllmResults, verificationResults, repostingResults) {
     // First, combine previous analyses
     let hybridResults = combineAllAnalyses(ruleBasedResults, webllmResults, verificationResults);
