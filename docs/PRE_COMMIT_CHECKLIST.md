@@ -11,13 +11,8 @@ This checklist helps prevent common errors that occur when making changes to the
 - [ ] **Prisma schema sync**: Run `npx prisma generate` after schema changes
 - [ ] **Import paths**: Verify all imports resolve correctly (especially after moving files)
 
-### **Build Validation**
-```bash
-# Always run these before committing:
-npm run build          # Check for TypeScript errors
-npm run lint           # Check code style
-npm run typecheck      # Verify types without building
-```
+### **Build Validation** 
+Skip local build and type checks — these are run on the live server as part of staging. Do not configure or run local pre-commit hooks.
 
 ## 🗄️ **Database & Schema Issues**
 
@@ -83,13 +78,8 @@ npm run typecheck      # Verify types without building
 - [ ] **Legacy data**: Test with existing database records (not just fresh data)
 - [ ] **Different platforms**: Test LinkedIn, Indeed, company career pages
 
-### **Automated Checks**
-```bash
-# Create and run test scripts for critical paths:
-node test-api-endpoints.js     # Verify all API endpoints return expected data
-node test-database-schema.js   # Check database integrity after changes
-node test-parsing-services.js  # Validate parsing logic works
-```
+### Staging Only Guidelines
+Developers should stage their changes (git add) but not commit. The Product Manager will handle commits after review. Do not install or rely on automated pre-commit hooks.
 
 ## 📦 **Deployment Preparation**
 
@@ -184,5 +174,6 @@ grep -r "\.message\|catch.*error\|instanceof Error" src/
 **Remember**: Prevention is better than debugging! Taking 2 minutes to check these items saves hours of troubleshooting later.
 
 -- manually added notes --
-**ALL testing will be done on the live server... please do not set up any local testing.**
-please only stage, do not commit to Git. leave that for me the Product Manager to do manually after reviewing.
+## 🚫 **Local Testing & Commit Rules**
+- **ALL testing is done on the live server**. Do not set up or run local test/build pipelines. The live server handles validation and error catching.  
+- **Stage only, do not commit.** Developers should stage changes for review, but commits will be made manually by the Product Manager after verification.
