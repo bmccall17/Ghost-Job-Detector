@@ -6,6 +6,7 @@ import { CompanyVerificationService } from './services/CompanyVerificationServic
 import { RepostingDetectionService } from './services/RepostingDetectionService.js';
 import { IndustryClassificationService } from './services/IndustryClassificationService.js';
 import { CompanyReputationService } from './services/CompanyReputationService.js';
+import { EngagementSignalService } from './services/EngagementSignalService.js';
 
 // Initialize Prisma directly to avoid import issues
 const prisma = new PrismaClient();
@@ -1317,37 +1318,55 @@ async function analyzeJobListingV18(jobData, url) {
         };
     }
     
-    // 6. NEW: Enhanced hybrid scoring with all components
-    const hybridResults = combineAllAnalysesV5(
+    // 6. NEW: Engagement signal analysis
+    const engagementService = new EngagementSignalService();
+    let engagementResults = null;
+    try {
+        engagementResults = await engagementService.analyzeEngagementSignals(jobData, url);
+    } catch (error) {
+        console.warn('Engagement signal analysis failed:', error);
+        engagementResults = {
+            engagementScore: 0.5,
+            assessment: { level: 'unknown', description: 'Analysis failed', confidence: 0.2 },
+            error: error.message
+        };
+    }
+    
+    // 7. NEW: Final hybrid scoring with all components
+    const hybridResults = combineAllAnalysesV6(
         ruleBasedResults, 
         webllmResults, 
         verificationResults, 
         repostingResults,
         industryAnalysis,
         reputationResults,
+        engagementResults,
         jobData
     );
     
-    // 7. Enhanced metadata
+    // 8. Enhanced metadata
     hybridResults.metadata = {
-        algorithmVersion: 'v0.1.8-hybrid-v5',
+        algorithmVersion: 'v0.1.8-hybrid-v6-final',
         processingTimeMs: Date.now() - startTime,
         verificationResults,
         repostingResults,
         industryAnalysis,
         reputationResults,
+        engagementResults,
         analysisComponents: {
-            ruleBasedWeight: 0.25,
-            webllmWeight: 0.22,
-            verificationWeight: 0.18,
-            repostingWeight: 0.15,
-            industryWeight: 0.10,
+            ruleBasedWeight: 0.20,
+            webllmWeight: 0.18,
+            verificationWeight: 0.16,
+            repostingWeight: 0.14,
+            industryWeight: 0.12,
             reputationWeight: 0.10,
+            engagementWeight: 0.10,
             webllmAvailable: !!webllmResults && webllmResults.reasoning !== "WebLLM unavailable",
             verificationAttempted: true,
             repostingAnalyzed: true,
             industryClassified: true,
-            reputationAnalyzed: true
+            reputationAnalyzed: true,
+            engagementAnalyzed: true
         }
     };
     
@@ -1467,6 +1486,36 @@ function simulateWebLLMAnalysis(jobData) {
 }
 
 // NEW: Enhanced hybrid scoring with industry intelligence
+// NEW: Final hybrid scoring with engagement signals (v6)
+function combineAllAnalysesV6(ruleBasedResults, webllmResults, verificationResults, repostingResults, industryAnalysis, reputationResults, engagementResults, jobData) {
+    // First, combine all previous analyses (v5)
+    let hybridResults = combineAllAnalysesV5(
+        ruleBasedResults, 
+        webllmResults, 
+        verificationResults, 
+        repostingResults,
+        industryAnalysis,
+        reputationResults,
+        jobData
+    );
+    
+    // Then apply engagement signal adjustments
+    if (engagementResults && engagementResults.assessment.level !== 'insufficient_data' && engagementResults.assessment.level !== 'unknown') {
+        const engagementService = new EngagementSignalService();
+        hybridResults = engagementService.applyEngagementAdjustment(hybridResults, engagementResults);
+    } else {
+        hybridResults.engagementAdjustment = {
+            applied: false,
+            reason: 'Insufficient engagement signal data or analysis failed'
+        };
+    }
+    
+    return {
+        ...hybridResults,
+        engagementAnalysis: engagementResults
+    };
+}
+
 // NEW: Enhanced hybrid scoring with reputation analysis
 function combineAllAnalysesV5(ruleBasedResults, webllmResults, verificationResults, repostingResults, industryAnalysis, reputationResults, jobData) {
     // First, combine all previous analyses (v4)
