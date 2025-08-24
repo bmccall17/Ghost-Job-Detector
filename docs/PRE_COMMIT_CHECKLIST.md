@@ -182,3 +182,7 @@ grep -r "\.message\|catch.*error\|instanceof Error" src/
 ---
 
 **Remember**: Prevention is better than debugging! Taking 2 minutes to check these items saves hours of troubleshooting later.
+
+-- manually added notes --
+**ALL testing will be done on the live server... please do not set up any local testing.**
+please only stage, do not commit to Git. leave that for me the Product Manager to do manually after reviewing.

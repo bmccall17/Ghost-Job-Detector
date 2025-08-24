@@ -1,7 +1,8 @@
 /**
- * Agent Fallback API Endpoint  
- * Server-side AI validation using Groq with structured JSON output
+ * Agent API Endpoints - Consolidated
+ * Handles both agent fallback validation and result ingestion
  */
+import { prisma } from '../lib/db.js';
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
@@ -10,6 +11,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { mode = 'fallback' } = req.query;
+
+  // Route to appropriate handler
+  if (mode === 'ingest') {
+    return handleIngest(req, res);
+  } else {
+    return handleFallback(req, res);
+  }
+}
+
+/**
+ * Agent Fallback Handler
+ * Server-side AI validation using Groq with structured JSON output
+ */
+async function handleFallback(req, res) {
   try {
     // Check feature flags
     if (process.env.AGENT_ENABLED !== 'true' || process.env.AGENT_USE_SERVER_FALLBACK !== 'true') {
@@ -34,14 +50,6 @@ export default async function handler(req, res) {
 
     console.log('🤖 Agent fallback request for:', url);
 
-    // Rate limiting using simple daily hash
-    const rateLimitKey = Buffer.from(url).toString('base64').slice(0, 24);
-    const dateKey = new Date().toISOString().slice(0, 10);
-    const dailyKey = `agent:fallback:${rateLimitKey}:${dateKey}`;
-
-    // Simple rate limiting check (could be enhanced with Redis)
-    // For now, we'll rely on Groq's own rate limiting
-    
     // Enhanced JSON Schema for detailed analysis output
     const AgentJsonSchema = {
       type: "object",
@@ -161,7 +169,7 @@ export default async function handler(req, res) {
         }
       },
       temperature: 0.2,
-      max_tokens: 2048, // Increased for detailed analysis
+      max_tokens: 2048,
       messages: [
         { 
           role: "system", 
@@ -205,7 +213,7 @@ Be thorough, analytical, and provide actionable insights like a professional job
           role: "user", 
           content: JSON.stringify({ 
             url, 
-            htmlSnippet: htmlSnippet.slice(0, 8000), // Limit size for API call
+            htmlSnippet: htmlSnippet.slice(0, 8000),
             parserOutput 
           }) 
         }
@@ -265,7 +273,7 @@ Be thorough, analytical, and provide actionable insights like a professional job
       });
     }
 
-    // Forward to ingest endpoint for persistence
+    // Forward to ingest handler for persistence
     try {
       const ingestPayload = {
         url,
@@ -275,20 +283,8 @@ Be thorough, analytical, and provide actionable insights like a professional job
         out: agentOutput
       };
 
-      const ingestUrl = process.env.NEXT_PUBLIC_BASE_URL 
-        ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/agent/ingest`
-        : '/api/agent/ingest';
-
-      const ingestResponse = await fetch(ingestUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ingestPayload)
-      });
-
-      if (!ingestResponse.ok) {
-        console.warn('⚠️ Failed to persist agent result via ingest');
-      } else {
-        const ingestResult = await ingestResponse.json();
+      const ingestResult = await handleIngest({ body: ingestPayload }, res, true);
+      if (ingestResult?.eventId) {
         console.log('💾 Agent result persisted:', ingestResult.eventId);
       }
     } catch (ingestError) {
@@ -312,5 +308,153 @@ Be thorough, analytical, and provide actionable insights like a professional job
       error: 'internal_error',
       message: error.message
     });
+  }
+}
+
+/**
+ * Agent Ingest Handler
+ * Persists agent validation results and links them to analyses
+ */
+async function handleIngest(req, res, internal = false) {
+  try {
+    const body = req.body;
+    console.log('🤖 Agent ingest request:', { 
+      url: body?.url, 
+      agent: body?.agent,
+      hasOutput: !!body?.out 
+    });
+
+    // Basic shape validation
+    if (!body?.url || !body?.out) {
+      console.error('❌ Bad request: missing url or out');
+      const error = { 
+        ok: false, 
+        error: 'bad_request',
+        message: 'Missing required fields: url, out' 
+      };
+      
+      if (internal) return error;
+      return res.status(400).json(error);
+    }
+
+    // Generate content hash for idempotency
+    const contentSha256 = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
+
+    // Check for existing event (idempotency)
+    const existing = await prisma.event.findFirst({
+      where: { 
+        kind: 'agent_validate',
+        meta: {
+          path: ['contentSha256'],
+          equals: contentSha256
+        }
+      }
+    });
+
+    if (existing) {
+      console.log('🔄 Duplicate agent validation detected, skipping');
+      const result = { 
+        ok: true, 
+        eventId: existing.id, 
+        dedup: true 
+      };
+      
+      if (internal) return result;
+      return res.status(200).json(result);
+    }
+
+    // Find source and job listing by URL
+    let source = null;
+    let job = null;
+
+    try {
+      source = await prisma.source.findFirst({ 
+        where: { url: body.url } 
+      });
+
+      if (source) {
+        job = await prisma.jobListing.findFirst({ 
+          where: { sourceId: source.id } 
+        });
+      }
+
+      console.log('🔍 Found source:', source?.id, 'job:', job?.id);
+    } catch (dbError) {
+      console.warn('⚠️ Database lookup failed, continuing without job link:', dbError.message);
+    }
+
+    // Create event record
+    const eventData = {
+      kind: 'agent_validate',
+      refTable: job ? 'job_listings' : null,
+      refId: job?.id ?? null,
+      meta: {
+        ...body.out,
+        agent: body.agent || 'webllm',
+        url: body.url,
+        contentSha256,
+        htmlSnippetLength: body.htmlSnippet?.length || 0,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    const event = await prisma.event.create({
+      data: eventData
+    });
+
+    console.log('✅ Agent event created:', event.id);
+
+    // Link to latest analysis if job exists
+    if (job) {
+      try {
+        const latestAnalysis = await prisma.analysis.findFirst({
+          where: { jobListingId: job.id },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        if (latestAnalysis) {
+          // Store agent event reference in analysis metadata
+          const updatedMeta = {
+            ...(latestAnalysis.reasonsJson || {}),
+            agentEventId: event.id,
+            agentValidated: body.out.validated || false,
+            agentNotes: body.out.notes
+          };
+
+          await prisma.analysis.update({
+            where: { id: latestAnalysis.id },
+            data: { reasonsJson: updatedMeta }
+          });
+
+          console.log('🔗 Linked agent event to analysis:', latestAnalysis.id);
+        }
+      } catch (linkError) {
+        console.warn('⚠️ Failed to link to analysis:', linkError.message);
+        // Continue anyway - the event is still recorded
+      }
+    }
+
+    // Return success response
+    const result = {
+      ok: true,
+      eventId: event.id,
+      linkedJob: job?.id || null,
+      linkedAnalysis: job ? 'attempted' : null
+    };
+
+    if (internal) return result;
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('💥 Agent ingest error:', error);
+    
+    const errorResponse = {
+      ok: false,
+      error: 'internal_error',
+      message: error.message
+    };
+
+    if (internal) return errorResponse;
+    return res.status(500).json(errorResponse);
   }
 }

@@ -1,9 +1,21 @@
 import { prisma } from '../lib/db.js';
 
-// Get analysis statistics from Postgres
+// Get analysis statistics from Postgres + Admin Dashboard
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const { mode = 'stats' } = req.query;
+
+    // Handle admin dashboard mode  
+    if (mode === 'dashboard') {
+        return handleAdminDashboard(req, res);
+    }
+
+    // Handle db-check mode
+    if (mode === 'db-check') {
+        return handleDbCheck(req, res);
     }
 
     try {
@@ -101,6 +113,162 @@ export default async function handler(req, res) {
         console.error('Stats fetch error:', error);
         return res.status(500).json({ 
             error: 'Failed to fetch stats',
+            details: error.message 
+        });
+    }
+}
+
+// Admin Dashboard Handler
+async function handleAdminDashboard(req, res) {
+    try {
+        // Import QueueManager here to avoid circular dependency issues
+        const { QueueManager } = await import('../lib/queue.js');
+        
+        // Get dashboard data
+        const [
+            totalAnalyses,
+            recentAnalyses,
+            queueStats,
+            topCompanies,
+            verdictDistribution,
+            recentEvents
+        ] = await Promise.all([
+            // Total analyses count
+            prisma.analysis.count(),
+            
+            // Recent analyses (last 24 hours)
+            prisma.analysis.findMany({
+                where: {
+                    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+                },
+                include: { jobListing: true },
+                orderBy: { createdAt: 'desc' },
+                take: 20
+            }),
+            
+            // Queue health
+            QueueManager.getQueueStats(),
+            
+            // Top companies by analysis count
+            prisma.jobListing.groupBy({
+                by: ['company'],
+                _count: { company: true },
+                orderBy: { _count: { company: 'desc' } },
+                take: 10
+            }),
+            
+            // Verdict distribution
+            prisma.analysis.groupBy({
+                by: ['verdict'],
+                _count: { verdict: true }
+            }),
+            
+            // Recent system events
+            prisma.event.findMany({
+                orderBy: { createdAt: 'desc' },
+                take: 50
+            })
+        ]);
+
+        // Calculate averages and trends
+        const avgGhostProb = await prisma.analysis.aggregate({
+            _avg: { score: true }
+        });
+
+        // Format response
+        return res.status(200).json({
+            overview: {
+                total_analyses: totalAnalyses,
+                avg_ghost_probability: Number(avgGhostProb._avg.score) || 0,
+                analyses_last_24h: recentAnalyses.length
+            },
+            queue_health: {
+                ingest_queue: queueStats.ingestLength,
+                analysis_queue: queueStats.analysisLength,
+                dead_letter_ingest: queueStats.deadLetterIngest,
+                dead_letter_analysis: queueStats.deadLetterAnalysis
+            },
+            verdict_distribution: verdictDistribution.reduce((acc, item) => {
+                acc[item.verdict] = item._count.verdict;
+                return acc;
+            }, {}),
+            top_companies: topCompanies.map(item => ({
+                company: item.company,
+                analysis_count: item._count.company
+            })),
+            recent_analyses: recentAnalyses.map(analysis => ({
+                id: analysis.id,
+                title: analysis.jobListing.title,
+                company: analysis.jobListing.company,
+                score: Number(analysis.score),
+                verdict: analysis.verdict,
+                created_at: analysis.createdAt
+            })),
+            recent_events: recentEvents.map(event => ({
+                id: event.id,
+                kind: event.kind,
+                ref_table: event.refTable,
+                ref_id: event.refId,
+                meta: event.meta,
+                created_at: event.createdAt
+            })),
+            system_info: {
+                timestamp: new Date().toISOString(),
+                version: '2.0',
+                model_version: process.env.ML_MODEL_VERSION || 'v1.0.0',
+                storage: 'postgres'
+            }
+        });
+
+    } catch (error) {
+        console.error('Admin dashboard error:', error);
+        return res.status(500).json({
+            error: 'Failed to load dashboard',
+            details: error.message
+        });
+    }
+}
+
+// DB Check Handler
+async function handleDbCheck(req, res) {
+    try {
+        // Get all sources
+        const sources = await prisma.source.findMany({
+            include: {
+                jobListings: {
+                    include: {
+                        analyses: true
+                    }
+                }
+            }
+        });
+
+        // Get total counts
+        const counts = {
+            sources: await prisma.source.count(),
+            jobListings: await prisma.jobListing.count(),
+            analyses: await prisma.analysis.count(),
+            events: await prisma.event.count()
+        };
+
+        return res.status(200).json({
+            counts,
+            sources: sources.map(source => ({
+                id: source.id,
+                url: source.url,
+                contentSha256: source.contentSha256.substring(0, 12) + '...',
+                jobListings: source.jobListings.map(job => ({
+                    id: job.id,
+                    title: job.title,
+                    company: job.company,
+                    normalizedKey: job.normalizedKey.substring(0, 12) + '...',
+                    analysisCount: job.analyses.length
+                }))
+            }))
+        });
+    } catch (error) {
+        return res.status(500).json({ 
+            error: 'Database check failed',
             details: error.message 
         });
     }
