@@ -1,6 +1,10 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
 ## Project Status: v0.1.8-WebLLM 🚀
+⚠️ CLAUDE RULE: Before staging any code, Claude must run through PRE_COMMIT_CHECKLIST.md.
+This ensures all validations are aligned with production-first testing.
+Claude should not commit or push changes. Staging only.
+All testing and validation must follow the live-server rules in PRE_COMMIT_CHECKLIST.md.
 
 **Latest Updates (v0.1.8-WebLLM) - INTEGRATION COMPLETE:**
 - ✅ **WebLLM Integration Complete**: Full implementation of Llama-3.1-8B-Instruct for automated job parsing
@@ -279,20 +283,23 @@
 
 #### Required Testing Workflow:
 ```bash
-# 1. Deploy changes immediately
+# Stage changes for review only
 git add .
-git commit -m "Phase X: [description]"
-git push origin main
+# Do NOT commit or push.
+# Instead, call PRE_COMMIT_CHECKLIST.md to validate changes.
+# The Product Manager will handle commits and pushes after review.
 
-# 2. Verify deployment
+# Deployment & testing steps below are for the Product Manager only:
+
+# 1. Deploy to production
 vercel --prod
 
-# 3. Test endpoints against production
+# 2. Test endpoints against production
 curl -X POST https://ghost-job-detector-lilac.vercel.app/api/analyze \
   -H "Content-Type: application/json" \
   -d '{"url":"test-url"}'
 
-# 4. Check production logs
+# 3. Check production logs
 vercel logs --prod
 ```
 
@@ -372,10 +379,9 @@ curl https://ghost-job-detector-lilac.vercel.app/api/health
 - **Architecture**: Maintain `/docs/architecture.md` with system design decisions
 
 ## Git Workflow
-- **Branches**: Feature branches from `develop`; merge via pull requests
-- **Commits**: Use conventional commit format: `feat:`, `fix:`, `docs:`
-- **Reviews**: Require approval from one team member before merging
-- **CI/CD**: All tests must pass before deployment to staging/production
+- **Staging Only**: Claude stages changes with git add and runs PRE_COMMIT_CHECKLIST.md.
+- **Commit Control**: Only the Product Manager commits and pushes.
+- **Validation**: All checks defined in PRE_COMMIT_CHECKLIST.md must pass before handoff.
 
 ## Environment Configuration
 - **Development**: Use `.env.local` for local development variables
