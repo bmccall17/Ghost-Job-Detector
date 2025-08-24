@@ -291,7 +291,7 @@ git add .
 
 # Deployment & testing steps below are for the Product Manager only:
 
-# 1. Deploy to production
+# 1. Deploy to production, happens automatically
 vercel --prod
 
 # 2. Test endpoints against production
