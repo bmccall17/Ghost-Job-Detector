@@ -3,6 +3,7 @@ export interface JobAnalysis {
   jobUrl: string
   title: string
   company: string
+  location?: string
   ghostProbability: number
   confidence: number
   factors: string[]
