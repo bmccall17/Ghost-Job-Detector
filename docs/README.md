@@ -14,6 +14,7 @@
 | [RELEASE_NOTES_v0.2.0.md](RELEASE_NOTES_v0.2.0.md) | Complete v0.2.0 feature documentation | All audiences | ✅ Current |
 | [PRE_COMMIT_CHECKLIST.md](PRE_COMMIT_CHECKLIST.md) | Development workflow | Developers | ✅ Current |
 | [FeatureSpec_Algorithm_v0.1.8.md](FeatureSpec_Algorithm_v0.1.8.md) | Algorithm technical requirements | Product/Engineering | ✅ Current |
+| [LiveMetadata_48Hour_Plan_v1.0.md](LiveMetadata_48Hour_Plan_v1.0.md) | ⚡ EMERGENCY: Live Metadata 48-hour plan | Technical teams | 🚨 URGENT |
 
 ---
 
@@ -110,6 +111,12 @@ Outdated documentation has been moved to `/archive/` directory:
 
 ## 🎯 **Document Usage Guidelines**
 
+### **🚨 URGENT: Live Metadata Implementation (48 Hours)**
+1. **PRIMARY**: [LiveMetadata_48Hour_Plan_v1.0.md](LiveMetadata_48Hour_Plan_v1.0.md) - Emergency implementation plan
+2. **CONSTRAINT**: Must stay within 8/12 Vercel function limit (4 slots remaining)
+3. **STRATEGY**: Extend existing functions, no new API endpoints
+4. **SCOPE**: Reduced feature set for aggressive timeline
+
 ### **For Developers:**
 1. Start with [ARCHITECTURE_v0.2.0.md](ARCHITECTURE_v0.2.0.md) for complete system overview
 2. Review [RELEASE_NOTES_v0.2.0.md](RELEASE_NOTES_v0.2.0.md) for v0.2.0 implementation details
@@ -121,8 +128,8 @@ Outdated documentation has been moved to `/archive/` directory:
 3. Reference [FeatureSpec_Algorithm_v0.1.8.md](FeatureSpec_Algorithm_v0.1.8.md) for algorithm foundation
 
 ### **For Operations:**
-1. Use [ARCHITECTURE_v0.2.0.md](ARCHITECTURE_v0.2.0.md) for monitoring endpoints and system health
-2. Reference [VERCEL_FUNCTIONS.md](VERCEL_FUNCTIONS.md) for deployment constraints (8/12 functions used)
+1. **CRITICAL**: [VERCEL_FUNCTIONS.md](VERCEL_FUNCTIONS.md) - 8/12 functions used, 4 remaining slots ONLY
+2. Use [ARCHITECTURE_v0.2.0.md](ARCHITECTURE_v0.2.0.md) for monitoring endpoints and system health
 3. Follow [DATABASE_SCHEMA_AUDIT_REPORT.md](DATABASE_SCHEMA_AUDIT_REPORT.md) for optimization guidance
 4. Monitor user feedback integration via ParsingCorrection table analytics
 
