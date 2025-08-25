@@ -20,6 +20,9 @@ interface MetadataState {
   isEditing: Record<keyof JobMetadata, boolean>;
   errors: Record<keyof JobMetadata, string | null>;
   
+  // Loop prevention
+  isUpdating: boolean;
+  
   // Actions
   setCardVisible: (visible: boolean) => void;
   updateMetadata: (field: keyof JobMetadata, value: any, confidence?: FieldConfidence) => void;
@@ -100,6 +103,7 @@ export const useMetadataStore = create<MetadataState>()(
     extractionSteps: [...DEFAULT_EXTRACTION_STEPS],
     isEditing: createEmptyEditingState(),
     errors: createEmptyErrorState(),
+    isUpdating: false,
 
     // Actions
     setCardVisible: (visible: boolean) => {
@@ -123,7 +127,23 @@ export const useMetadataStore = create<MetadataState>()(
           return;
         }
 
-        const currentMetadata = get().currentMetadata || createEmptyMetadata();
+        // Prevent infinite loops by checking if we're already updating
+        const state = get();
+        if (state.isUpdating) {
+          console.warn('UpdateMetadata blocked: already updating to prevent infinite loop');
+          return;
+        }
+
+        // Set updating flag to prevent recursion
+        set({ isUpdating: true });
+
+        const currentMetadata = state.currentMetadata || createEmptyMetadata();
+        
+        // Check if value actually changed to prevent unnecessary updates
+        if (currentMetadata[field] === value) {
+          set({ isUpdating: false });
+          return;
+        }
         
         // Calculate overall progress based on filled fields
         const fields = ['title', 'company', 'location'] as (keyof JobMetadata)[];
@@ -139,7 +159,7 @@ export const useMetadataStore = create<MetadataState>()(
           extractionProgress: progress
         };
 
-        set((state) => ({
+        set({
           currentMetadata: updatedMetadata,
           fieldConfidences: confidence ? {
             ...state.fieldConfidences,
@@ -148,28 +168,41 @@ export const useMetadataStore = create<MetadataState>()(
           errors: {
             ...state.errors,
             [field]: null // Clear error when field is updated
-          }
-        }));
+          },
+          isUpdating: false // Clear the updating flag
+        });
 
         // Emit update event for external listeners (only in browser)
-        if (typeof window !== 'undefined') {
-          const event: MetadataUpdateEvent = {
-            field,
-            value,
-            confidence: confidence || {
-              value: 0.5,
-              source: 'user',
-              lastValidated: new Date(),
-              validationMethod: 'manual'
-            },
-            timestamp: new Date()
-          };
-          
-          // Custom event for external integration
-          window.dispatchEvent(new CustomEvent('metadataUpdated', { detail: event }));
+        // DO NOT emit if this might cause recursion
+        if (typeof window !== 'undefined' && !(window as any).metadataUpdateInProgress) {
+          try {
+            (window as any).metadataUpdateInProgress = true;
+            
+            const event: MetadataUpdateEvent = {
+              field,
+              value,
+              confidence: confidence || {
+                value: 0.5,
+                source: 'user',
+                lastValidated: new Date(),
+                validationMethod: 'manual'
+              },
+              timestamp: new Date()
+            };
+            
+            // Custom event for external integration
+            window.dispatchEvent(new CustomEvent('metadataUpdated', { detail: event }));
+          } finally {
+            // Always clear the flag
+            setTimeout(() => {
+              delete (window as any).metadataUpdateInProgress;
+            }, 100);
+          }
         }
       } catch (error) {
-        console.error('Error in updateMetadata:', error);
+        // Always clear the updating flag on error
+        set({ isUpdating: false });
+        console.error('Error in updateMetadata (loop prevented):', error);
         // Don't crash the app, just log the error
       }
     },
