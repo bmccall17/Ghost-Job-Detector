@@ -217,8 +217,11 @@ export const useAnalysisIntegration = () => {
               const data = JSON.parse(line.substring(6));
               
               if (data.type === 'metadata_update') {
-                updateMetadata(data.field as keyof JobMetadata, data.value, data.confidence);
-                performanceMonitor.recordFieldExtraction();
+                // Validate data before updating
+                if (data.field && data.value !== undefined) {
+                  updateMetadata(data.field as keyof JobMetadata, data.value, data.confidence);
+                  performanceMonitor.recordFieldExtraction();
+                }
               } else if (data.type === 'step_update') {
                 updateExtractionStep(data.step.id, data.step);
               } else if (data.type === 'extraction_complete') {

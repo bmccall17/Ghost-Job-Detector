@@ -1109,9 +1109,45 @@ async function extractJobDataFallback(url) {
 // Fetch URL content with proper error handling
 async function fetchUrlContent(url) {
     try {
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        const data = await response.json();
-        return data.contents || '';
+        // Use multiple CORS proxy services as fallback
+        const proxyServices = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            // Direct fetch as last resort (will likely fail due to CORS)
+        ];
+
+        for (const proxyUrl of proxyServices) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const response = await fetch(proxyUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    },
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const content = data.contents || data.content || '';
+                
+                if (content && content.length > 100) { // Ensure we got meaningful content
+                    console.log(`✅ Successfully fetched content via ${proxyUrl.includes('allorigins') ? 'AllOrigins' : 'CorsProxy'}`);
+                    return content;
+                }
+            } catch (proxyError) {
+                console.warn(`Failed to fetch via proxy: ${proxyError.message}`);
+                continue;
+            }
+        }
+        
+        throw new Error('All proxy services failed');
     } catch (error) {
         console.error('Failed to fetch URL content:', error);
         return '';
@@ -1952,7 +1988,32 @@ async function handleMetadataStream(req, res) {
         try {
             const extractedData = await extractJobDataFromUrl(url);
             
-            if (extractedData.title && extractedData.title !== 'Unknown Position') {
+            // Handle LinkedIn anti-bot protection by falling back to URL analysis
+            if (platform === 'LinkedIn' && (!extractedData.title || extractedData.title === 'Unknown Position')) {
+                console.log('🔄 LinkedIn anti-bot detected, using URL-based analysis');
+                
+                // Extract job ID from LinkedIn URL
+                const linkedInData = extractFromLinkedInUrl(url);
+                if (linkedInData.jobId) {
+                    sendUpdate({
+                        type: 'metadata_update',
+                        field: 'platform',
+                        value: 'LinkedIn (Job ID: ' + linkedInData.jobId + ')',
+                        confidence: { 
+                            value: 0.95, 
+                            source: 'parsing', 
+                            lastValidated: new Date(), 
+                            validationMethod: 'url_analysis' 
+                        }
+                    });
+                    
+                    sendUpdate({
+                        type: 'extraction_error',
+                        field: 'content',
+                        error: 'LinkedIn anti-bot protection active. Job ID extracted from URL.'
+                    });
+                }
+            } else if (extractedData.title && extractedData.title !== 'Unknown Position') {
                 sendUpdate({
                     type: 'metadata_update',
                     field: 'title',

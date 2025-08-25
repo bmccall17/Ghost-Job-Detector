@@ -8,6 +8,7 @@ import {
   useMetadataStore, 
   useAnalysisIntegration
 } from './components';
+import { MetadataErrorBoundary } from './components/ErrorBoundary';
 
 interface MetadataIntegrationProps {
   isAnalyzing: boolean;
@@ -69,28 +70,30 @@ const MetadataIntegration: React.FC<MetadataIntegrationProps> = ({
   };
 
   return (
-    <div className={`metadata-integration ${className}`}>
-      {/* Toggle Button */}
-      <div className="mb-4">
-        <MetadataToggle
+    <MetadataErrorBoundary>
+      <div className={`metadata-integration ${className}`}>
+        {/* Toggle Button */}
+        <div className="mb-4">
+          <MetadataToggle
+            isVisible={isCardVisible}
+            onToggle={handleToggleCard}
+            hasData={Boolean(currentMetadata)}
+          />
+        </div>
+
+        {/* Metadata Card */}
+        <LiveMetadataCard
           isVisible={isCardVisible}
-          onToggle={handleToggleCard}
-          hasData={Boolean(currentMetadata)}
+          metadata={currentMetadata}
+          isLoading={isAnalyzing}
+          onClose={handleCloseCard}
+          onFieldUpdate={(field, value) => {
+            // Handle user edits - will be implemented in Phase 2
+            console.log(`Field ${field} updated to:`, value);
+          }}
         />
       </div>
-
-      {/* Metadata Card */}
-      <LiveMetadataCard
-        isVisible={isCardVisible}
-        metadata={currentMetadata}
-        isLoading={isAnalyzing}
-        onClose={handleCloseCard}
-        onFieldUpdate={(field, value) => {
-          // Handle user edits - will be implemented in Phase 2
-          console.log(`Field ${field} updated to:`, value);
-        }}
-      />
-    </div>
+    </MetadataErrorBoundary>
   );
 };
 
