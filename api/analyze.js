@@ -1086,9 +1086,35 @@ function extractGenericData(html) {
         const match = html.match(pattern);
         if (match && match[1]) {
             const loc = match[1].trim();
-            if (loc.length > 2 && loc.length < 100 && !loc.toLowerCase().includes('remote')) {
+            
+            // Enhanced location validation - filter out common false positives
+            const invalidLocationTerms = [
+                'view', 'click', 'apply', 'more', 'details', 'info', 'see', 'show',
+                'button', 'link', 'here', 'now', 'today', 'jobs', 'career', 'work',
+                'position', 'role', 'opportunity', 'company', 'team', 'department'
+            ];
+            
+            const isValidLocation = loc.length > 2 && 
+                                   loc.length < 100 && 
+                                   !loc.toLowerCase().includes('remote') &&
+                                   !invalidLocationTerms.some(term => 
+                                       loc.toLowerCase().includes(term.toLowerCase())
+                                   ) &&
+                                   // Must contain at least one letter
+                                   /[a-zA-Z]/.test(loc) &&
+                                   // Shouldn't be all numbers
+                                   !/^\d+$/.test(loc) &&
+                                   // Should look like a real location (contains common location indicators)
+                                   (loc.includes(',') || 
+                                    /\b(city|state|county|province|country|area|region|street|ave|road|blvd)\b/i.test(loc) ||
+                                    /^[A-Za-z\s,.-]{3,}$/.test(loc));
+            
+            if (isValidLocation) {
                 location = loc;
+                console.log(`📍 Valid location extracted: ${loc}`);
                 break;
+            } else {
+                console.log(`⚠️ Rejected invalid location: "${loc}"`);
             }
         }
     }
@@ -1222,10 +1248,28 @@ async function extractJobDataFallback(url) {
 async function fetchUrlContent(url) {
     console.log(`🔄 Attempting to fetch: ${url}`);
     
-    // For LinkedIn, immediately fall back to URL-based analysis
-    if (url.includes('linkedin.com')) {
-        console.log('🚫 LinkedIn detected - skipping HTML fetch due to anti-bot protection');
-        return ''; // Return empty content to trigger URL-based extraction
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        
+        // Sites known to block CORS proxies - skip to URL-based analysis
+        const corsUnfriendlySites = [
+            'linkedin.com',
+            'indeed.com',
+            'glassdoor.com',
+            'ziprecruiter.com',
+            'monster.com'
+        ];
+        
+        const shouldSkipFetch = corsUnfriendlySites.some(site => hostname.includes(site));
+        
+        if (shouldSkipFetch) {
+            console.log(`🚫 ${hostname} detected - known to block CORS proxies, using URL-based extraction`);
+            return ''; // Return empty content to trigger URL-based extraction
+        }
+        
+        console.log(`✅ ${hostname} - attempting proxy fetch`);
+    } catch (urlError) {
+        console.warn('Invalid URL provided, attempting fetch anyway:', urlError.message);
     }
     
     try {
@@ -1564,6 +1608,61 @@ function extractFromLinkedInUrl(url) {
             }
         }
         
+        // Enhanced location extraction from LinkedIn URL
+        let extractedLocation = null;
+        let locationConfidence = 0.0;
+        
+        // Try to extract location from URL parameters and patterns
+        const locationPatterns = [
+            // LinkedIn location search parameters
+            /[?&]location=([^&]+)/i,
+            /[?&]locationId=([^&]+)/i,
+            /[?&]geoId=([^&]+)/i,
+            // Search results with location context
+            /jobs\/search[^?]*\?[^#]*f_L=([^&]+)/i,
+            // Collection URLs with location
+            /collections\/[^?]*\?[^#]*location=([^&]+)/i
+        ];
+        
+        for (const pattern of locationPatterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                let locationStr = decodeURIComponent(match[1].replace(/\+/g, ' '));
+                
+                // Clean up common LinkedIn location formats
+                locationStr = locationStr
+                    .replace(/%2C/g, ',')
+                    .replace(/%20/g, ' ')
+                    .replace(/\+/g, ' ')
+                    .trim();
+                
+                // Skip if it looks like a numeric ID
+                if (!/^\d+$/.test(locationStr) && locationStr.length > 2) {
+                    extractedLocation = locationStr;
+                    locationConfidence = 0.7;
+                    console.log(`📍 Location extracted from LinkedIn URL: ${extractedLocation}`);
+                    break;
+                }
+            }
+        }
+        
+        // If no location found, try to infer from URL structure or provide intelligent fallback
+        if (!extractedLocation) {
+            if (url.includes('/jobs/search/')) {
+                extractedLocation = 'Multiple locations (LinkedIn Search)';
+                locationConfidence = 0.3;
+            } else if (url.includes('/collections/')) {
+                extractedLocation = 'Curated locations (LinkedIn Collections)';
+                locationConfidence = 0.3;
+            } else if (linkedInOrigin.detectionMethod === 'direct_domain') {
+                extractedLocation = 'See job details for location';
+                locationConfidence = 0.2;
+            } else {
+                extractedLocation = 'Location varies (LinkedIn-sourced)';
+                locationConfidence = 0.4;
+            }
+        }
+
         // Enhanced URL context detection
         let urlContext = 'Standard LinkedIn Job';
         if (url.includes('/collections/')) {
@@ -1591,7 +1690,7 @@ function extractFromLinkedInUrl(url) {
         return {
             title: hasValidJobId ? `LinkedIn Job #${jobId}` : 'LinkedIn Job Posting',
             company: linkedInOrigin.platform === 'LinkedIn' ? 'Company via LinkedIn' : `Company via ${linkedInOrigin.platform}`,
-            location: 'Location from LinkedIn',
+            location: extractedLocation,
             jobId,
             thirdPartyJobId,
             platform: linkedInOrigin.platform,
@@ -1599,11 +1698,13 @@ function extractFromLinkedInUrl(url) {
             urlContext,
             urlStructureValid: hasValidJobId,
             confidence: linkedInOrigin.confidence,
+            locationConfidence: locationConfidence,
             extractionMethod: 'enhanced-linkedin-url',
             detectionMethod: linkedInOrigin.detectionMethod,
             analysisNotes: [
                 `LinkedIn origin detected via: ${linkedInOrigin.detectionMethod}`,
                 `Platform confidence: ${(linkedInOrigin.confidence * 100).toFixed(0)}%`,
+                `Location confidence: ${(locationConfidence * 100).toFixed(0)}%`,
                 hasValidJobId ? `Valid job ID extracted: ${jobId}` : 'Job ID extraction failed',
                 thirdPartyJobId ? `Third-party reference ID: ${thirdPartyJobId}` : 'No third-party ID found'
             ]
