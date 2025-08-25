@@ -146,26 +146,163 @@ export const useMetadataUpdates = (options: UseMetadataUpdatesOptions = {}): Met
 export const useAnalysisIntegration = () => {
   const { setCardVisible, resetMetadata, updateMetadata, updateExtractionStep, startExtraction } = useMetadataStore();
 
-  // Real metadata extraction - TEMPORARILY DISABLED TO PREVENT INFINITE LOOPS
+  // Real metadata extraction with enhanced loop prevention
   const startRealMetadataExtraction = useCallback(async (url: string) => {
-    console.log('🚨 Metadata streaming temporarily disabled to prevent infinite loops');
-    console.log('🔧 Using safe fallback mode for URL:', url);
+    console.log('🚀 Starting real metadata extraction with loop prevention');
+    console.log('🔧 Processing URL:', url);
     
+    // Loop prevention check
+    if (useMetadataStore.getState().isUpdating) {
+      console.warn('⚠️ Metadata extraction already in progress, skipping to prevent loops');
+      return;
+    }
+    
+    const extractionTimeout = 15000; // 15 second timeout
+    const timeoutController = new AbortController();
+    
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      timeoutController.abort();
+    }, extractionTimeout);
+
     try {
-      // Start basic extraction without API calls
+      // Start extraction in store and performance monitoring
       startExtraction(url);
       performanceMonitor.startExtraction();
       
-      // Simple simulation without complex updates that cause loops
-      setTimeout(() => {
-        // Just set a basic completion message
-        console.log('✅ Metadata extraction completed (safe mode)');
-      }, 1000);
-      
+      // Call the real API with metadata streaming
+      const response = await fetch('/api/analyze?stream=metadata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          url, 
+          stepUpdates: true 
+        }),
+        signal: timeoutController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Stream reader not available');
+      }
+
+      const decoder = new TextDecoder();
+
+      // Process streaming response with loop prevention
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              
+              // Check if still updating to prevent race conditions
+              if (useMetadataStore.getState().isUpdating) {
+                console.warn('⚠️ Update blocked during processing to prevent loops');
+                continue;
+              }
+              
+              if (data.type === 'metadata_update') {
+                // Validate data before updating
+                if (data.field && data.value !== undefined) {
+                  updateMetadata(data.field as keyof JobMetadata, data.value, data.confidence);
+                  performanceMonitor.recordFieldExtraction();
+                }
+              } else if (data.type === 'step_update') {
+                updateExtractionStep(data.step.id, data.step);
+              } else if (data.type === 'extraction_complete') {
+                console.log('✅ Metadata extraction completed');
+                performanceMonitor.completeExtraction();
+              } else if (data.type === 'error') {
+                console.error('❌ Metadata extraction error:', data.message);
+                performanceMonitor.recordError();
+                updateMetadata('error', data.message, {
+                  value: 1.0,
+                  source: 'api_error',
+                  lastValidated: new Date(),
+                  validationMethod: 'error_handling'
+                });
+              } else if (data.type === 'extraction_error') {
+                console.warn('⚠️ Field extraction warning:', data.field, data.error);
+                const currentWarnings = useMetadataStore.getState().currentMetadata?.warnings || [];
+                updateMetadata('warnings', [...currentWarnings, `${data.field}: ${data.error}`], {
+                  value: 0.5,
+                  source: 'extraction_warning',
+                  lastValidated: new Date(),
+                  validationMethod: 'field_validation'
+                });
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE data:', parseError);
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error('Metadata extraction error (safe mode):', error);
+      console.error('Real metadata extraction failed:', error);
+      
+      // Handle specific error types
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Metadata extraction timed out';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network connection failed';
+        } else if (error.message.includes('API request failed')) {
+          errorMessage = `Server error: ${error.message}`;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      // Update metadata with error state
+      updateMetadata('error', errorMessage, {
+        value: 1.0,
+        source: 'system_error',
+        lastValidated: new Date(),
+        validationMethod: 'error_handling'
+      });
+
+      // Fallback to simulation after delay
+      setTimeout(() => {
+        console.log('🔄 Falling back to demo data after extraction failure');
+        updateMetadata('title', 'Software Engineer', {
+          value: 0.6, // Lower confidence for fallback data
+          source: 'fallback',
+          lastValidated: new Date(),
+          validationMethod: 'demo_data'
+        });
+        updateMetadata('company', 'TechCorp Inc.', {
+          value: 0.6,
+          source: 'fallback',
+          lastValidated: new Date(),
+          validationMethod: 'demo_data'
+        });
+        
+        // Add warning about fallback data
+        updateMetadata('warnings', ['Using demo data - real extraction failed'], {
+          value: 0.3,
+          source: 'fallback_warning',
+          lastValidated: new Date(),
+          validationMethod: 'fallback_notification'
+        });
+      }, 1000);
+    } finally {
+      // Clear timeout
+      clearTimeout(timeoutId);
     }
-  }, [startExtraction]);
+  }, [startExtraction, updateMetadata, updateExtractionStep]);
 
   // Called when analysis starts
   const onAnalysisStart = useCallback((url?: string) => {
