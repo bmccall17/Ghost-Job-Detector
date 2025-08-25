@@ -13,6 +13,7 @@ import { ParsingFeedbackModal } from '@/components/ParsingFeedbackModal'
 import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
 import { ParsingLearningService } from '@/services/parsing/ParsingLearningService'
+import MetadataIntegration from '@/features/metadata/MetadataIntegration'
 
 const urlAnalysisSchema = z.object({
   jobUrl: z.string().url('Please enter a valid job URL')
@@ -441,6 +442,13 @@ export const JobAnalysisDashboard: React.FC = () => {
           Analyze job postings from URLs, PDF uploads, or CSV files for bulk ghost job detection
         </p>
       </div>
+
+      {/* Live Metadata Integration */}
+      <MetadataIntegration
+        isAnalyzing={isAnalyzing}
+        currentJobUrl={urlForm.watch('jobUrl')}
+        analysisResult={currentAnalysis}
+      />
 
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         <button

@@ -2057,3 +2057,15 @@ async function handleMetadataStream(req, res) {
         res.end();
     }
 }
+
+// Helper function for metadata streaming
+async function extractJobDataFromUrl(url) {
+    const platform = extractPlatformFromUrl(url);
+    const htmlContent = await fetchUrlContent(url);
+    
+    if (!htmlContent) {
+        throw new Error('Could not fetch content from URL');
+    }
+
+    return await smartExtractFromHtml(htmlContent, url, platform);
+}
