@@ -13,7 +13,6 @@ import { ParsingFeedbackModal } from '@/components/ParsingFeedbackModal'
 import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
 import { ParsingLearningService } from '@/services/parsing/ParsingLearningService'
-import MetadataIntegration from '@/features/metadata/MetadataIntegration'
 
 const urlAnalysisSchema = z.object({
   jobUrl: z.string().url('Please enter a valid job URL')
@@ -443,12 +442,7 @@ export const JobAnalysisDashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Live Metadata Integration */}
-      <MetadataIntegration
-        isAnalyzing={isAnalyzing}
-        currentJobUrl={urlForm.watch('jobUrl')}
-        analysisResult={currentAnalysis}
-      />
+      {/* Live Metadata Integration - Temporarily Disabled for Debugging */}
 
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         <button
@@ -565,11 +559,13 @@ export const JobAnalysisDashboard: React.FC = () => {
 
           {/* Debug: Check currentAnalysis state at render time */}
           {(() => {
-            console.log('🎨 Render check: currentAnalysis =', currentAnalysis ? `${currentAnalysis.title} (${currentAnalysis.id})` : 'null');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🎨 Render check: currentAnalysis =', currentAnalysis ? `${currentAnalysis.title} (${currentAnalysis.id})` : 'null');
+            }
             return null;
           })()}
           
-          {currentAnalysis && (
+          {currentAnalysis && currentAnalysis.title && currentAnalysis.company && (
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">

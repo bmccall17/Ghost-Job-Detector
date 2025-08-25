@@ -116,49 +116,62 @@ export const useMetadataStore = create<MetadataState>()(
     },
 
     updateMetadata: (field: keyof JobMetadata, value: any, confidence?: FieldConfidence) => {
-      const currentMetadata = get().currentMetadata || createEmptyMetadata();
-      
-      // Calculate overall progress based on filled fields
-      const fields = ['title', 'company', 'location'] as (keyof JobMetadata)[];
-      const filledFields = fields.filter(f => 
-        f === field ? value : currentMetadata[f]
-      ).length;
-      const progress = Math.round((filledFields / fields.length) * 100);
-      
-      const updatedMetadata: JobMetadata = {
-        ...currentMetadata,
-        [field]: value,
-        lastUpdated: new Date(),
-        extractionProgress: progress
-      };
-
-      set((state) => ({
-        currentMetadata: updatedMetadata,
-        fieldConfidences: confidence ? {
-          ...state.fieldConfidences,
-          [field]: confidence
-        } : state.fieldConfidences,
-        errors: {
-          ...state.errors,
-          [field]: null // Clear error when field is updated
+      try {
+        // Defensive validation
+        if (!field || typeof field !== 'string') {
+          console.warn('Invalid field passed to updateMetadata:', field);
+          return;
         }
-      }));
 
-      // Emit update event for external listeners
-      const event: MetadataUpdateEvent = {
-        field,
-        value,
-        confidence: confidence || {
-          value: 0.5,
-          source: 'user',
-          lastValidated: new Date(),
-          validationMethod: 'manual'
-        },
-        timestamp: new Date()
-      };
-      
-      // Custom event for external integration
-      window.dispatchEvent(new CustomEvent('metadataUpdated', { detail: event }));
+        const currentMetadata = get().currentMetadata || createEmptyMetadata();
+        
+        // Calculate overall progress based on filled fields
+        const fields = ['title', 'company', 'location'] as (keyof JobMetadata)[];
+        const filledFields = fields.filter(f => 
+          f === field ? value : currentMetadata[f]
+        ).length;
+        const progress = Math.round((filledFields / fields.length) * 100);
+        
+        const updatedMetadata: JobMetadata = {
+          ...currentMetadata,
+          [field]: value,
+          lastUpdated: new Date(),
+          extractionProgress: progress
+        };
+
+        set((state) => ({
+          currentMetadata: updatedMetadata,
+          fieldConfidences: confidence ? {
+            ...state.fieldConfidences,
+            [field]: confidence
+          } : state.fieldConfidences,
+          errors: {
+            ...state.errors,
+            [field]: null // Clear error when field is updated
+          }
+        }));
+
+        // Emit update event for external listeners (only in browser)
+        if (typeof window !== 'undefined') {
+          const event: MetadataUpdateEvent = {
+            field,
+            value,
+            confidence: confidence || {
+              value: 0.5,
+              source: 'user',
+              lastValidated: new Date(),
+              validationMethod: 'manual'
+            },
+            timestamp: new Date()
+          };
+          
+          // Custom event for external integration
+          window.dispatchEvent(new CustomEvent('metadataUpdated', { detail: event }));
+        }
+      } catch (error) {
+        console.error('Error in updateMetadata:', error);
+        // Don't crash the app, just log the error
+      }
     },
 
     resetMetadata: () => {

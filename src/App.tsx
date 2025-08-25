@@ -7,6 +7,7 @@ import { NewsImpactButton } from '@/components/NewsImpactButton'
 import { NewsImpactPage } from '@/components/NewsImpactPage'
 import { ThemeProvider, ThemeToggle } from '@/components/ThemeToggle'
 import LiveMetadataTest from '@/features/metadata/LiveMetadataTest'
+import { MetadataErrorBoundary } from '@/features/metadata/components/ErrorBoundary'
 
 type ActiveView = 'dashboard' | 'history' | 'news' | 'metadata-test'
 
@@ -107,8 +108,27 @@ function AppContent() {
       </nav>
 
       <main className="py-8">
-        {activeView === 'dashboard' && <JobAnalysisDashboard />}
-        {activeView === 'history' && <AnalysisHistory />}
+        <MetadataErrorBoundary fallback={
+          <div className="max-w-4xl mx-auto p-6">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
+              <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+                Application Error
+              </h2>
+              <p className="text-red-600 dark:text-red-300 mb-4">
+                The dashboard encountered an error and needs to be reloaded.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Reload Dashboard
+              </button>
+            </div>
+          </div>
+        }>
+          {activeView === 'dashboard' && <JobAnalysisDashboard />}
+          {activeView === 'history' && <AnalysisHistory />}
+        </MetadataErrorBoundary>
       </main>
 
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-16">
