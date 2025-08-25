@@ -13,6 +13,7 @@ import { ParsingFeedbackModal } from '@/components/ParsingFeedbackModal'
 import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
 import { ParsingLearningService } from '@/services/parsing/ParsingLearningService'
+import MetadataIntegration from '@/features/metadata/MetadataIntegration'
 
 const urlAnalysisSchema = z.object({
   jobUrl: z.string().url('Please enter a valid job URL')
@@ -442,7 +443,12 @@ export const JobAnalysisDashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Live Metadata Integration - Temporarily Disabled for Debugging */}
+      {/* Live Metadata Integration - Re-enabled with Enhanced Error Handling */}
+      <MetadataIntegration
+        isAnalyzing={isAnalyzing}
+        currentJobUrl={urlForm.watch('jobUrl') || ''}
+        analysisResult={currentAnalysis || undefined}
+      />
 
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         <button
