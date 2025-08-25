@@ -1278,19 +1278,59 @@ function extractFromLeverUrl(url) {
 }
 
 function extractFromLinkedInUrl(url) {
+    console.log(`🔗 Enhanced LinkedIn URL analysis: ${url}`);
+    
     try {
-        // Extract job ID and attempt smart parsing
-        const jobIdMatch = url.match(/\/view\/(\d+)/);
-        const jobId = jobIdMatch ? jobIdMatch[1] : null;
+        let jobId = null;
+        let urlType = 'unknown';
         
-        // For LinkedIn, we have limited URL-based extraction capabilities
-        // But we can provide contextual information for better processing
+        // Method 1: Extract from direct job view URL (/jobs/view/JOBID)
+        const directViewMatch = url.match(/\/jobs\/view\/(\d+)/);
+        if (directViewMatch) {
+            jobId = directViewMatch[1];
+            urlType = 'direct_view';
+            console.log(`📋 Direct view URL detected: Job ID ${jobId}`);
+        }
         
-        // LinkedIn jobs are typically from companies, not ghost jobs if they have valid job IDs
-        // This is a confidence boost for real job detection
-        const hasValidJobId = jobId && jobId.length >= 8; // LinkedIn job IDs are typically long
+        // Method 2: Extract from currentJobId parameter (collections, search results, etc.)
+        const currentJobIdMatch = url.match(/[?&]currentJobId=(\d+)/);
+        if (currentJobIdMatch) {
+            jobId = currentJobIdMatch[1];
+            urlType = jobId ? (urlType === 'direct_view' ? 'both_formats' : 'currentJobId_param') : urlType;
+            console.log(`🎯 currentJobId parameter detected: Job ID ${jobId}`);
+        }
         
-        console.log(`🎯 LinkedIn URL extraction: Job ID ${jobId} (${hasValidJobId ? 'valid format' : 'invalid format'})`);
+        // Method 3: Extract from any other LinkedIn job URL patterns
+        if (!jobId) {
+            // Look for any number sequence that could be a job ID
+            const fallbackMatch = url.match(/(\d{10,})/); // LinkedIn job IDs are typically 10+ digits
+            if (fallbackMatch) {
+                jobId = fallbackMatch[1];
+                urlType = 'fallback_extraction';
+                console.log(`🔍 Fallback extraction found potential Job ID: ${jobId}`);
+            }
+        }
+        
+        // Validate job ID format
+        const hasValidJobId = jobId && jobId.length >= 8; // LinkedIn job IDs are typically 8+ digits
+        
+        // Extract additional URL context
+        let urlContext = 'Standard LinkedIn Job';
+        if (url.includes('/collections/')) {
+            urlContext = 'LinkedIn Collections Page';
+        } else if (url.includes('/search/')) {
+            urlContext = 'LinkedIn Job Search Results';
+        } else if (url.includes('/jobs/view/')) {
+            urlContext = 'Direct LinkedIn Job View';
+        }
+        
+        console.log(`✅ LinkedIn analysis complete:`, {
+            jobId,
+            urlType,
+            urlContext,
+            hasValidJobId,
+            extractionMethod: `linkedin-${urlType}`
+        });
         
         return {
             title: hasValidJobId ? `LinkedIn Job #${jobId}` : 'LinkedIn Job Posting',
@@ -1298,26 +1338,35 @@ function extractFromLinkedInUrl(url) {
             location: 'Location from LinkedIn',
             jobId,
             platform: 'LinkedIn',
-            confidence: hasValidJobId ? 0.7 : 0.5,
-            titleConfidence: hasValidJobId ? 0.7 : 0.5,
-            companyConfidence: 0.6,
+            urlType,
+            urlContext,
+            confidence: hasValidJobId ? 0.8 : 0.5,
+            titleConfidence: hasValidJobId ? 0.8 : 0.5,
+            companyConfidence: 0.7,
             locationConfidence: 0.4,
             urlStructureValid: hasValidJobId,
-            extractionMethod: 'linkedin-url-analysis',
+            extractionMethod: `linkedin-${urlType}`,
             analysisNotes: [
+                `LinkedIn ${urlContext.toLowerCase()} detected`,
+                `Job ID extracted via ${urlType.replace('_', ' ')} method`,
                 'LinkedIn blocks automated content extraction',
                 'Analysis based on URL structure and job ID',
-                'Manual verification recommended'
+                'Manual verification recommended for complete details'
             ]
         };
     } catch (error) {
         console.error('❌ LinkedIn URL extraction failed:', error);
         return { 
-            title: null, 
-            company: null, 
+            title: 'LinkedIn Job Posting (Error)', 
+            company: 'Company via LinkedIn', 
             jobId: null, 
-            confidence: 0.1,
-            extractionMethod: 'linkedin-url-error'
+            confidence: 0.3,
+            extractionMethod: 'linkedin-url-error',
+            analysisNotes: [
+                'Error occurred during LinkedIn URL analysis',
+                'Fallback metadata provided',
+                'Manual verification required'
+            ]
         };
     }
 }
@@ -2036,6 +2085,7 @@ async function handleMetadataStream(req, res) {
                 const linkedInData = extractFromLinkedInUrl(url);
                 if (linkedInData.jobId) {
                     // Send enhanced LinkedIn metadata
+                    // Enhanced LinkedIn metadata with URL context
                     sendUpdate({
                         type: 'metadata_update',
                         field: 'title',
@@ -2044,7 +2094,7 @@ async function handleMetadataStream(req, res) {
                             value: linkedInData.titleConfidence || 0.7, 
                             source: 'parsing', 
                             lastValidated: new Date(), 
-                            validationMethod: 'url_analysis' 
+                            validationMethod: linkedInData.extractionMethod || 'url_analysis'
                         }
                     });
                     
@@ -2056,26 +2106,45 @@ async function handleMetadataStream(req, res) {
                             value: linkedInData.companyConfidence || 0.6, 
                             source: 'parsing', 
                             lastValidated: new Date(), 
-                            validationMethod: 'url_analysis' 
+                            validationMethod: linkedInData.extractionMethod || 'url_analysis'
                         }
                     });
                     
+                    // Enhanced platform info with URL type
+                    const platformInfo = `LinkedIn ${linkedInData.urlContext || 'Job'} (ID: ${linkedInData.jobId})`;
                     sendUpdate({
                         type: 'metadata_update',
                         field: 'platform',
-                        value: 'LinkedIn (Job ID: ' + linkedInData.jobId + ')',
+                        value: platformInfo,
                         confidence: { 
                             value: 0.95, 
                             source: 'parsing', 
                             lastValidated: new Date(), 
-                            validationMethod: 'url_analysis' 
+                            validationMethod: linkedInData.extractionMethod || 'url_analysis'
                         }
                     });
                     
+                    // Add location if available
+                    if (linkedInData.location) {
+                        sendUpdate({
+                            type: 'metadata_update',
+                            field: 'location',
+                            value: linkedInData.location,
+                            confidence: { 
+                                value: linkedInData.locationConfidence || 0.4, 
+                                source: 'parsing', 
+                                lastValidated: new Date(), 
+                                validationMethod: linkedInData.extractionMethod || 'url_analysis'
+                            }
+                        });
+                    }
+                    
+                    // Enhanced extraction message with URL type context
+                    const extractionMessage = `LinkedIn anti-bot protection bypassed using ${linkedInData.urlType?.replace('_', ' ') || 'URL'} extraction method.`;
                     sendUpdate({
                         type: 'extraction_error',
                         field: 'content',
-                        error: 'LinkedIn anti-bot protection bypassed. Using URL-based extraction.'
+                        error: extractionMessage
                     });
                 }
             } else if (extractedData.title && extractedData.title !== 'Unknown Position') {
