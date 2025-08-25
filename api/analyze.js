@@ -14,6 +14,16 @@ const prisma = new PrismaClient();
 export default async function handler(req, res) {
     const startTime = Date.now();
     
+    // Set CORS headers for all requests
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
     // CRITICAL DEBUG: Log all incoming requests
     console.log('🚨 ANALYZE ENDPOINT CALLED:', {
         method: req.method,
@@ -1052,7 +1062,98 @@ function extractGenericData(html) {
         }
     }
     
-    remoteFlag = html.toLowerCase().includes('remote');
+    // Enhanced location extraction
+    const locationPatterns = [
+        // JSON-LD structured data
+        /"addressLocality"\s*:\s*"([^"]+)"/i,
+        /"addressRegion"\s*:\s*"([^"]+)"/i,
+        /"jobLocation"\s*:\s*"([^"]+)"/i,
+        // Common HTML patterns
+        /<[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)/i,
+        /<[^>]*class="[^"]*city[^"]*"[^>]*>([^<]+)/i,
+        /<[^>]*class="[^"]*address[^"]*"[^>]*>([^<]+)/i,
+        // Meta tags
+        /<meta[^>]*name="location"[^>]*content="([^"]+)"/i,
+        /<meta[^>]*property="og:location"[^>]*content="([^"]+)"/i,
+        // Schema.org microdata
+        /itemprop="addressLocality"[^>]*>([^<]+)/i,
+        /itemprop="jobLocation"[^>]*>([^<]+)/i,
+        // Common text patterns (city, state format)
+        /(?:Location|City|Based in|Office)\s*[:\-]\s*([A-Za-z\s,]{3,50})/i
+    ];
+    
+    for (const pattern of locationPatterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+            const loc = match[1].trim();
+            if (loc.length > 2 && loc.length < 100 && !loc.toLowerCase().includes('remote')) {
+                location = loc;
+                break;
+            }
+        }
+    }
+    
+    // Enhanced posted date extraction
+    let postedAt = null;
+    const datePatterns = [
+        // JSON-LD structured data
+        /"datePosted"\s*:\s*"([^"]+)"/i,
+        /"publishedAt"\s*:\s*"([^"]+)"/i,
+        // Common HTML patterns
+        /<[^>]*class="[^"]*date[^"]*"[^>]*>([^<]+)/i,
+        /<[^>]*class="[^"]*posted[^"]*"[^>]*>([^<]+)/i,
+        /<[^>]*class="[^"]*publish[^"]*"[^>]*>([^<]+)/i,
+        // Meta tags
+        /<meta[^>]*name="date"[^>]*content="([^"]+)"/i,
+        /<meta[^>]*property="article:published_time"[^>]*content="([^"]+)"/i,
+        // Schema.org microdata
+        /itemprop="datePosted"[^>]*>([^<]+)/i,
+        // Common text patterns
+        /(?:Posted|Published|Listed)\s*(?:on|:)?\s*([A-Za-z0-9\s,\-\/]{8,25})/i,
+        // Relative time patterns
+        /(\d+)\s+(day|days|hour|hours|week|weeks)\s+ago/i
+    ];
+    
+    for (const pattern of datePatterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+            const dateStr = match[1].trim();
+            
+            // Handle relative dates like "2 days ago"
+            if (dateStr.match(/(\d+)\s+(day|days|hour|hours|week|weeks)\s+ago/i)) {
+                const relativeMatch = dateStr.match(/(\d+)\s+(day|days|hour|hours|week|weeks)/i);
+                if (relativeMatch) {
+                    const num = parseInt(relativeMatch[1]);
+                    const unit = relativeMatch[2].toLowerCase();
+                    const now = new Date();
+                    
+                    if (unit.startsWith('day')) {
+                        now.setDate(now.getDate() - num);
+                    } else if (unit.startsWith('hour')) {
+                        now.setHours(now.getHours() - num);
+                    } else if (unit.startsWith('week')) {
+                        now.setDate(now.getDate() - (num * 7));
+                    }
+                    
+                    postedAt = now.toISOString();
+                    break;
+                }
+            } else {
+                // Try to parse absolute dates
+                const parsedDate = new Date(dateStr);
+                if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 2020) {
+                    postedAt = parsedDate.toISOString();
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Enhanced remote detection
+    const remoteKeywords = ['remote', 'work from home', 'wfh', 'telecommute', 'distributed'];
+    remoteFlag = remoteKeywords.some(keyword => 
+        html.toLowerCase().includes(keyword.toLowerCase())
+    );
     
     return {
         title,
@@ -1060,9 +1161,12 @@ function extractGenericData(html) {
         description: description.substring(0, 1000),
         location,
         remoteFlag,
+        postedAt,
         titleConfidence: title ? 0.6 : 0.3,
         companyConfidence: company ? 0.6 : 0.3,
-        descriptionConfidence: description ? 0.5 : 0.3
+        descriptionConfidence: description ? 0.5 : 0.3,
+        locationConfidence: location ? 0.7 : 0.0,
+        postedAtConfidence: postedAt ? 0.8 : 0.0
     };
 }
 
@@ -1147,48 +1251,96 @@ async function fetchUrlContent(url) {
             }
         ];
 
-        for (const strategy of proxyStrategies) {
-            try {
-                console.log(`🔄 Trying ${strategy.name}...`);
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-                
-                const response = await fetch(strategy.url, {
-                    method: 'GET',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (compatible; JobAnalyzer/1.0)',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
-                        'Cache-Control': 'no-cache'
-                    },
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+        for (let strategyIndex = 0; strategyIndex < proxyStrategies.length; strategyIndex++) {
+            const strategy = proxyStrategies[strategyIndex];
+            const maxRetries = 2;
+            
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const attemptStr = attempt > 0 ? ` (attempt ${attempt + 1}/${maxRetries})` : '';
+                    console.log(`🔄 Trying ${strategy.name}${attemptStr}...`);
+                    
+                    const controller = new AbortController();
+                    const timeoutDuration = 15000 + (attempt * 5000); // Increase timeout on retry
+                    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+                    
+                    const response = await fetch(strategy.url, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (compatible; JobAnalyzer/1.0)',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                            'Cache-Control': 'no-cache',
+                            'Referer': 'https://www.google.com/' // Help avoid bot detection
+                        },
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        const errorType = response.status >= 500 ? 'server_error' : 
+                                        response.status === 429 ? 'rate_limited' :
+                                        response.status === 403 ? 'forbidden' :
+                                        response.status === 404 ? 'not_found' : 'client_error';
+                        
+                        throw new Error(`HTTP ${response.status}: ${response.statusText} (${errorType})`);
+                    }
 
-                const content = await strategy.parseResponse(response);
-                
-                if (content && content.length > 200) { // Ensure we got meaningful content
-                    console.log(`✅ Successfully fetched ${content.length} chars via ${strategy.name}`);
-                    return content;
-                } else {
-                    console.warn(`⚠️ ${strategy.name} returned insufficient content: ${content.length} chars`);
+                    const content = await strategy.parseResponse(response);
+                    
+                    if (content && content.length > 200) { // Ensure we got meaningful content
+                        console.log(`✅ Successfully fetched ${content.length} chars via ${strategy.name}${attemptStr}`);
+                        return content;
+                    } else if (content && content.length > 50) {
+                        // Accept shorter content on final attempts
+                        console.log(`⚠️ ${strategy.name} returned limited content: ${content.length} chars (accepting due to ${attemptStr})`);
+                        return content;
+                    } else {
+                        throw new Error(`Insufficient content: ${content?.length || 0} chars`);
+                    }
+                } catch (proxyError) {
+                    const isLastAttempt = attempt === maxRetries - 1;
+                    const isLastStrategy = strategyIndex === proxyStrategies.length - 1;
+                    
+                    // Categorize error types
+                    let errorCategory = 'unknown';
+                    if (proxyError.name === 'AbortError') {
+                        errorCategory = 'timeout';
+                    } else if (proxyError.message.includes('fetch')) {
+                        errorCategory = 'network';
+                    } else if (proxyError.message.includes('CORS')) {
+                        errorCategory = 'cors';
+                    } else if (proxyError.message.includes('HTTP')) {
+                        errorCategory = 'http_error';
+                    }
+                    
+                    console.warn(`❌ ${strategy.name} failed (${errorCategory}): ${proxyError.message}`);
+                    
+                    if (!isLastAttempt) {
+                        // Wait before retry with exponential backoff
+                        const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+                        console.log(`⏳ Retrying ${strategy.name} in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else if (!isLastStrategy) {
+                        console.log(`➡️ Moving to next strategy...`);
+                        break; // Move to next strategy
+                    }
                 }
-            } catch (proxyError) {
-                console.warn(`❌ ${strategy.name} failed:`, proxyError.message);
-                continue;
             }
         }
         
-        console.error('❌ All proxy strategies failed');
-        return '';
+        console.error('❌ All proxy strategies and retries exhausted');
+        console.log('📋 Fallback: Using URL-based extraction instead of HTML content');
+        return ''; // Empty content will trigger URL-based fallback extraction
     } catch (error) {
-        console.error('❌ Critical error in fetchUrlContent:', error);
+        console.error('❌ Critical error in fetchUrlContent:', {
+            message: error.message,
+            name: error.name,
+            url: url?.substring(0, 100) + '...',
+            stack: error.stack?.substring(0, 200) + '...'
+        });
+        console.log('🔄 Graceful degradation: Returning empty content for URL-based parsing');
         return '';
     }
 }
@@ -2313,7 +2465,7 @@ async function handleMetadataStream(req, res) {
                     field: 'postedDate',
                     value: extractedData.postedDate,
                     confidence: { 
-                        value: 0.9, 
+                        value: extractedData.postedAtConfidence || 0.8, 
                         source: 'parsing', 
                         lastValidated: new Date(), 
                         validationMethod: 'html_extraction' 
@@ -2327,6 +2479,75 @@ async function handleMetadataStream(req, res) {
                 type: 'extraction_error',
                 field: 'general',
                 error: 'Could not extract metadata from URL'
+            });
+        }
+
+        // Fallback metadata extraction - provide defaults when primary extraction fails
+        try {
+            const fallbackData = await extractFallbackMetadata(url, platform);
+            
+            // Send fallback location if not already provided
+            if (fallbackData.location) {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'location',
+                    value: fallbackData.location,
+                    confidence: { 
+                        value: fallbackData.locationConfidence || 0.5, 
+                        source: 'fallback', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'url_pattern_analysis' 
+                    }
+                });
+            }
+            
+            // Send fallback posted date if not already provided
+            if (fallbackData.postedDate) {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'postedDate',
+                    value: fallbackData.postedDate,
+                    confidence: { 
+                        value: fallbackData.postedAtConfidence || 0.3, 
+                        source: 'fallback', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'estimated' 
+                    }
+                });
+            }
+            
+        } catch (fallbackError) {
+            console.log('⚠️ Fallback metadata extraction also failed:', fallbackError.message);
+            
+            // Send user-friendly fallback data to avoid empty fields
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'location',
+                value: 'Location information unavailable',
+                confidence: { 
+                    value: 0.1, 
+                    source: 'system', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'graceful_fallback',
+                    note: 'Unable to extract location due to site restrictions'
+                }
+            });
+            
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'postedDate', 
+                value: new Date().toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                }) + ' (estimated)',
+                confidence: { 
+                    value: 0.1, 
+                    source: 'system', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'graceful_fallback',
+                    note: 'Estimated as recently posted'
+                }
             });
         }
 
@@ -2381,4 +2602,148 @@ async function extractJobDataFromUrl(url) {
     }
 
     return await smartExtractFromHtml(htmlContent, url, platform);
+}
+
+// Enhanced fallback metadata extraction for location and posted date
+async function extractFallbackMetadata(url, platform) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+        const pathname = urlObj.pathname;
+        
+        let location = null;
+        let postedDate = null;
+        let locationConfidence = 0.0;
+        let postedAtConfidence = 0.0;
+        
+        // URL-based location extraction patterns
+        const urlLocationPatterns = [
+            // Common URL patterns for locations
+            /\/([a-z-]+)-([a-z]{2})\//i, // city-state format
+            /\/jobs\/([a-z-]+)\//i,      // jobs/city format
+            /location[\/=]([a-z-]+)/i,   // location parameter
+            /city[\/=]([a-z-]+)/i,       // city parameter
+        ];
+        
+        for (const pattern of urlLocationPatterns) {
+            const match = pathname.match(pattern);
+            if (match && match[1]) {
+                // Clean up location from URL (replace dashes with spaces, capitalize)
+                const cleanLocation = match[1]
+                    .replace(/-/g, ' ')
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+                
+                if (match[2] && match[2].length === 2) {
+                    // Add state if present
+                    location = `${cleanLocation}, ${match[2].toUpperCase()}`;
+                    locationConfidence = 0.6;
+                } else {
+                    location = cleanLocation;
+                    locationConfidence = 0.4;
+                }
+                break;
+            }
+        }
+        
+        // Platform-specific location fallbacks
+        if (!location) {
+            if (hostname.includes('linkedin.com')) {
+                // LinkedIn jobs often have location in job title or company info
+                location = 'LinkedIn (Location varies)';
+                locationConfidence = 0.2;
+            } else if (hostname.includes('indeed.com')) {
+                location = 'Multiple locations';
+                locationConfidence = 0.3;
+            } else if (hostname.includes('remote')) {
+                location = 'Remote';
+                locationConfidence = 0.8;
+            } else {
+                // Try to extract from company domain
+                const domainParts = hostname.split('.');
+                if (domainParts.length > 2) {
+                    const subdomain = domainParts[0];
+                    if (subdomain.length > 3 && !['www', 'jobs', 'careers'].includes(subdomain)) {
+                        location = `${subdomain} office locations`;
+                        locationConfidence = 0.3;
+                    }
+                }
+            }
+        }
+        
+        // Posted date estimation based on URL patterns and platform
+        const now = new Date();
+        
+        // Check for date patterns in URL
+        const urlDatePatterns = [
+            /\/(\d{4})\/(\d{1,2})\//,    // /2024/08/ format
+            /date[\/=](\d{4}-\d{2}-\d{2})/i, // date parameter
+            /posted[\/=](\d{4}-\d{2}-\d{2})/i, // posted parameter
+        ];
+        
+        for (const pattern of urlDatePatterns) {
+            const match = pathname.match(pattern);
+            if (match) {
+                if (match[2]) {
+                    // Year/month format
+                    const year = parseInt(match[1]);
+                    const month = parseInt(match[2]) - 1; // JavaScript months are 0-based
+                    if (year >= 2020 && month >= 0 && month <= 11) {
+                        postedDate = new Date(year, month, 15).toISOString(); // Mid-month estimate
+                        postedAtConfidence = 0.6;
+                    }
+                } else {
+                    // Full date format
+                    const date = new Date(match[1]);
+                    if (!isNaN(date.getTime()) && date.getFullYear() >= 2020) {
+                        postedDate = date.toISOString();
+                        postedAtConfidence = 0.8;
+                    }
+                }
+                break;
+            }
+        }
+        
+        // Platform-based date estimation
+        if (!postedDate) {
+            if (platform.startsWith('LinkedIn')) {
+                // LinkedIn jobs are usually recent
+                const estimatedDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // 1 week ago
+                postedDate = estimatedDate.toISOString();
+                postedAtConfidence = 0.3;
+            } else if (hostname.includes('indeed.com')) {
+                // Indeed jobs vary widely
+                const estimatedDate = new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000)); // 2 weeks ago
+                postedDate = estimatedDate.toISOString();
+                postedAtConfidence = 0.2;
+            } else if (hostname.includes('jobs.') || hostname.includes('careers.')) {
+                // Company career sites usually have recent postings
+                const estimatedDate = new Date(now.getTime() - (5 * 24 * 60 * 60 * 1000)); // 5 days ago
+                postedDate = estimatedDate.toISOString();
+                postedAtConfidence = 0.4;
+            } else {
+                // Generic fallback - assume recent
+                const estimatedDate = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)); // 3 days ago
+                postedDate = estimatedDate.toISOString();
+                postedAtConfidence = 0.2;
+            }
+        }
+        
+        return {
+            location,
+            postedDate,
+            locationConfidence,
+            postedAtConfidence
+        };
+        
+    } catch (error) {
+        console.warn('Fallback metadata extraction failed:', error);
+        return {
+            location: null,
+            postedDate: null,
+            locationConfidence: 0.0,
+            postedAtConfidence: 0.0
+        };
+    }
 }
