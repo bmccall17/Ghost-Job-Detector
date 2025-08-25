@@ -665,25 +665,33 @@ async function smartExtractFromHtml(html, url, platform) {
                 companyConfidence = urlExtraction.confidence;
             }
             console.log('🎯 Workday URL extraction applied:', { title, company });
-        } else if (platform === 'LinkedIn') {
+        } else if (platform.startsWith('LinkedIn')) {
+            console.log('🔍 LinkedIn or LinkedIn-sourced URL detected, using enhanced extraction');
             const urlExtraction = extractFromLinkedInUrl(url);
-            // LinkedIn URL extraction provides metadata but not title/company
-            // Use the confidence boost if we have a valid job ID structure
-            if (urlExtraction.urlStructureValid) {
-                titleConfidence = Math.max(titleConfidence || 0.3, urlExtraction.confidence);
-                companyConfidence = Math.max(companyConfidence || 0.3, urlExtraction.confidence);
-                // Store LinkedIn metadata for analysis
-                console.log('🎯 LinkedIn metadata stored:', {
+            
+            if (urlExtraction) {
+                // Enhanced confidence based on detection method
+                const baseConfidence = urlExtraction.confidence || 0.8;
+                const detectionBonus = urlExtraction.detectionMethod === 'direct_domain' ? 0.1 : 0.0;
+                const finalConfidence = Math.min(baseConfidence + detectionBonus, 1.0);
+                
+                title = urlExtraction.title || title;
+                company = urlExtraction.company || company;
+                location = urlExtraction.location || location;
+                extractionMethod = urlExtraction.extractionMethod;
+                titleConfidence = Math.max(titleConfidence || 0.3, finalConfidence);
+                companyConfidence = Math.max(companyConfidence || 0.3, finalConfidence);
+                
+                // Store enhanced LinkedIn metadata
+                console.log('🎯 Enhanced LinkedIn metadata stored:', {
                     jobId: urlExtraction.jobId,
+                    thirdPartyJobId: urlExtraction.thirdPartyJobId,
+                    detectionMethod: urlExtraction.detectionMethod,
+                    platform: urlExtraction.platform,
                     validFormat: urlExtraction.urlStructureValid,
-                    confidenceBoost: urlExtraction.confidence
+                    confidenceBoost: finalConfidence
                 });
             }
-            console.log('🎯 LinkedIn URL extraction:', {
-                jobId: urlExtraction.jobId,
-                validFormat: urlExtraction.urlStructureValid,
-                confidenceBoost: urlExtraction.confidence
-            });
         } else if (platform === 'Lever') {
             const urlExtraction = extractFromLeverUrl(url);
             if (urlExtraction.company && urlExtraction.company !== 'Unknown Company') {
@@ -1277,14 +1285,105 @@ function extractFromLeverUrl(url) {
     }
 }
 
+/**
+ * Enhanced LinkedIn origin detection using UTM parameters and referrer signals
+ * Detects LinkedIn-sourced jobs even on third-party career sites
+ */
+function detectLinkedInOrigin(url) {
+    try {
+        const urlLower = url.toLowerCase();
+        
+        // Method 1: Direct LinkedIn domain
+        if (urlLower.includes('linkedin.com')) {
+            return {
+                isLinkedInOriginated: true,
+                detectionMethod: 'direct_domain',
+                platform: 'LinkedIn',
+                confidence: 1.0
+            };
+        }
+        
+        // Method 2: UTM source parameters
+        const utmSourceMatch = url.match(/utm_source=([^&]*linkedin[^&]*)/i);
+        if (utmSourceMatch) {
+            const utmSource = decodeURIComponent(utmSourceMatch[1].replace(/\+/g, ' '));
+            return {
+                isLinkedInOriginated: true,
+                detectionMethod: 'utm_source',
+                platform: 'LinkedIn via Third-party',
+                utmSource: utmSource,
+                confidence: 0.9
+            };
+        }
+        
+        // Method 3: UTM medium parameters  
+        const utmMediumMatch = url.match(/utm_medium=([^&]*linkedin[^&]*)/i);
+        if (utmMediumMatch) {
+            const utmMedium = decodeURIComponent(utmMediumMatch[1].replace(/\+/g, ' '));
+            return {
+                isLinkedInOriginated: true,
+                detectionMethod: 'utm_medium',
+                platform: 'LinkedIn via Third-party',
+                utmMedium: utmMedium,
+                confidence: 0.8
+            };
+        }
+        
+        // Method 4: UTM campaign with LinkedIn indicators
+        const utmCampaignMatch = url.match(/utm_campaign=([^&]*linkedin[^&]*)/i);
+        if (utmCampaignMatch) {
+            return {
+                isLinkedInOriginated: true,
+                detectionMethod: 'utm_campaign',
+                platform: 'LinkedIn via Third-party',
+                confidence: 0.7
+            };
+        }
+        
+        // Method 5: Referrer-style parameters
+        const referrerMatch = url.match(/ref[^=]*=([^&]*linkedin[^&]*)/i);
+        if (referrerMatch) {
+            return {
+                isLinkedInOriginated: true,
+                detectionMethod: 'referrer_param',
+                platform: 'LinkedIn via Third-party',
+                confidence: 0.6
+            };
+        }
+        
+        return {
+            isLinkedInOriginated: false,
+            detectionMethod: 'none',
+            platform: null,
+            confidence: 0.0
+        };
+        
+    } catch (error) {
+        console.warn('Error in LinkedIn origin detection:', error);
+        return {
+            isLinkedInOriginated: false,
+            detectionMethod: 'error',
+            platform: null,
+            confidence: 0.0
+        };
+    }
+}
+
 function extractFromLinkedInUrl(url) {
     console.log(`🔗 Enhanced LinkedIn URL analysis: ${url}`);
     
     try {
+        const linkedInOrigin = detectLinkedInOrigin(url);
+        
+        // If not LinkedIn-originated, don't process as LinkedIn
+        if (!linkedInOrigin.isLinkedInOriginated) {
+            return null;
+        }
+        
         let jobId = null;
         let urlType = 'unknown';
         
-        // Method 1: Extract from direct job view URL (/jobs/view/JOBID)
+        // Standard LinkedIn URL processing (existing logic)
         const directViewMatch = url.match(/\/jobs\/view\/(\d+)/);
         if (directViewMatch) {
             jobId = directViewMatch[1];
@@ -1292,7 +1391,6 @@ function extractFromLinkedInUrl(url) {
             console.log(`📋 Direct view URL detected: Job ID ${jobId}`);
         }
         
-        // Method 2: Extract from currentJobId parameter (collections, search results, etc.)
         const currentJobIdMatch = url.match(/[?&]currentJobId=(\d+)/);
         if (currentJobIdMatch) {
             jobId = currentJobIdMatch[1];
@@ -1300,21 +1398,21 @@ function extractFromLinkedInUrl(url) {
             console.log(`🎯 currentJobId parameter detected: Job ID ${jobId}`);
         }
         
-        // Method 3: Extract from any other LinkedIn job URL patterns
-        if (!jobId) {
-            // Look for any number sequence that could be a job ID
-            const fallbackMatch = url.match(/(\d{10,})/); // LinkedIn job IDs are typically 10+ digits
+        // For third-party sites, extract their job ID as reference
+        let thirdPartyJobId = null;
+        if (linkedInOrigin.detectionMethod !== 'direct_domain') {
+            const fallbackMatch = url.match(/(\d{8,})/); // Look for any 8+ digit number
             if (fallbackMatch) {
-                jobId = fallbackMatch[1];
-                urlType = 'fallback_extraction';
-                console.log(`🔍 Fallback extraction found potential Job ID: ${jobId}`);
+                thirdPartyJobId = fallbackMatch[1];
+                // If no LinkedIn job ID found, use third-party ID as reference
+                if (!jobId) {
+                    jobId = thirdPartyJobId;
+                    urlType = 'third_party_reference';
+                }
             }
         }
         
-        // Validate job ID format
-        const hasValidJobId = jobId && jobId.length >= 8; // LinkedIn job IDs are typically 8+ digits
-        
-        // Extract additional URL context
+        // Enhanced URL context detection
         let urlContext = 'Standard LinkedIn Job';
         if (url.includes('/collections/')) {
             urlContext = 'LinkedIn Collections Page';
@@ -1322,50 +1420,55 @@ function extractFromLinkedInUrl(url) {
             urlContext = 'LinkedIn Job Search Results';
         } else if (url.includes('/jobs/view/')) {
             urlContext = 'Direct LinkedIn Job View';
+        } else if (linkedInOrigin.detectionMethod !== 'direct_domain') {
+            urlContext = `LinkedIn via ${new URL(url).hostname}`;
         }
         
-        console.log(`✅ LinkedIn analysis complete:`, {
+        const hasValidJobId = jobId && jobId.length >= 8;
+        
+        console.log(`✅ Enhanced LinkedIn analysis complete:`, {
             jobId,
+            thirdPartyJobId,
             urlType,
             urlContext,
             hasValidJobId,
-            extractionMethod: `linkedin-${urlType}`
+            linkedInOrigin: linkedInOrigin.detectionMethod,
+            confidence: linkedInOrigin.confidence
         });
         
         return {
             title: hasValidJobId ? `LinkedIn Job #${jobId}` : 'LinkedIn Job Posting',
-            company: 'Company via LinkedIn',
+            company: linkedInOrigin.platform === 'LinkedIn' ? 'Company via LinkedIn' : `Company via ${linkedInOrigin.platform}`,
             location: 'Location from LinkedIn',
             jobId,
-            platform: 'LinkedIn',
+            thirdPartyJobId,
+            platform: linkedInOrigin.platform,
             urlType,
             urlContext,
-            confidence: hasValidJobId ? 0.8 : 0.5,
-            titleConfidence: hasValidJobId ? 0.8 : 0.5,
-            companyConfidence: 0.7,
-            locationConfidence: 0.4,
             urlStructureValid: hasValidJobId,
-            extractionMethod: `linkedin-${urlType}`,
+            confidence: linkedInOrigin.confidence,
+            extractionMethod: 'enhanced-linkedin-url',
+            detectionMethod: linkedInOrigin.detectionMethod,
             analysisNotes: [
-                `LinkedIn ${urlContext.toLowerCase()} detected`,
-                `Job ID extracted via ${urlType.replace('_', ' ')} method`,
-                'LinkedIn blocks automated content extraction',
-                'Analysis based on URL structure and job ID',
-                'Manual verification recommended for complete details'
+                `LinkedIn origin detected via: ${linkedInOrigin.detectionMethod}`,
+                `Platform confidence: ${(linkedInOrigin.confidence * 100).toFixed(0)}%`,
+                hasValidJobId ? `Valid job ID extracted: ${jobId}` : 'Job ID extraction failed',
+                thirdPartyJobId ? `Third-party reference ID: ${thirdPartyJobId}` : 'No third-party ID found'
             ]
         };
+        
     } catch (error) {
-        console.error('❌ LinkedIn URL extraction failed:', error);
+        console.error('Enhanced LinkedIn analysis error:', error);
         return { 
             title: 'LinkedIn Job Posting (Error)', 
             company: 'Company via LinkedIn', 
-            jobId: null, 
+            jobId: null,
             confidence: 0.3,
-            extractionMethod: 'linkedin-url-error',
+            extractionMethod: 'enhanced-linkedin-url-error',
+            detectionMethod: 'error',
             analysisNotes: [
-                'Error occurred during LinkedIn URL analysis',
-                'Fallback metadata provided',
-                'Manual verification required'
+                `LinkedIn URL analysis failed: ${error.message}`,
+                'Using minimal fallback data'
             ]
         };
     }
@@ -1374,8 +1477,23 @@ function extractFromLinkedInUrl(url) {
 function extractPlatformFromUrl(url) {
     try {
         const hostname = new URL(url).hostname.toLowerCase();
+        const linkedInOrigin = detectLinkedInOrigin(url);
         
-        if (hostname.includes('linkedin.com')) return 'LinkedIn';
+        // Enhanced LinkedIn detection
+        if (linkedInOrigin.isLinkedInOriginated) {
+            if (hostname.includes('linkedin.com')) {
+                return 'LinkedIn';
+            } else {
+                // Extract clean company domain
+                const companyDomain = hostname
+                    .replace(/^(jobs\.|careers\.|www\.)/, '')
+                    .replace(/\.com$/, '');
+                
+                return `LinkedIn via ${companyDomain}`;
+            }
+        }
+        
+        // Existing platform detection logic (unchanged)
         if (hostname.includes('workday') || hostname.includes('myworkdayjobs.com')) return 'Workday';
         if (hostname.includes('greenhouse.io')) return 'Greenhouse';
         if (hostname.includes('lever.co')) return 'Lever';
@@ -2078,8 +2196,8 @@ async function handleMetadataStream(req, res) {
             const extractedData = await extractJobDataFromUrl(url);
             
             // Handle LinkedIn anti-bot protection by falling back to URL analysis
-            if (platform === 'LinkedIn' && (!extractedData.title || extractedData.title === 'Unknown Position')) {
-                console.log('🔄 LinkedIn anti-bot detected, using URL-based analysis');
+            if (platform.startsWith('LinkedIn') && (!extractedData.title || extractedData.title === 'Unknown Position')) {
+                console.log('🔄 LinkedIn anti-bot detected, using enhanced URL-based analysis');
                 
                 // Extract job ID from LinkedIn URL
                 const linkedInData = extractFromLinkedInUrl(url);

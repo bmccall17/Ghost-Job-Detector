@@ -1,0 +1,288 @@
+# Ghost Job Detector - Production Deployment Pipeline
+# Phase 3: Automated deployment with comprehensive validation
+
+name: Production Deployment - Phase 3
+
+on:
+  push:
+    branches: [main]
+    paths: 
+      - 'src/**'
+      - 'api/**'
+      - 'prisma/**'
+      - 'package*.json'
+      - '.github/workflows/**'
+
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip test validation (emergency only)'
+        required: false
+        default: 'false'
+
+env:
+  NODE_VERSION: '18'
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+jobs:
+  # Phase 3: Pre-deployment validation
+  pre-deployment:
+    name: 'Pre-Deployment Validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      should_deploy: ${{ steps.validation.outputs.should_deploy }}
+      function_count: ${{ steps.functions.outputs.count }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type checking
+        run: npm run typecheck
+        
+      - name: Verify Vercel function count
+        id: functions
+        run: |
+          FUNCTION_COUNT=$(node scripts/verify-function-count.js | grep -o 'Total Functions: [0-9]*' | grep -o '[0-9]*')
+          echo "count=$FUNCTION_COUNT" >> $GITHUB_OUTPUT
+          if [ "$FUNCTION_COUNT" -gt 12 ]; then
+            echo "❌ Function count exceeds Vercel limit: $FUNCTION_COUNT/12"
+            exit 1
+          fi
+          echo "✅ Function count within limits: $FUNCTION_COUNT/12"
+
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Run test suite (if not skipped)
+        if: github.event.inputs.skip_tests != 'true'
+        run: npm test -- --passWithNoTests --coverage --watchAll=false
+
+      - name: Bundle size check
+        run: |
+          BUNDLE_SIZE=$(du -sb dist/assets/*.js | awk '{sum+=$1} END {print sum}')
+          BUNDLE_SIZE_MB=$((BUNDLE_SIZE / 1024 / 1024))
+          echo "Bundle size: ${BUNDLE_SIZE_MB}MB"
+          if [ "$BUNDLE_SIZE_MB" -gt 10 ]; then
+            echo "⚠️ Bundle size warning: ${BUNDLE_SIZE_MB}MB > 10MB"
+          fi
+
+      - name: Validation summary
+        id: validation
+        run: |
+          echo "✅ All pre-deployment checks passed"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+  # Phase 3: Staging deployment and testing
+  staging-deployment:
+    name: 'Staging Deployment & Testing'
+    runs-on: ubuntu-latest
+    needs: pre-deployment
+    if: needs.pre-deployment.outputs.should_deploy == 'true'
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to staging (preview)
+        id: staging_deploy
+        run: |
+          vercel --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} --confirm
+          PREVIEW_URL=$(vercel --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} ls | head -n1 | awk '{print $2}')
+          echo "preview_url=https://$PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "Staging deployed to: https://$PREVIEW_URL"
+
+      - name: Wait for staging deployment
+        run: sleep 30
+
+      - name: Test staging health endpoint
+        run: |
+          PREVIEW_URL="${{ steps.staging_deploy.outputs.preview_url }}"
+          echo "Testing health endpoint: $PREVIEW_URL/api/health"
+          
+          HEALTH_RESPONSE=$(curl -s -w "%{http_code}" -o response.json "$PREVIEW_URL/api/health" || echo "000")
+          
+          if [ "$HEALTH_RESPONSE" = "200" ]; then
+            echo "✅ Staging health check passed"
+            cat response.json | jq .status
+          else
+            echo "❌ Staging health check failed: HTTP $HEALTH_RESPONSE"
+            cat response.json
+            exit 1
+          fi
+
+      - name: Test staging metadata endpoint
+        run: |
+          PREVIEW_URL="${{ steps.staging_deploy.outputs.preview_url }}"
+          echo "Testing metadata endpoint: $PREVIEW_URL/api/analyze"
+          
+          METADATA_RESPONSE=$(curl -s -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://example.com/test-job","title":"Test Engineer","company":"Test Corp"}' \
+            "$PREVIEW_URL/api/analyze" || echo "000")
+          
+          if [ "${METADATA_RESPONSE: -3}" = "200" ]; then
+            echo "✅ Staging metadata test passed"
+          else
+            echo "❌ Staging metadata test failed: HTTP ${METADATA_RESPONSE: -3}"
+            exit 1
+          fi
+
+      - name: Performance baseline test
+        run: |
+          PREVIEW_URL="${{ steps.staging_deploy.outputs.preview_url }}"
+          
+          # Test response time (should be < 5s for staging)
+          RESPONSE_TIME=$(curl -s -w "%{time_total}" -o /dev/null "$PREVIEW_URL/api/health")
+          RESPONSE_TIME_MS=$(echo "$RESPONSE_TIME * 1000" | bc -l | cut -d. -f1)
+          
+          echo "Staging response time: ${RESPONSE_TIME_MS}ms"
+          
+          if [ "$RESPONSE_TIME_MS" -gt 5000 ]; then
+            echo "⚠️ Staging response time warning: ${RESPONSE_TIME_MS}ms > 5000ms"
+          else
+            echo "✅ Staging performance acceptable: ${RESPONSE_TIME_MS}ms"
+          fi
+
+  # Phase 3: Production deployment
+  production-deployment:
+    name: 'Production Deployment'
+    runs-on: ubuntu-latest
+    needs: [pre-deployment, staging-deployment]
+    environment: production
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js  
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to production
+        id: prod_deploy
+        run: |
+          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} --confirm
+          echo "✅ Production deployment completed"
+          echo "🚀 Live at: https://ghost-job-detector-lilac.vercel.app"
+
+      - name: Wait for production propagation  
+        run: sleep 45
+
+      - name: Production smoke tests
+        run: |
+          PROD_URL="https://ghost-job-detector-lilac.vercel.app"
+          
+          echo "🔍 Running production smoke tests..."
+          
+          # Health check
+          HEALTH_STATUS=$(curl -s "$PROD_URL/api/health" | jq -r .status)
+          if [ "$HEALTH_STATUS" = "healthy" ]; then
+            echo "✅ Production health check: $HEALTH_STATUS"
+          else
+            echo "❌ Production health check failed: $HEALTH_STATUS"
+            exit 1
+          fi
+          
+          # Basic functionality test
+          curl -s -f "$PROD_URL/api/analysis-history" > /dev/null
+          echo "✅ Production API accessibility confirmed"
+
+      - name: Performance validation
+        run: |
+          PROD_URL="https://ghost-job-detector-lilac.vercel.app"
+          
+          # Response time test (should be < 2s for production)
+          RESPONSE_TIME=$(curl -s -w "%{time_total}" -o /dev/null "$PROD_URL/api/health")
+          RESPONSE_TIME_MS=$(echo "$RESPONSE_TIME * 1000" | bc -l | cut -d. -f1)
+          
+          echo "Production response time: ${RESPONSE_TIME_MS}ms"
+          
+          if [ "$RESPONSE_TIME_MS" -gt 2000 ]; then
+            echo "⚠️ Production response time warning: ${RESPONSE_TIME_MS}ms > 2000ms"
+          else
+            echo "✅ Production performance optimal: ${RESPONSE_TIME_MS}ms"
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "🎉 Production deployment successful!"
+          echo "📊 Function count: ${{ needs.pre-deployment.outputs.function_count }}/12"
+          echo "🔗 Live URL: https://ghost-job-detector-lilac.vercel.app"
+          echo "📈 Monitor: https://ghost-job-detector-lilac.vercel.app/api/health"
+
+  # Phase 3: Post-deployment monitoring
+  post-deployment:
+    name: 'Post-Deployment Monitoring'  
+    runs-on: ubuntu-latest
+    needs: production-deployment
+    timeout-minutes: 10
+    
+    steps:
+      - name: Extended production monitoring
+        run: |
+          PROD_URL="https://ghost-job-detector-lilac.vercel.app"
+          
+          echo "🔍 Extended production monitoring (5 minutes)..."
+          
+          for i in {1..10}; do
+            echo "Check $i/10..."
+            
+            HEALTH_STATUS=$(curl -s "$PROD_URL/api/health" | jq -r .status 2>/dev/null || echo "error")
+            
+            if [ "$HEALTH_STATUS" = "healthy" ] || [ "$HEALTH_STATUS" = "degraded" ]; then
+              echo "✅ Health check $i: $HEALTH_STATUS"
+            else
+              echo "❌ Health check $i failed: $HEALTH_STATUS"
+              exit 1
+            fi
+            
+            sleep 30
+          done
+          
+          echo "✅ Extended monitoring completed - system stable"
+
+      - name: Alert operations team
+        if: success()
+        run: |
+          echo "🚀 Deployment notification: Phase 3 deployment successful"
+          echo "📊 All systems operational and monitoring confirmed"
+          # In a real environment, this would send notifications to Slack, email, etc.
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "🚨 Deployment failure detected - consider rollback"
+          echo "📞 Alert on-call team immediately"
+          # In a real environment, this would trigger automatic rollback
