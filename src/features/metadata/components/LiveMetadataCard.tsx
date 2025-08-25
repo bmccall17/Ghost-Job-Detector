@@ -129,6 +129,54 @@ const LiveMetadataCard: React.FC<LiveMetadataCardProps> = ({
             </div>
           )}
 
+          {/* Error State */}
+          {!isLoading && !isExtracting && metadata?.error && (
+            <div className="border border-red-200 dark:border-red-700 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
+              <div className="flex items-start space-x-2">
+                <div className="text-red-500 dark:text-red-400 text-lg">⚠️</div>
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Metadata Extraction Failed
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                    {typeof metadata.error === 'string' ? metadata.error : 'Unknown error occurred'}
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Retry extraction functionality could be added here
+                      console.log('Retry extraction requested');
+                    }}
+                    className="mt-2 text-xs px-2 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Warning State */}
+          {metadata?.warnings && metadata.warnings.length > 0 && (
+            <div className="border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-900/20 mb-4">
+              <div className="flex items-start space-x-2">
+                <div className="text-yellow-500 dark:text-yellow-400 text-sm">⚠️</div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Extraction Warnings
+                  </p>
+                  <ul className="text-xs text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
+                    {metadata.warnings.map((warning, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{warning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Loading State */}
           {isLoading && !metadata && (
             <div className="space-y-4">

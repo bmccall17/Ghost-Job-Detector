@@ -53,7 +53,10 @@ const createEmptyConfidences = (): Record<keyof JobMetadata, FieldConfidence | n
   source: null,
   description: null,
   lastUpdated: null,
-  extractionProgress: null
+  extractionProgress: null,
+  error: null,
+  warnings: null,
+  platform: null
 });
 
 // Create initial editing state
@@ -65,7 +68,10 @@ const createEmptyEditingState = (): Record<keyof JobMetadata, boolean> => ({
   source: false,
   description: false,
   lastUpdated: false,
-  extractionProgress: false
+  extractionProgress: false,
+  error: false,
+  warnings: false,
+  platform: false
 });
 
 // Create initial error state
@@ -77,7 +83,10 @@ const createEmptyErrorState = (): Record<keyof JobMetadata, string | null> => ({
   source: null,
   description: null,
   lastUpdated: null,
-  extractionProgress: null
+  extractionProgress: null,
+  error: null,
+  warnings: null,
+  platform: null
 });
 
 export const useMetadataStore = create<MetadataState>()(

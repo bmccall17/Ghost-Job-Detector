@@ -10,6 +10,9 @@ export interface JobMetadata {
   description: string | null;
   lastUpdated: Date;
   extractionProgress: number; // 0-100
+  error?: string | Error;
+  warnings?: string[];
+  platform?: string;
 }
 
 export interface MetadataField {
@@ -30,7 +33,7 @@ export interface ValidationRule {
 
 export interface FieldConfidence {
   value: number; // 0.0 - 1.0
-  source: 'webllm' | 'parsing' | 'user' | 'fallback';
+  source: 'webllm' | 'parsing' | 'user' | 'fallback' | 'cache' | 'api_error' | 'extraction_warning' | 'system_error' | 'fallback_warning';
   lastValidated: Date;
   validationMethod: string;
 }

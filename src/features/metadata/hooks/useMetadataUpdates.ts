@@ -4,6 +4,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useMetadataStore } from '../stores/metadataStore';
 import { JobMetadata, MetadataUpdateEvent, FieldConfidence } from '../types/metadata.types';
+import { performanceMonitor, metadataCache } from '../utils/performance';
 
 interface UseMetadataUpdatesOptions {
   enabled?: boolean;
@@ -147,9 +148,36 @@ export const useAnalysisIntegration = () => {
 
   // Real metadata extraction using API streaming
   const startRealMetadataExtraction = useCallback(async (url: string) => {
+    const extractionTimeout = 30000; // 30 second timeout
+    const timeoutController = new AbortController();
+    
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      timeoutController.abort();
+    }, extractionTimeout);
+
     try {
-      // Start extraction in store
+      // Check cache first
+      const cachedData = metadataCache.get(url);
+      if (cachedData) {
+        console.log('✨ Using cached metadata for', url);
+        Object.keys(cachedData).forEach(field => {
+          if (cachedData[field] && field !== 'lastUpdated' && field !== 'extractionProgress') {
+            updateMetadata(field as keyof JobMetadata, cachedData[field], {
+              value: 0.95,
+              source: 'cache',
+              lastValidated: new Date(),
+              validationMethod: 'cached_data'
+            });
+            performanceMonitor.recordFieldExtraction();
+          }
+        });
+        return;
+      }
+
+      // Start extraction in store and performance monitoring
       startExtraction(url);
+      performanceMonitor.startExtraction();
       
       // Call the real API with metadata streaming
       const response = await fetch('/api/analyze?stream=metadata', {
@@ -160,7 +188,8 @@ export const useAnalysisIntegration = () => {
         body: JSON.stringify({ 
           url, 
           stepUpdates: true 
-        })
+        }),
+        signal: timeoutController.signal
       });
 
       if (!response.ok) {
@@ -189,12 +218,36 @@ export const useAnalysisIntegration = () => {
               
               if (data.type === 'metadata_update') {
                 updateMetadata(data.field as keyof JobMetadata, data.value, data.confidence);
+                performanceMonitor.recordFieldExtraction();
               } else if (data.type === 'step_update') {
                 updateExtractionStep(data.step.id, data.step);
               } else if (data.type === 'extraction_complete') {
                 console.log('✅ Metadata extraction completed');
+                performanceMonitor.completeExtraction();
+                
+                // Cache successful extraction results
+                const currentMetadata = useMetadataStore.getState().currentMetadata;
+                if (currentMetadata && !currentMetadata.error) {
+                  metadataCache.set(url, currentMetadata);
+                }
               } else if (data.type === 'error') {
                 console.error('❌ Metadata extraction error:', data.message);
+                performanceMonitor.recordError();
+                updateMetadata('error', data.message, {
+                  value: 1.0,
+                  source: 'api_error',
+                  lastValidated: new Date(),
+                  validationMethod: 'error_handling'
+                });
+              } else if (data.type === 'extraction_error') {
+                console.warn('⚠️ Field extraction warning:', data.field, data.error);
+                const currentWarnings = useMetadataStore.getState().currentMetadata?.warnings || [];
+                updateMetadata('warnings', [...currentWarnings, `${data.field}: ${data.error}`], {
+                  value: 0.5,
+                  source: 'extraction_warning',
+                  lastValidated: new Date(),
+                  validationMethod: 'field_validation'
+                });
               }
             } catch (parseError) {
               console.warn('Failed to parse SSE data:', parseError);
@@ -204,21 +257,55 @@ export const useAnalysisIntegration = () => {
       }
     } catch (error) {
       console.error('Real metadata extraction failed:', error);
-      // Fallback to simulation - trigger demo data
+      
+      // Handle specific error types
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Metadata extraction timed out';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network connection failed';
+        } else if (error.message.includes('API request failed')) {
+          errorMessage = `Server error: ${error.message}`;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      // Update metadata with error state
+      updateMetadata('error', errorMessage, {
+        value: 1.0,
+        source: 'system_error',
+        lastValidated: new Date(),
+        validationMethod: 'error_handling'
+      });
+
+      // Fallback to simulation - trigger demo data after delay
       setTimeout(() => {
         updateMetadata('title', 'Software Engineer', {
-          value: 0.8,
+          value: 0.6, // Lower confidence for fallback data
           source: 'fallback',
           lastValidated: new Date(),
           validationMethod: 'demo_data'
         });
         updateMetadata('company', 'TechCorp Inc.', {
-          value: 0.8,
+          value: 0.6,
           source: 'fallback',
           lastValidated: new Date(),
           validationMethod: 'demo_data'
         });
+        
+        // Add warning about fallback data
+        updateMetadata('warnings', ['Using demo data - real extraction failed'], {
+          value: 0.3,
+          source: 'fallback_warning',
+          lastValidated: new Date(),
+          validationMethod: 'fallback_notification'
+        });
       }, 1000);
+    } finally {
+      // Clear timeout
+      clearTimeout(timeoutId);
     }
   }, [startExtraction, updateMetadata, updateExtractionStep]);
 
