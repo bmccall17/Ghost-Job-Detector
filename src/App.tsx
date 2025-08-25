@@ -6,8 +6,9 @@ import { AnalysisHistory } from '@/features/detection/AnalysisHistory'
 import { NewsImpactButton } from '@/components/NewsImpactButton'
 import { NewsImpactPage } from '@/components/NewsImpactPage'
 import { ThemeProvider, ThemeToggle } from '@/components/ThemeToggle'
+import LiveMetadataTest from '@/features/metadata/LiveMetadataTest'
 
-type ActiveView = 'dashboard' | 'history' | 'news'
+type ActiveView = 'dashboard' | 'history' | 'news' | 'metadata-test'
 
 function App() {
   return (
@@ -25,6 +26,24 @@ function AppContent() {
     return (
       <>
         <NewsImpactPage onBack={() => setActiveView('dashboard')} />
+        <Analytics />
+      </>
+    )
+  }
+
+  // If viewing metadata test, render it directly
+  if (activeView === 'metadata-test') {
+    return (
+      <>
+        <div className="p-4">
+          <button 
+            onClick={() => setActiveView('dashboard')}
+            className="mb-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+        <LiveMetadataTest />
         <Analytics />
       </>
     )
@@ -68,6 +87,17 @@ function AppContent() {
                 >
                   <HistoryIcon className="w-4 h-4" />
                   <span>History</span>
+                </button>
+                <button
+                  onClick={() => setActiveView('metadata-test')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    (activeView as string) === 'metadata-test'
+                      ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <span>🔍</span>
+                  <span>Metadata Test</span>
                 </button>
               </div>
               <ThemeToggle />

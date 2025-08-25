@@ -18,8 +18,14 @@ export default async function handler(req, res) {
     console.log('🚨 ANALYZE ENDPOINT CALLED:', {
         method: req.method,
         url: req.body?.url?.substring(0, 50) + '...',
+        query: req.query,
         timestamp: new Date().toISOString()
     });
+
+    // NEW: Handle metadata streaming requests
+    if (req.query.stream === 'metadata') {
+        return handleMetadataStream(req, res);
+    }
     
     // Only allow POST requests
     if (req.method !== 'POST') {
@@ -1849,4 +1855,205 @@ function analyzeJobListing(jobData, url) {
         keyFactors,
         confidence
     };
+}
+
+// NEW FUNCTION: Handle metadata streaming for Live Metadata Display
+// Phase 1: Core Infrastructure - NO NEW API ENDPOINT
+async function handleMetadataStream(req, res) {
+    console.log('🚀 METADATA STREAMING REQUEST RECEIVED');
+    
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const { url, stepUpdates = false } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required for metadata streaming' });
+        }
+
+        console.log(`📡 Starting metadata stream for: ${url}`);
+        
+        // Set headers for Server-Sent Events
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        });
+
+        // Helper function to send SSE message
+        const sendUpdate = (data) => {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        };
+
+        // Start metadata extraction process
+        sendUpdate({
+            type: 'extraction_started',
+            timestamp: new Date().toISOString()
+        });
+
+        // Step 1: Fetch content
+        if (stepUpdates) {
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'fetch', status: 'active', progress: 0, name: 'Fetching Content' }
+            });
+        }
+
+        // Simulate content fetching delay
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        sendUpdate({
+            type: 'metadata_update',
+            field: 'source',
+            value: url,
+            confidence: { value: 1.0, source: 'user', lastValidated: new Date(), validationMethod: 'user_input' }
+        });
+
+        if (stepUpdates) {
+            sendUpdate({
+                type: 'step_update', 
+                step: { id: 'fetch', status: 'complete', progress: 100, duration: 200 }
+            });
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'parse', status: 'active', progress: 0, name: 'Parsing Structure' }
+            });
+        }
+
+        // Step 2: Extract basic metadata from URL patterns
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        const platform = extractPlatformFromUrl(url);
+        if (platform) {
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'platform',
+                value: platform,
+                confidence: { value: 0.95, source: 'parsing', lastValidated: new Date(), validationMethod: 'url_pattern' }
+            });
+        }
+
+        if (stepUpdates) {
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'parse', status: 'complete', progress: 100, duration: 150 }
+            });
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'extract', status: 'active', progress: 0, name: 'Extracting Fields' }
+            });
+        }
+
+        // Step 3: Try to extract data using existing functions
+        try {
+            const extractedData = await extractJobDataFromUrl(url);
+            
+            if (extractedData.title && extractedData.title !== 'Unknown Position') {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'title',
+                    value: extractedData.title,
+                    confidence: { 
+                        value: extractedData.titleConfidence || 0.8, 
+                        source: 'parsing', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'html_extraction' 
+                    }
+                });
+            }
+
+            if (extractedData.company && extractedData.company !== 'Unknown Company') {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'company',
+                    value: extractedData.company,
+                    confidence: { 
+                        value: extractedData.companyConfidence || 0.8, 
+                        source: 'parsing', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'html_extraction' 
+                    }
+                });
+            }
+
+            if (extractedData.location) {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'location',
+                    value: extractedData.location,
+                    confidence: { 
+                        value: extractedData.locationConfidence || 0.7, 
+                        source: 'parsing', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'html_extraction' 
+                    }
+                });
+            }
+
+            if (extractedData.postedDate) {
+                sendUpdate({
+                    type: 'metadata_update',
+                    field: 'postedDate',
+                    value: extractedData.postedDate,
+                    confidence: { 
+                        value: 0.9, 
+                        source: 'parsing', 
+                        lastValidated: new Date(), 
+                        validationMethod: 'html_extraction' 
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.log('⚠️ Metadata extraction error:', error.message);
+            sendUpdate({
+                type: 'extraction_error',
+                field: 'general',
+                error: 'Could not extract metadata from URL'
+            });
+        }
+
+        if (stepUpdates) {
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'extract', status: 'complete', progress: 100, duration: 300 }
+            });
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'validate', status: 'active', progress: 0, name: 'Validating Data' }
+            });
+        }
+
+        // Step 4: Validation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (stepUpdates) {
+            sendUpdate({
+                type: 'step_update',
+                step: { id: 'validate', status: 'complete', progress: 100, duration: 100 }
+            });
+        }
+
+        // Final completion
+        sendUpdate({
+            type: 'extraction_complete',
+            timestamp: new Date().toISOString(),
+            totalDuration: 850
+        });
+
+        res.end();
+
+    } catch (error) {
+        console.error('❌ Metadata streaming error:', error);
+        res.write(`data: ${JSON.stringify({
+            type: 'error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        })}\n\n`);
+        res.end();
+    }
 }
