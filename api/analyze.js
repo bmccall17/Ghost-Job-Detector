@@ -1608,6 +1608,67 @@ function extractFromLinkedInUrl(url) {
             }
         }
         
+        // Enhanced title extraction from LinkedIn URL
+        let extractedTitle = null;
+        let titleConfidence = 0.0;
+        
+        // Try to extract job title from LinkedIn URL patterns
+        const titlePatterns = [
+            // LinkedIn URLs sometimes have titles in the path or parameters
+            /\/jobs\/view\/\d+\/[^\/]*\/([^\/\?]+)/i, // /jobs/view/ID/something/title format
+            /[?&]title=([^&]+)/i,                     // title parameter
+            /[?&]jobTitle=([^&]+)/i,                  // jobTitle parameter
+            /[?&]position=([^&]+)/i,                  // position parameter
+            // Search URLs with title context
+            /jobs\/search[^?]*\?[^#]*keywords=([^&]+)/i,
+        ];
+        
+        for (const pattern of titlePatterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                let titleStr = decodeURIComponent(match[1].replace(/\+/g, ' '));
+                
+                // Clean up common LinkedIn title formats
+                titleStr = titleStr
+                    .replace(/%2C/g, ',')
+                    .replace(/%20/g, ' ')
+                    .replace(/\+/g, ' ')
+                    .replace(/-/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                // Validate the extracted title
+                const invalidTitleTerms = [
+                    'linkedin', 'jobs', 'view', 'search', 'apply', 'click',
+                    'more', 'details', 'info', 'see', 'show', 'button'
+                ];
+                
+                const isValidTitle = titleStr.length > 3 && 
+                                   titleStr.length < 150 &&
+                                   !invalidTitleTerms.some(term => 
+                                       titleStr.toLowerCase().includes(term.toLowerCase())
+                                   ) &&
+                                   // Must contain at least one letter
+                                   /[a-zA-Z]/.test(titleStr) &&
+                                   // Shouldn't be all numbers
+                                   !/^\d+$/.test(titleStr) &&
+                                   // Should look like a real job title
+                                   /^[A-Za-z0-9\s,.\-()]+$/.test(titleStr);
+                
+                if (isValidTitle) {
+                    // Capitalize first letter of each word for better presentation
+                    extractedTitle = titleStr.split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                        .join(' ');
+                    titleConfidence = 0.7;
+                    console.log(`📝 Title extracted from LinkedIn URL: ${extractedTitle}`);
+                    break;
+                } else {
+                    console.log(`⚠️ Rejected invalid title: "${titleStr}"`);
+                }
+            }
+        }
+
         // Enhanced location extraction from LinkedIn URL
         let extractedLocation = null;
         let locationConfidence = 0.0;
@@ -1688,9 +1749,10 @@ function extractFromLinkedInUrl(url) {
         });
         
         return {
-            title: hasValidJobId ? `LinkedIn Job #${jobId}` : 'LinkedIn Job Posting',
+            title: extractedTitle || (hasValidJobId ? `LinkedIn Job #${jobId}` : 'LinkedIn Job Posting'),
             company: linkedInOrigin.platform === 'LinkedIn' ? 'Company via LinkedIn' : `Company via ${linkedInOrigin.platform}`,
             location: extractedLocation,
+            titleConfidence: extractedTitle ? titleConfidence : (hasValidJobId ? 0.5 : 0.3),
             jobId,
             thirdPartyJobId,
             platform: linkedInOrigin.platform,
@@ -2363,7 +2425,15 @@ async function handleMetadataStream(req, res) {
     }
 
     try {
-        const { url, stepUpdates = false } = req.body;
+        const { url, stepUpdates = false, title, company, location, description } = req.body;
+        
+        // Log user-provided data for debugging
+        console.log('📊 User-provided metadata:', {
+            title: title || 'not provided',
+            company: company || 'not provided', 
+            location: location || 'not provided',
+            description: description ? 'provided' : 'not provided'
+        });
         
         if (!url) {
             return res.status(400).json({ error: 'URL is required for metadata streaming' });
@@ -2455,29 +2525,52 @@ async function handleMetadataStream(req, res) {
                 // Extract job ID from LinkedIn URL
                 const linkedInData = extractFromLinkedInUrl(url);
                 if (linkedInData.jobId) {
-                    // Send enhanced LinkedIn metadata
-                    // Enhanced LinkedIn metadata with URL context
+                    // Send enhanced LinkedIn metadata - prioritize user-provided data
+                    const finalTitle = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                        ? title 
+                        : linkedInData.title || 'LinkedIn Job Posting';
+                    
+                    const titleSource = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                        ? 'user_provided' 
+                        : 'parsing';
+                    
+                    const titleConfidence = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                        ? 0.95 
+                        : linkedInData.titleConfidence || 0.7;
+                    
                     sendUpdate({
                         type: 'metadata_update',
                         field: 'title',
-                        value: linkedInData.title || 'LinkedIn Job Posting',
+                        value: finalTitle,
                         confidence: { 
-                            value: linkedInData.titleConfidence || 0.7, 
-                            source: 'parsing', 
+                            value: titleConfidence, 
+                            source: titleSource, 
                             lastValidated: new Date(), 
-                            validationMethod: linkedInData.extractionMethod || 'url_analysis'
+                            validationMethod: titleSource === 'user_provided' ? 'manual_entry' : (linkedInData.extractionMethod || 'url_analysis')
                         }
                     });
+                    
+                    const finalCompany = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                        ? company 
+                        : linkedInData.company || 'Company via LinkedIn';
+                    
+                    const companySource = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                        ? 'user_provided' 
+                        : 'parsing';
+                    
+                    const companyConfidence = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                        ? 0.95 
+                        : linkedInData.companyConfidence || 0.6;
                     
                     sendUpdate({
                         type: 'metadata_update',
                         field: 'company',
-                        value: linkedInData.company || 'Company via LinkedIn',
+                        value: finalCompany,
                         confidence: { 
-                            value: linkedInData.companyConfidence || 0.6, 
-                            source: 'parsing', 
+                            value: companyConfidence, 
+                            source: companySource, 
                             lastValidated: new Date(), 
-                            validationMethod: linkedInData.extractionMethod || 'url_analysis'
+                            validationMethod: companySource === 'user_provided' ? 'manual_entry' : (linkedInData.extractionMethod || 'url_analysis')
                         }
                     });
                     
@@ -2518,30 +2611,62 @@ async function handleMetadataStream(req, res) {
                         error: extractionMessage
                     });
                 }
-            } else if (extractedData.title && extractedData.title !== 'Unknown Position') {
+            } 
+            
+            // Handle title with user-provided data priority
+            const finalTitle = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                ? title 
+                : (extractedData.title && extractedData.title !== 'Unknown Position') 
+                    ? extractedData.title 
+                    : null;
+            
+            if (finalTitle) {
+                const titleSource = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                    ? 'user_provided' 
+                    : 'parsing';
+                
+                const titleConfidence = title && title.trim().length > 0 && title !== 'Unknown Position' 
+                    ? 0.95 
+                    : extractedData.titleConfidence || 0.8;
+                
                 sendUpdate({
                     type: 'metadata_update',
                     field: 'title',
-                    value: extractedData.title,
+                    value: finalTitle,
                     confidence: { 
-                        value: extractedData.titleConfidence || 0.8, 
-                        source: 'parsing', 
+                        value: titleConfidence, 
+                        source: titleSource, 
                         lastValidated: new Date(), 
-                        validationMethod: 'html_extraction' 
+                        validationMethod: titleSource === 'user_provided' ? 'manual_entry' : 'html_extraction'
                     }
                 });
             }
 
-            if (extractedData.company && extractedData.company !== 'Unknown Company') {
+            // Handle company with user-provided data priority
+            const finalCompany = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                ? company 
+                : (extractedData.company && extractedData.company !== 'Unknown Company') 
+                    ? extractedData.company 
+                    : null;
+            
+            if (finalCompany) {
+                const companySource = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                    ? 'user_provided' 
+                    : 'parsing';
+                
+                const companyConfidence = company && company.trim().length > 0 && company !== 'Unknown Company' 
+                    ? 0.95 
+                    : extractedData.companyConfidence || 0.8;
+                
                 sendUpdate({
                     type: 'metadata_update',
                     field: 'company',
-                    value: extractedData.company,
+                    value: finalCompany,
                     confidence: { 
-                        value: extractedData.companyConfidence || 0.8, 
-                        source: 'parsing', 
+                        value: companyConfidence, 
+                        source: companySource, 
                         lastValidated: new Date(), 
-                        validationMethod: 'html_extraction' 
+                        validationMethod: companySource === 'user_provided' ? 'manual_entry' : 'html_extraction'
                     }
                 });
             }
