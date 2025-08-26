@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // Set CORS headers for all requests
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
@@ -1244,9 +1244,65 @@ async function extractJobDataFallback(url) {
     }
 }
 
+// NEW: Server-side direct HTML fetching - completely bypasses CORS
+async function fetchContentServerSide(url) {
+    console.log(`🚀 Server-side fetch: ${url}`);
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        // Direct server-side fetch with realistic browser headers
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0'
+            },
+            signal: controller.signal,
+            redirect: 'follow'
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            console.warn(`❌ Server-side fetch failed: ${response.status} ${response.statusText}`);
+            return null;
+        }
+        
+        const content = await response.text();
+        console.log(`✅ Server-side fetch successful: ${content.length} characters`);
+        
+        return content;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.warn(`⏱️ Server-side fetch timeout for: ${url}`);
+        } else {
+            console.warn(`❌ Server-side fetch error: ${error.message}`);
+        }
+        return null;
+    }
+}
+
 // Fetch URL content with proper error handling and multiple strategies
 async function fetchUrlContent(url) {
     console.log(`🔄 Attempting to fetch: ${url}`);
+    
+    // FIRST: Try server-side direct fetch (eliminates CORS entirely)
+    const serverSideContent = await fetchContentServerSide(url);
+    if (serverSideContent && serverSideContent.length > 200) {
+        console.log(`🎯 Server-side fetch successful, bypassing all proxy methods`);
+        return serverSideContent;
+    }
     
     try {
         const hostname = new URL(url).hostname.toLowerCase();
@@ -1587,11 +1643,32 @@ function extractFromLinkedInUrl(url) {
             console.log(`📋 Direct view URL detected: Job ID ${jobId}`);
         }
         
+        // Enhanced Collections URL parsing with comprehensive debugging
         const currentJobIdMatch = url.match(/[?&]currentJobId=(\d+)/);
         if (currentJobIdMatch) {
             jobId = currentJobIdMatch[1];
             urlType = jobId ? (urlType === 'direct_view' ? 'both_formats' : 'currentJobId_param') : urlType;
-            console.log(`🎯 currentJobId parameter detected: Job ID ${jobId}`);
+            
+            // Special handling for Collections URLs
+            if (url.includes('/collections/')) {
+                urlType = 'collections_currentJobId';
+                console.log(`📚 Collections URL with currentJobId detected: ${url}`);
+                console.log(`🎯 Extracted Job ID from Collections: ${jobId}`);
+            } else {
+                console.log(`🎯 currentJobId parameter detected: Job ID ${jobId}`);
+            }
+        }
+        
+        // Additional Collections URL debugging
+        if (url.includes('/collections/') && !jobId) {
+            console.warn(`⚠️ Collections URL found but no currentJobId parameter: ${url}`);
+            // Try alternative patterns for Collections URLs
+            const alternativeMatch = url.match(/\/collections\/[^?]*.*?(\d{8,})/);
+            if (alternativeMatch) {
+                jobId = alternativeMatch[1];
+                urlType = 'collections_alternative';
+                console.log(`🔍 Alternative Collections job ID found: ${jobId}`);
+            }
         }
         
         // For third-party sites, extract their job ID as reference
@@ -2447,7 +2524,8 @@ async function handleMetadataStream(req, res) {
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control'
         });
 
         // Helper function to send SSE message
@@ -2460,6 +2538,72 @@ async function handleMetadataStream(req, res) {
             type: 'extraction_started',
             timestamp: new Date().toISOString()
         });
+
+        // PRIORITY: Send user-provided data IMMEDIATELY (95% confidence)
+        if (title && title.trim().length > 0 && title !== 'Unknown Position') {
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'title',
+                value: title.trim(),
+                confidence: { 
+                    value: 0.95, 
+                    source: 'user_provided', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'manual_entry' 
+                }
+            });
+            console.log(`✅ User-provided title prioritized: "${title}"`);
+        }
+
+        if (company && company.trim().length > 0 && company !== 'Unknown Company') {
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'company',
+                value: company.trim(),
+                confidence: { 
+                    value: 0.95, 
+                    source: 'user_provided', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'manual_entry' 
+                }
+            });
+            console.log(`✅ User-provided company prioritized: "${company}"`);
+        }
+
+        if (location && location.trim().length > 0 && location !== 'Unknown Location') {
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'location',
+                value: location.trim(),
+                confidence: { 
+                    value: 0.95, 
+                    source: 'user_provided', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'manual_entry' 
+                }
+            });
+            console.log(`✅ User-provided location prioritized: "${location}"`);
+        }
+
+        if (description && description.trim().length > 0) {
+            // For long descriptions, just show a preview
+            const descriptionPreview = description.length > 200 
+                ? description.substring(0, 197) + '...' 
+                : description;
+            
+            sendUpdate({
+                type: 'metadata_update',
+                field: 'description',
+                value: descriptionPreview,
+                confidence: { 
+                    value: 0.95, 
+                    source: 'user_provided', 
+                    lastValidated: new Date(), 
+                    validationMethod: 'manual_entry' 
+                }
+            });
+            console.log(`✅ User-provided description prioritized (${description.length} chars)`);
+        }
 
         // Step 1: Fetch content
         if (stepUpdates) {

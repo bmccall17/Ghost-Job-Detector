@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   // CORS headers for monitoring tools
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control');
   
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
