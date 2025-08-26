@@ -1,10 +1,10 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
 ## Project Status: v0.2.0 🚀
-⚠️ CLAUDE RULE: Before staging any code, Claude must run through PRE_COMMIT_CHECKLIST.md.
+⚠️ CLAUDE RULE: Before staging any code, Claude must run through ".\docs\PRE_COMMIT_CHECKLIST.md".
 This ensures all validations are aligned with production-first testing.
 Claude should not commit or push changes. Staging only.
-All testing and validation must follow the live-server rules in PRE_COMMIT_CHECKLIST.md.
+All testing and validation must follow the live-server rules in ".\docs\PRE_COMMIT_CHECKLIST.md".
 
 **Latest Updates (v0.2.0) - USER FEEDBACK INTEGRATION COMPLETE:**
 - ✅ **Complete "Improve Parsing" Database Integration**: User corrections now write to backend database
@@ -290,7 +290,7 @@ All testing and validation must follow the live-server rules in PRE_COMMIT_CHECK
 # Stage changes for review only
 git add .
 # Do NOT commit or push.
-# Instead, call PRE_COMMIT_CHECKLIST.md to validate changes.
+# Instead, call ".\docs\PRE_COMMIT_CHECKLIST.md" to validate changes.
 # The Product Manager will handle commits and pushes after review.
 
 # Deployment & testing steps below are for the Product Manager only:
@@ -383,9 +383,9 @@ curl https://ghost-job-detector-lilac.vercel.app/api/health
 - **Architecture**: Maintain `/docs/architecture.md` with system design decisions
 
 ## Git Workflow
-- **Staging Only**: Claude stages changes with git add and runs PRE_COMMIT_CHECKLIST.md.
+- **Staging Only**: Claude stages changes with git add and runs ".\docs\PRE_COMMIT_CHECKLIST.md".
 - **Commit Control**: Only the Product Manager commits and pushes.
-- **Validation**: All checks defined in PRE_COMMIT_CHECKLIST.md must pass before handoff.
+- **Validation**: All checks defined in ".\docs\PRE_COMMIT_CHECKLIST.md" must pass before handoff.
 
 ## Environment Configuration
 - **Development**: Use `.env.local` for local development variables

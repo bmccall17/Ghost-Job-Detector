@@ -14,6 +14,8 @@ import { useAnalysisLogger } from '@/hooks/useAnalysisLogger'
 import { JobAnalysis } from '@/types'
 import { ParsingLearningService } from '@/services/parsing/ParsingLearningService'
 import MetadataIntegration from '@/features/metadata/MetadataIntegration'
+import { useMetadataStore } from '@/features/metadata/stores/metadataStore'
+import { useAnalysisIntegration } from '@/features/metadata/hooks/useMetadataUpdates'
 
 const urlAnalysisSchema = z.object({
   jobUrl: z.string().url('Please enter a valid job URL')
@@ -58,6 +60,12 @@ export const JobAnalysisDashboard: React.FC = () => {
     triggerHistoryRefresh
   } = useAnalysisStore()
 
+  // TASK 1.3: Connect Real-time Streaming to UI
+  const { onAnalysisStart } = useAnalysisIntegration()
+  
+  // TASK 1.1: Connect Form Input to Metadata Display
+  const { setCardVisible, startExtraction } = useMetadataStore()
+
   const urlForm = useForm<UrlAnalysisForm>({
     resolver: zodResolver(urlAnalysisSchema)
   })
@@ -72,8 +80,14 @@ export const JobAnalysisDashboard: React.FC = () => {
     clearLogs() // Clear any previous logs
     setShowTerminal(true) // Show terminal when analysis starts
     
+    // TASK 1.1 & 1.3: Connect Form Input to Metadata Display and start real-time extraction
+    setCardVisible(true);
+    startExtraction(data.jobUrl);
+    onAnalysisStart(data.jobUrl);
+    
     // Add immediate test log to verify logging works
     addLog('info', '🚀 Analysis process started')
+    addLog('info', '📊 Metadata extraction initialized')
     console.log('Terminal should now show logs');
 
     try {
@@ -104,7 +118,11 @@ export const JobAnalysisDashboard: React.FC = () => {
         return
       }
 
-      // New job - extract data and run analysis
+      // TASK 1.3: Start real metadata extraction with streaming
+      console.log('🚀 Starting real-time metadata extraction...');
+      // Real-time metadata extraction started via onAnalysisStart above
+      
+      // New job - extract data and run analysis (parallel with metadata)
       const jobData = await AnalysisService.extractJobData(data.jobUrl);
       
       // Start AI simulation for terminal logs (runs in parallel with real analysis)
@@ -121,6 +139,8 @@ export const JobAnalysisDashboard: React.FC = () => {
         remoteFlag: jobData.remoteFlag,
         postedAt: jobData.postedAt
       });
+      
+      // Note: Metadata extraction runs in parallel and updates the UI in real-time
 
       // Wait for simulation to complete for terminal display
       console.log('🚀 Waiting for AI simulation to complete...');

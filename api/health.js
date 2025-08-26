@@ -158,6 +158,40 @@ export default async function handler(req, res) {
       };
     }
 
+    // 4.5. User Experience Monitoring - Metadata Extraction Success Rates
+    console.log('🔍 Health check: Checking metadata extraction success rates...');
+    
+    try {
+      const metadataHealth = await checkMetadataExtractionHealth();
+      
+      healthData.checks.metadataExtraction = {
+        status: metadataHealth.successRate > 0.9 ? 'healthy' : 
+               metadataHealth.successRate > 0.7 ? 'warning' : 'unhealthy',
+        successRate: metadataHealth.successRate,
+        unknownPositionRate: metadataHealth.unknownPositionRate,
+        unknownCompanyRate: metadataHealth.unknownCompanyRate,
+        totalExtractions24h: metadataHealth.totalExtractions24h,
+        avgConfidenceScore: metadataHealth.avgConfidenceScore,
+        message: `${(metadataHealth.successRate * 100).toFixed(1)}% extraction success rate`
+      };
+
+      // Alert if extraction failure rates >10%
+      if (metadataHealth.successRate < 0.9) {
+        healthData.status = metadataHealth.successRate < 0.7 ? 'unhealthy' : 'degraded';
+        healthData.errors.push(`Metadata extraction failure rate: ${((1 - metadataHealth.successRate) * 100).toFixed(1)}%`);
+      }
+
+      console.log(`📊 Metadata extraction: ${(metadataHealth.successRate * 100).toFixed(1)}% success, ${metadataHealth.totalExtractions24h} extractions`);
+    } catch (metadataError) {
+      console.error('❌ Metadata extraction health check failed:', metadataError);
+      
+      healthData.checks.metadataExtraction = {
+        status: 'warning',
+        error: metadataError.message,
+        message: 'Unable to check metadata extraction health'
+      };
+    }
+
     // 5. Function Count and Resource Usage
     console.log('🔍 Health check: Checking resource limits...');
     
@@ -234,5 +268,95 @@ async function testMetadataSystem() {
       streamingSupported: false,
       error: error.message
     };
+  }
+}
+
+// Helper function to check metadata extraction health metrics
+async function checkMetadataExtractionHealth() {
+  const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  
+  try {
+    // Get all job listings from last 24 hours
+    const recentJobListings = await prisma.jobListing.findMany({
+      where: {
+        createdAt: {
+          gte: last24Hours
+        }
+      },
+      select: {
+        title: true,
+        company: true,
+        createdAt: true
+      }
+    });
+
+    const totalExtractions = recentJobListings.length;
+    
+    if (totalExtractions === 0) {
+      return {
+        successRate: 1.0, // No extractions means no failures
+        unknownPositionRate: 0,
+        unknownCompanyRate: 0,
+        totalExtractions24h: 0,
+        avgConfidenceScore: 0
+      };
+    }
+
+    // Count "Unknown Position" and "Unknown Company" occurrences
+    const unknownPositions = recentJobListings.filter(job => 
+      !job.title || 
+      job.title === 'Unknown Position' || 
+      job.title === 'N/A' || 
+      job.title.trim() === ''
+    ).length;
+
+    const unknownCompanies = recentJobListings.filter(job => 
+      !job.company || 
+      job.company === 'Unknown Company' || 
+      job.company === 'N/A' || 
+      job.company.trim() === ''
+    ).length;
+
+    const unknownPositionRate = unknownPositions / totalExtractions;
+    const unknownCompanyRate = unknownCompanies / totalExtractions;
+    
+    // Success rate is based on having both valid title and company
+    const successfulExtractions = recentJobListings.filter(job => 
+      job.title && job.title !== 'Unknown Position' && job.title !== 'N/A' && job.title.trim() !== '' &&
+      job.company && job.company !== 'Unknown Company' && job.company !== 'N/A' && job.company.trim() !== ''
+    ).length;
+
+    const successRate = successfulExtractions / totalExtractions;
+
+    // Get confidence scores from recent analyses
+    const recentAnalyses = await prisma.analysis.findMany({
+      where: {
+        createdAt: {
+          gte: last24Hours
+        },
+        modelConfidence: {
+          not: null
+        }
+      },
+      select: {
+        modelConfidence: true
+      }
+    });
+
+    const avgConfidenceScore = recentAnalyses.length > 0 
+      ? recentAnalyses.reduce((sum, analysis) => sum + Number(analysis.modelConfidence), 0) / recentAnalyses.length
+      : 0;
+
+    return {
+      successRate,
+      unknownPositionRate,
+      unknownCompanyRate,
+      totalExtractions24h: totalExtractions,
+      avgConfidenceScore: Number(avgConfidenceScore.toFixed(3))
+    };
+
+  } catch (error) {
+    console.error('Error checking metadata extraction health:', error);
+    throw error;
   }
 }
