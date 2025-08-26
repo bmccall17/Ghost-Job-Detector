@@ -122,8 +122,42 @@ const MetadataField: React.FC<MetadataFieldProps> = ({
     return '◒';
   };
 
-  const displayValue = value || field.placeholder;
-  const hasValue = Boolean(value);
+  // Enhanced display value with better empty state handling
+  const getDisplayValue = () => {
+    if (value && value.trim().length > 0) {
+      // Handle URL display optimization for source field
+      if (field.key === 'source' && value.length > 60) {
+        try {
+          const url = new URL(value);
+          const domain = url.hostname.replace('www.', '');
+          const pathPart = url.pathname.length > 20 
+            ? url.pathname.substring(0, 20) + '...'
+            : url.pathname;
+          return `${domain}${pathPart}`;
+        } catch {
+          // If URL parsing fails, truncate the string
+          return value.length > 50 ? value.substring(0, 47) + '...' : value;
+        }
+      }
+      return value;
+    }
+    
+    // Enhanced empty state messages based on field type
+    if (field.key === 'location') {
+      return 'Location information unavailable';
+    } else if (field.key === 'postedDate') {
+      return 'Posted date not found';
+    } else if (field.key === 'source') {
+      return 'Source URL processing...';
+    } else if (field.key === 'description') {
+      return 'Job description not available';
+    } else {
+      return field.placeholder || 'Information not available';
+    }
+  };
+  
+  const displayValue = getDisplayValue();
+  const hasValue = Boolean(value && value.trim().length > 0);
 
   return (
     <div 

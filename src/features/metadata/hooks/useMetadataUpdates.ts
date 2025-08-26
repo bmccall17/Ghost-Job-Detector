@@ -146,9 +146,9 @@ export const useMetadataUpdates = (options: UseMetadataUpdatesOptions = {}): Met
 export const useAnalysisIntegration = () => {
   const { setCardVisible, resetMetadata, updateMetadata, updateExtractionStep, startExtraction } = useMetadataStore();
 
-  // Real metadata extraction with enhanced loop prevention
-  const startRealMetadataExtraction = useCallback(async (url: string) => {
-    console.log('🚀 Starting real metadata extraction with loop prevention');
+  // Real metadata extraction with enhanced loop prevention and retry mechanisms
+  const startRealMetadataExtraction = useCallback(async (url: string, attempt: number = 1) => {
+    console.log(`🚀 Starting real metadata extraction (attempt ${attempt}/3)`);
     console.log('🔧 Processing URL:', url);
     
     // Loop prevention check
@@ -157,7 +157,7 @@ export const useAnalysisIntegration = () => {
       return;
     }
     
-    const extractionTimeout = 15000; // 15 second timeout
+    const extractionTimeout = 15000 + (attempt * 5000); // Increase timeout on retry
     const timeoutController = new AbortController();
     
     // Set up timeout
@@ -170,7 +170,7 @@ export const useAnalysisIntegration = () => {
       startExtraction(url);
       performanceMonitor.startExtraction();
       
-      // Call the real API with metadata streaming
+      // Call the real API with metadata streaming - include user data for priority
       const response = await fetch('/api/analyze?stream=metadata', {
         method: 'POST',
         headers: {
@@ -178,13 +178,27 @@ export const useAnalysisIntegration = () => {
         },
         body: JSON.stringify({ 
           url, 
-          stepUpdates: true 
+          stepUpdates: true,
+          // Include any existing metadata to preserve user-provided data
+          title: useMetadataStore.getState().currentMetadata?.title,
+          company: useMetadataStore.getState().currentMetadata?.company,
+          location: useMetadataStore.getState().currentMetadata?.location,
+          description: useMetadataStore.getState().currentMetadata?.description
         }),
         signal: timeoutController.signal
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorMsg = `API request failed: ${response.status} ${response.statusText}`;
+        
+        // Retry logic for certain status codes
+        if ((response.status >= 500 || response.status === 429) && attempt < 3) {
+          console.warn(`⚠️ ${errorMsg}, retrying in ${attempt * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          return startRealMetadataExtraction(url, attempt + 1);
+        }
+        
+        throw new Error(errorMsg);
       }
 
       const reader = response.body?.getReader();
@@ -250,15 +264,22 @@ export const useAnalysisIntegration = () => {
         }
       }
     } catch (error) {
-      console.error('Real metadata extraction failed:', error);
+      console.error(`Real metadata extraction failed (attempt ${attempt}/3):`, error);
       
-      // Handle specific error types
+      // Handle specific error types and retry logic
       let errorMessage = 'Unknown error occurred';
+      let shouldRetry = false;
+      
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          errorMessage = 'Metadata extraction timed out';
-        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = `Metadata extraction timed out (${extractionTimeout/1000}s)`;
+          shouldRetry = attempt < 3; // Retry on timeout
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           errorMessage = 'Network connection failed';
+          shouldRetry = attempt < 3; // Retry on network failure
+        } else if (error.message.includes('API request failed: 500') || error.message.includes('API request failed: 502') || error.message.includes('API request failed: 503')) {
+          errorMessage = `Server temporarily unavailable`;
+          shouldRetry = attempt < 3; // Retry on server errors
         } else if (error.message.includes('API request failed')) {
           errorMessage = `Server error: ${error.message}`;
         } else {
@@ -266,8 +287,28 @@ export const useAnalysisIntegration = () => {
         }
       }
 
-      // Update metadata with error state
-      updateMetadata('error', errorMessage, {
+      // Retry logic for recoverable errors
+      if (shouldRetry) {
+        const retryDelay = Math.min(attempt * 3000, 10000); // Max 10s delay
+        console.warn(`⏳ Retrying metadata extraction in ${retryDelay/1000}s...`);
+        
+        // Update user with retry status using error field for status messages  
+        updateMetadata('error', `Retrying extraction (attempt ${attempt + 1}/3)...`, {
+          value: 0.5,
+          source: 'system_error',
+          lastValidated: new Date(),
+          validationMethod: 'retry_notification'
+        });
+        
+        setTimeout(() => {
+          startRealMetadataExtraction(url, attempt + 1);
+        }, retryDelay);
+        
+        return; // Don't show error yet, we're retrying
+      }
+
+      // Final error after all retries failed
+      updateMetadata('error', `${errorMessage} (failed after ${attempt} attempts)`, {
         value: 1.0,
         source: 'system_error',
         lastValidated: new Date(),
