@@ -75,13 +75,18 @@ export class PDFParsingService {
       console.log('🔍 ENHANCED PDF URL DEBUG:')
       console.log('📄 Full extracted text length:', textContent.fullText.length)
       console.log('📄 Last 500 characters of PDF:', textContent.fullText.slice(-500))
+      console.log('📄 Character codes of last 50 chars:', textContent.fullText.slice(-50).split('').map(c => `${c}(${c.charCodeAt(0)})`))
       console.log('📄 Searching for common URL patterns...')
       
-      // Quick manual URL checks to help debug
+      // More comprehensive manual URL checks
       const manualHttpCheck = textContent.fullText.match(/https?:\/\/[^\s]+/gi)
       const manualWwwCheck = textContent.fullText.match(/www\.[^\s]+/gi)
       const manualComCheck = textContent.fullText.match(/[a-zA-Z0-9.-]+\.com[^\s]*/gi)
       const manualOrgCheck = textContent.fullText.match(/[a-zA-Z0-9.-]+\.org[^\s]*/gi)
+      const manualIoCheck = textContent.fullText.match(/[a-zA-Z0-9.-]+\.io[^\s]*/gi)
+      const manualJobsCheck = textContent.fullText.match(/jobs?\.[a-zA-Z0-9.-]+/gi)
+      const manualCareersCheck = textContent.fullText.match(/careers?\.[a-zA-Z0-9.-]+/gi)
+      const manualApplyCheck = textContent.fullText.match(/apply\.[a-zA-Z0-9.-]+/gi)
       
       console.log('🔍 Manual HTTP check found:', manualHttpCheck?.length || 0, 'URLs')
       if (manualHttpCheck) console.log('Sample HTTP URLs:', manualHttpCheck.slice(0, 3))
@@ -94,6 +99,18 @@ export class PDFParsingService {
       
       console.log('🔍 Manual .org check found:', manualOrgCheck?.length || 0, 'domains')  
       if (manualOrgCheck) console.log('Sample .org domains:', manualOrgCheck.slice(0, 3))
+      
+      console.log('🔍 Manual .io check found:', manualIoCheck?.length || 0, 'domains')
+      if (manualIoCheck) console.log('Sample .io domains:', manualIoCheck.slice(0, 3))
+      
+      console.log('🔍 Manual jobs. check found:', manualJobsCheck?.length || 0, 'domains')
+      if (manualJobsCheck) console.log('Sample jobs domains:', manualJobsCheck.slice(0, 3))
+      
+      console.log('🔍 Manual careers. check found:', manualCareersCheck?.length || 0, 'domains')
+      if (manualCareersCheck) console.log('Sample careers domains:', manualCareersCheck.slice(0, 3))
+      
+      console.log('🔍 Manual apply. check found:', manualApplyCheck?.length || 0, 'domains')
+      if (manualApplyCheck) console.log('Sample apply domains:', manualApplyCheck.slice(0, 3))
       
       const urlDetection = PDFURLDetector.detectURLs(textContent, true)
       

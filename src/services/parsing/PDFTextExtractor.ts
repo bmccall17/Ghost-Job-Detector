@@ -72,6 +72,7 @@ export class PDFTextExtractor {
       
       // Extract text from all pages
       const pageTexts: string[] = []
+      const allAnnotationURLs: string[] = []
       const totalPages = pdf.numPages
       
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
@@ -80,12 +81,36 @@ export class PDFTextExtractor {
         const page = await pdf.getPage(pageNum)
         const textContent = await page.getTextContent()
         
+        // ENHANCED: Also extract annotations/links which may contain URLs
+        try {
+          const annotations = await page.getAnnotations()
+          for (const annotation of annotations) {
+            if (annotation.url) {
+              console.log(`🔗 Found URL in page ${pageNum} annotation:`, annotation.url)
+              allAnnotationURLs.push(annotation.url)
+            }
+            if (annotation.unsafeUrl) {
+              console.log(`🔗 Found unsafe URL in page ${pageNum} annotation:`, annotation.unsafeUrl)
+              allAnnotationURLs.push(annotation.unsafeUrl)
+            }
+          }
+        } catch (annotationError) {
+          console.warn(`Could not extract annotations from page ${pageNum}:`, annotationError)
+        }
+        
         // Process text items into readable text
         const pageText = this.processTextContent(textContent, options)
         pageTexts.push(pageText)
         
         // Clean up page resources
         page.cleanup()
+      }
+      
+      // Add found annotation URLs to the text for detection
+      if (allAnnotationURLs.length > 0) {
+        console.log('📎 Found annotation URLs, appending to text:', allAnnotationURLs)
+        const annotationText = '\n--- ANNOTATION URLS ---\n' + allAnnotationURLs.join('\n')
+        pageTexts.push(annotationText)
       }
       
       // Combine all pages

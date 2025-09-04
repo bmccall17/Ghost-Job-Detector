@@ -46,7 +46,17 @@ export class PDFURLDetector {
     /https?:\/\/[^\s"<>(){}[\]]+\/(?:job|career|position|role|hiring)[^\s"<>(){}[\]]*/gi,
     
     // General URL pattern (lowest priority) - more comprehensive with query parameters
-    /https?:\/\/[^\s"<>(){}[\]]+(?:\?[^\s"<>(){}[\]]*)*/gi
+    /https?:\/\/[^\s"<>(){}[\]]+(?:\?[^\s"<>(){}[\]]*)*/gi,
+    
+    // ENHANCED: More aggressive patterns for edge cases
+    // Domain-only patterns (without http/https)
+    /(?:^|\s)((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(com|org|net|edu|gov|io)(?:\/[^\s]*)?)/gi,
+    
+    // URLs that might be split or have unusual spacing
+    /(?:https?:\/\/|www\.)\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]+(?:\s*\/\s*[^\s]*)?/gi,
+    
+    // Simple domain.com/path patterns 
+    /[a-zA-Z0-9-]+\.(com|org|net|edu|gov|io)\/[a-zA-Z0-9\/._-]+/gi
   ]
 
   private static readonly PLATFORM_INDICATORS = {
