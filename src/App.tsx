@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { BarChart3, History as HistoryIcon } from 'lucide-react'
+import { BarChart3, History as HistoryIcon, Activity } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 import { JobAnalysisDashboard } from '@/features/detection/JobAnalysisDashboard'
 import { AnalysisHistory } from '@/features/detection/AnalysisHistory'
+import { WebLLMHealthDashboard } from '@/features/system/WebLLMHealthDashboard'
 import { NewsImpactButton } from '@/components/NewsImpactButton'
 import { NewsImpactPage } from '@/components/NewsImpactPage'
 import { ThemeProvider, ThemeToggle } from '@/components/ThemeToggle'
 import { MetadataErrorBoundary } from '@/features/metadata/components/ErrorBoundary'
 
-type ActiveView = 'dashboard' | 'history' | 'news'
+type ActiveView = 'dashboard' | 'history' | 'news' | 'health'
 
 function App() {
   return (
@@ -71,6 +72,17 @@ function AppContent() {
                   <HistoryIcon className="w-4 h-4" />
                   <span>History</span>
                 </button>
+                <button
+                  onClick={() => setActiveView('health')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeView === 'health'
+                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Activity className="w-4 h-4" />
+                  <span>System Health</span>
+                </button>
               </div>
               <ThemeToggle />
             </div>
@@ -99,6 +111,7 @@ function AppContent() {
         }>
           {activeView === 'dashboard' && <JobAnalysisDashboard />}
           {activeView === 'history' && <AnalysisHistory />}
+          {activeView === 'health' && <WebLLMHealthDashboard />}
         </MetadataErrorBoundary>
       </main>
 
