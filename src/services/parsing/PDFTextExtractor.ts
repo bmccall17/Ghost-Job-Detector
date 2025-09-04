@@ -1,8 +1,8 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api'
 
-// Set up PDF.js worker - Use CDN approach for Vercel deployment reliability
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.mjs`
+// Set up PDF.js worker - Use CDN approach for Vercel deployment reliability with matching version
+GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.mjs`
 
 // Fallback to local if CDN fails
 if (typeof window !== 'undefined') {
