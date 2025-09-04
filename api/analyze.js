@@ -82,7 +82,7 @@ export default async function handler(req, res) {
                     extractionMethod = 'webllm';
                     parsingConfidence = extractedData.confidence || 0.8;
                     parsingMetadata = {
-                        webllmModel: extractedData.model || 'Llama-3.1-8B-Instruct',
+                        webllmModel: extractedData.model || 'Llama-2-7b-chat-hf-q4f16_1',
                         processingTimeMs: extractedData.processingTimeMs || 0,
                         extractionTimestamp: new Date().toISOString(),
                         platform: extractPlatformFromUrl(url),
@@ -622,7 +622,7 @@ async function extractWithClientWebLLM(html, url) {
         titleConfidence: extracted.titleConfidence,
         companyConfidence: extracted.companyConfidence,
         descriptionConfidence: extracted.descriptionConfidence,
-        model: 'Llama-3.1-8B-Instruct',
+        model: 'Llama-2-7b-chat-hf-q4f16_1',
         processingTimeMs: 1000
     };
 }

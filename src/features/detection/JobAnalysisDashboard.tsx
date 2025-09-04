@@ -63,7 +63,7 @@ export const JobAnalysisDashboard: React.FC = () => {
   } = useAnalysisStore()
 
   // TASK 1.3: Connect Real-time Streaming to UI
-  const { onAnalysisStart } = useAnalysisIntegration()
+  const { onAnalysisStart, onParsingUpdate } = useAnalysisIntegration()
   
   // TASK 1.1: Connect Form Input to Metadata Display
   const { setCardVisible, startExtraction } = useMetadataStore()
@@ -227,6 +227,11 @@ export const JobAnalysisDashboard: React.FC = () => {
     clearLogs() // Clear any previous logs
     setShowTerminal(true) // Show terminal when analysis starts
     
+    // TASK 1.1 & 1.3: Connect PDF analysis to metadata display
+    setCardVisible(true)
+    startExtraction(`pdf:${selectedPdf.name}`)
+    // Note: Don't start metadata streaming yet - wait until we have the URL from PDF parsing
+    
     // Add initial logs for PDF processing
     addLog('info', '📄 Starting PDF analysis...')
     addLog('info', `📋 Processing file: ${selectedPdf.name}`)
@@ -239,6 +244,21 @@ export const JobAnalysisDashboard: React.FC = () => {
         // Add progress logs to terminal
         addLog('info', `📊 ${stage} (${Math.round(progress)}%)`)
       });
+      
+      // Update metadata system with PDF-extracted data using parsing integration
+      // Update with high confidence since this came directly from PDF content
+      onParsingUpdate('title', jobData.title, 0.95)
+      onParsingUpdate('company', jobData.company, 0.95)
+      if ((jobData as any).location) {
+        onParsingUpdate('location', (jobData as any).location, 0.8)
+      }
+      if (jobData.sourceUrl) {
+        onParsingUpdate('source', jobData.sourceUrl, 0.9)
+      }
+      if (jobData.content) {
+        const description = jobData.content.substring(0, 200) + (jobData.content.length > 200 ? '...' : '')
+        onParsingUpdate('description', description, 0.9)
+      }
       
       // Enhanced logging for PDF extraction results
       addLog('analysis', `✅ PDF parsing completed!`)
@@ -281,6 +301,10 @@ export const JobAnalysisDashboard: React.FC = () => {
         setIsAnalyzing(false)
         return
       }
+
+      // Now that we have a URL from the PDF, start real-time metadata streaming
+      addLog('info', '🚀 Starting live metadata extraction...')
+      onAnalysisStart(jobData.sourceUrl)
 
       // Check if this job has already been analyzed using the extracted URL
       addLog('info', '🔍 Checking for existing analysis...')
@@ -349,6 +373,10 @@ export const JobAnalysisDashboard: React.FC = () => {
     addLog('info', '🔗 Using user-provided URL for PDF analysis')
     addLog('info', `📄 Processing: ${pdfNeedsUrl.file.name}`)
     addLog('info', `🌐 URL: ${pdfUrl}`)
+    
+    // Start live metadata extraction with user-provided URL
+    addLog('info', '🚀 Starting live metadata extraction...')
+    onAnalysisStart(pdfUrl)
 
     try {
       // Use the provided URL with the previously parsed job data

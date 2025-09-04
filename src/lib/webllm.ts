@@ -28,7 +28,7 @@ export class WebLLMManager {
   /**
    * Initialize WebLLM engine with progress callback
    */
-  public async initWebLLM(model = "Llama-3.1-8B-Instruct"): Promise<MLCEngine> {
+  public async initWebLLM(model = "Llama-2-7b-chat-hf-q4f16_1"): Promise<MLCEngine> {
     // Return existing engine if already initialized
     if (this.engine) {
       return this.engine;
@@ -126,7 +126,7 @@ export class WebLLMManager {
 }
 
 // Convenience function for direct usage
-export async function initWebLLM(model = "Llama-3.1-8B-Instruct"): Promise<MLCEngine> {
+export async function initWebLLM(model = "Llama-2-7b-chat-hf-q4f16_1"): Promise<MLCEngine> {
   const manager = WebLLMManager.getInstance();
   return manager.initWebLLM(model);
 }
