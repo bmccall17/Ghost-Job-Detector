@@ -249,6 +249,25 @@ export const JobAnalysisDashboard: React.FC = () => {
       if (jobData.confidence !== undefined) {
         addLog('analysis', `📊 Extraction confidence: ${Math.round(jobData.confidence * 100)}%`)
       }
+
+      // Enhanced logging for WebLLM integration results
+      if (jobData.parsingMetadata?.webllmValidated !== undefined) {
+        addLog('analysis', `🤖 WebLLM validation: ${jobData.parsingMetadata.webllmValidated ? 'PASSED' : 'FAILED'}`)
+        
+        if (jobData.parsingMetadata.webllmValidated) {
+          addLog('analysis', `🎯 AI confidence: ${Math.round(jobData.parsingMetadata.webllmConfidence * 100)}%`)
+          
+          if (jobData.parsingMetadata.legitimacyIndicators?.length > 0) {
+            addLog('analysis', `✅ Legitimacy indicators: ${jobData.parsingMetadata.legitimacyIndicators.length} found`)
+          }
+          
+          if (jobData.parsingMetadata.riskFactors?.length > 0) {
+            addLog('analysis', `⚠️ Risk factors: ${jobData.parsingMetadata.riskFactors.length} identified`)
+          }
+        }
+        
+        addLog('analysis', `⏱️ AI validation time: ${jobData.parsingMetadata.validationTime}ms`)
+      }
       
       if (!jobData.sourceUrl) {
         addLog('info', '❌ No URL detected in PDF headers/footers')

@@ -646,34 +646,66 @@ export class AnalysisService {
 
   static async extractJobDataFromPDF(file: File, onProgress?: (stage: string, progress: number) => void): Promise<{title: string, company: string, content: string, sourceUrl?: string, confidence?: number, parsingMetadata?: any}> {
     try {
-      // Import the new PDF parsing service dynamically to avoid bundling issues
+      // Import the PDF parsing services dynamically to avoid bundling issues
       const { PDFParsingService } = await import('./parsing/PDFParsingService')
+      const { PDFWebLLMIntegration } = await import('./parsing/PDFWebLLMIntegration')
       
-      console.log('🔄 Starting real PDF parsing with PDF.js...')
+      console.log('🔄 Starting enhanced PDF parsing with WebLLM integration...')
       
-      // Use the new real PDF parsing service
+      // Phase 1: Extract raw data from PDF
+      onProgress?.('Extracting PDF content', 30)
       const pdfService = PDFParsingService.getInstance()
       const pdfData = await pdfService.extractJobData(file, {
-        onProgress,
+        onProgress: (stage, progress) => {
+          // Map PDF extraction progress to first 60% of total progress
+          const mappedProgress = 30 + (progress * 0.3)
+          onProgress?.(stage, mappedProgress)
+        },
         includeRawText: true
       })
       
-      console.log('✅ Real PDF parsing completed:', {
-        title: pdfData.title,
-        company: pdfData.company,
+      console.log('✅ PDF extraction completed, starting WebLLM validation...')
+      
+      // Phase 2: Validate through WebLLM pipeline (Phase 3.1 implementation)
+      onProgress?.('Validating job data with AI', 70)
+      
+      const webllmResult = await PDFWebLLMIntegration.validatePDFJobData({
+        pdfJobData: pdfData,
         sourceUrl: pdfData.sourceUrl,
-        confidence: pdfData.confidence.overall,
-        pages: pdfData.parsingMetadata.pdfPages,
-        textLength: pdfData.parsingMetadata.textLength
+        rawTextContent: pdfData.rawTextContent || ''
       })
       
+      onProgress?.('Finalizing enhanced analysis', 90)
+      
+      console.log('🎯 Enhanced PDF analysis completed:', {
+        title: webllmResult.validatedJobData.title,
+        company: webllmResult.validatedJobData.company,
+        confidence: webllmResult.validatedJobData.confidence.overall,
+        webllmValidated: webllmResult.webllmValidation.validated,
+        legitimacyIndicators: webllmResult.enhancedMetadata.legitimacyIndicators.length,
+        riskFactors: webllmResult.enhancedMetadata.riskFactors.length
+      })
+      
+      // Convert to expected format with enhanced data
       return {
-        title: pdfData.title,
-        company: pdfData.company,
-        content: pdfData.description,
+        title: webllmResult.validatedJobData.title,
+        company: webllmResult.validatedJobData.company,
+        content: webllmResult.validatedJobData.description,
         sourceUrl: pdfData.sourceUrl,
-        confidence: pdfData.confidence.overall,
-        parsingMetadata: pdfData.parsingMetadata
+        confidence: webllmResult.validatedJobData.confidence.overall,
+        parsingMetadata: {
+          ...pdfData.parsingMetadata,
+          // Add WebLLM enhancement metadata
+          extractionMethod: webllmResult.enhancedMetadata.extractionMethod,
+          webllmValidated: webllmResult.webllmValidation.validated,
+          webllmConfidence: webllmResult.enhancedMetadata.webllmConfidence,
+          validationTime: webllmResult.enhancedMetadata.validationTime,
+          thoughtProcess: webllmResult.enhancedMetadata.thoughtProcess,
+          legitimacyIndicators: webllmResult.enhancedMetadata.legitimacyIndicators,
+          riskFactors: webllmResult.enhancedMetadata.riskFactors,
+          // Enhanced confidence breakdown
+          confidenceBreakdown: webllmResult.validatedJobData.confidence
+        }
       }
     } catch (error) {
       console.error('❌ Real PDF parsing failed, falling back to filename extraction:', error)
