@@ -326,17 +326,8 @@ export class PDFWebLLMIntegration {
         return false;
       }
       
-      // Relaxed WebLLM availability check - try basic WebLLM initialization
-      try {
-        const testValidation = await this.validator.quickHealthCheck?.();
-        if (testValidation?.available) {
-          console.log('✅ WebLLM health check passed');
-          return true;
-        }
-      } catch (healthCheckError) {
-        console.log('⚠️ WebLLM health check failed, will attempt basic validation anyway:', healthCheckError);
-        // Continue to allow attempt - validator may still work for basic tasks
-      }
+      // Relaxed WebLLM availability check - skip health check since method doesn't exist
+      // Just rely on the validator constructor and allow graceful failure during actual validation
       
       // Less restrictive check - allow more browsers to attempt WebLLM
       try {

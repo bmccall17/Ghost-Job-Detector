@@ -723,46 +723,6 @@ export class AnalysisService {
     }
   }
 
-  // DEPRECATED: This fallback method created fake data and proceeded with analysis
-  // when PDF parsing failed, which is architecturally wrong. Analysis should only
-  // proceed with real extracted content. Keeping for reference but should NOT be used.
-  private static extractJobDataFromPDFFilename(file: File): {title: string, company: string, content: string, sourceUrl?: string} {
-    const fileName = file.name.toLowerCase()
-    
-    let title = 'Position from PDF'
-    let company = 'Unknown Company'
-    
-    // Extract title from filename patterns
-    const titlePatterns = [
-      /job[_\s-]?description[_\s-]?(.+?)\.pdf$/i,
-      /position[_\s-]?(.+?)\.pdf$/i,
-      /(.+?)[_\s-]?job[_\s-]?posting\.pdf$/i,
-      /(.+?)\.pdf$/i
-    ]
-    
-    for (const pattern of titlePatterns) {
-      const match = fileName.match(pattern)
-      if (match && match[1]) {
-        title = match[1].replace(/[_-]/g, ' ').trim()
-        title = title.charAt(0).toUpperCase() + title.slice(1)
-        break
-      }
-    }
-    
-    // Basic company extraction from filename
-    if (fileName.includes('deloitte')) company = 'Deloitte'
-    else if (fileName.includes('google')) company = 'Google'
-    else if (fileName.includes('microsoft')) company = 'Microsoft'
-    else if (fileName.includes('apple')) company = 'Apple'
-    else if (fileName.includes('amazon')) company = 'Amazon'
-    
-    return {
-      title,
-      company,
-      content: `Job posting extracted from PDF filename: ${file.name}. Real PDF parsing failed, using basic filename extraction.`,
-      sourceUrl: undefined
-    }
-  }
 
   static async extractJobsFromLinkedInSearch(searchUrl: string): Promise<string[]> {
     try {
