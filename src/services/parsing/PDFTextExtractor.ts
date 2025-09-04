@@ -1,11 +1,8 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api'
 
-// Set up PDF.js worker - Vite-compatible configuration
-GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).toString()
+// Set up PDF.js worker - Use public directory for Vercel deployment
+GlobalWorkerOptions.workerSrc = '/pdfjs-dist/build/pdf.worker.mjs'
 
 export interface PDFTextContent {
   fullText: string

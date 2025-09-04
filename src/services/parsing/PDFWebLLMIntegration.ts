@@ -308,17 +308,16 @@ export class PDFWebLLMIntegration {
         return false;
       }
       
-      // Try to initialize WebLLM validator without strict GPU requirement
+      // Try to test WebLLM availability more safely
       try {
-        // Test if the validator can be created (more reliable than GPU check)
-        const testValidator = new JobFieldValidator();
-        if (testValidator) {
-          console.log('✅ WebLLM validator created successfully');
-          return true;
+        // Check if the validator constructor exists
+        if (typeof JobFieldValidator === 'function') {
+          console.log('✅ WebLLM validator class available');
+          return true; // Allow attempt, will fail gracefully if model unavailable
         }
       } catch (validatorError) {
-        console.log('⚠️ WebLLM validator creation failed:', validatorError);
-        // Continue to GPU check as fallback
+        console.log('⚠️ WebLLM validator unavailable:', validatorError);
+        return false;
       }
       
       // Fallback: Check for WebGPU support (less restrictive now)
