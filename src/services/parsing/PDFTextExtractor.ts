@@ -1,8 +1,11 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api'
 
-// Set up PDF.js worker - Use public directory for Vercel deployment
-GlobalWorkerOptions.workerSrc = '/pdfjs-dist/build/pdf.worker.mjs'
+// Set up PDF.js worker - Use modern URL-based import for reliable worker loading
+GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString()
 
 export interface PDFTextContent {
   fullText: string
@@ -112,6 +115,8 @@ export class PDFTextExtractor {
     } catch (error) {
       const processingTime = Date.now() - startTime
       
+      console.error('🚨 PDF.js loading failed:', error)
+      console.error('Worker source:', GlobalWorkerOptions.workerSrc)
       console.error('🚨 PDF.js text extraction failed:', {
         fileName: file.name,
         fileSize: file.size,
@@ -121,18 +126,23 @@ export class PDFTextExtractor {
         errorStack: error instanceof Error ? error.stack : undefined
       })
       
-      // Specific error type detection
+      // Specific error type detection with enhanced debugging
       if (error instanceof Error) {
-        if (error.message.includes('worker')) {
-          console.error('❌ PDF.js Worker Loading Error - Check worker configuration')
-        } else if (error.message.includes('Invalid PDF')) {
-          console.error('❌ PDF File Format Error - File may be corrupted or encrypted')  
-        } else if (error.message.includes('Range')) {
-          console.error('❌ PDF Memory Error - File may be too large')
+        if (error.message.includes('worker') || error.message.includes('Worker')) {
+          console.error('❌ PDF.js Worker Loading Error - Worker file not accessible at:', GlobalWorkerOptions.workerSrc)
+          console.error('💡 Debug: Check if worker file exists and is accessible from browser')
+        } else if (error.message.includes('Invalid PDF') || error.message.includes('invalid')) {
+          console.error('❌ PDF File Format Error - File may be corrupted, encrypted, or not a valid PDF')  
+        } else if (error.message.includes('Range') || error.message.includes('memory')) {
+          console.error('❌ PDF Memory Error - File may be too large for browser processing')
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          console.error('❌ PDF Network Error - Connection issue during processing')
+        } else {
+          console.error('❌ Unknown PDF.js Error - Full error details:', error)
         }
       }
       
-      throw new Error(`PDF parsing failed after ${processingTime}ms: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(`PDF.js initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

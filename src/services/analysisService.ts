@@ -715,14 +715,17 @@ export class AnalysisService {
         }
       }
     } catch (error) {
-      console.error('❌ Real PDF parsing failed, falling back to filename extraction:', error)
+      console.error('🚨 PDF parsing failed - STOPPING analysis workflow:', error)
       
-      // Fallback: Extract basic info from filename as backup
-      return this.extractJobDataFromPDFFilename(file)
+      // CRITICAL: Do NOT proceed with analysis when PDF parsing fails
+      // This prevents fake analysis results from being generated and stored
+      throw new Error(`PDF parsing failed - cannot analyze job posting: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  // Fallback method for when real PDF parsing fails
+  // DEPRECATED: This fallback method created fake data and proceeded with analysis
+  // when PDF parsing failed, which is architecturally wrong. Analysis should only
+  // proceed with real extracted content. Keeping for reference but should NOT be used.
   private static extractJobDataFromPDFFilename(file: File): {title: string, company: string, content: string, sourceUrl?: string} {
     const fileName = file.name.toLowerCase()
     

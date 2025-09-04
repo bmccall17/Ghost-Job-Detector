@@ -70,15 +70,33 @@ export class PDFWebLLMIntegration {
         parserOutputKeys: Object.keys(validationInput.parserOutput)
       });
 
-      // 2. Run WebLLM validation with timeout and retry logic
+      // 2. Run WebLLM validation with improved timeout and retry logic
       let webllmValidation;
       try {
         webllmValidation = await Promise.race([
           this.validator.validateWithWebLLM(validationInput),
           this.createTimeoutPromise(15000) // 15 second timeout
         ]);
+        
+        // Check if validation was successful
+        if (!webllmValidation || typeof webllmValidation.validated === 'undefined') {
+          throw new Error('WebLLM validation returned invalid response');
+        }
+        
       } catch (validationError) {
-        console.warn('⚠️ WebLLM validation failed, using enhanced PDF-only processing:', validationError);
+        console.warn('WebLLM validation failed, using enhanced PDF-only mode:', validationError);
+        
+        // Enhanced error logging for debugging
+        if (validationError instanceof Error) {
+          if (validationError.message.includes('timeout')) {
+            console.warn('⏱️ WebLLM validation timed out after 15 seconds');
+          } else if (validationError.message.includes('model')) {
+            console.warn('🤖 WebLLM model loading or initialization failed');  
+          } else {
+            console.warn('🚨 Unexpected WebLLM error:', validationError.message);
+          }
+        }
+        
         return this.createEnhancedPDFOnlyResult(input, Date.now() - startTime);
       }
       
@@ -308,30 +326,35 @@ export class PDFWebLLMIntegration {
         return false;
       }
       
-      // Try to test WebLLM availability more safely
+      // Relaxed WebLLM availability check - try basic WebLLM initialization
+      try {
+        const testValidation = await this.validator.quickHealthCheck?.();
+        if (testValidation?.available) {
+          console.log('✅ WebLLM health check passed');
+          return true;
+        }
+      } catch (healthCheckError) {
+        console.log('⚠️ WebLLM health check failed, will attempt basic validation anyway:', healthCheckError);
+        // Continue to allow attempt - validator may still work for basic tasks
+      }
+      
+      // Less restrictive check - allow more browsers to attempt WebLLM
       try {
         // Check if the validator constructor exists
         if (typeof JobFieldValidator === 'function') {
-          console.log('✅ WebLLM validator class available');
+          console.log('✅ WebLLM validator class available - attempting initialization');
           return true; // Allow attempt, will fail gracefully if model unavailable
         }
       } catch (validatorError) {
-        console.log('⚠️ WebLLM validator unavailable:', validatorError);
-        return false;
+        console.log('⚠️ WebLLM validator class unavailable:', validatorError);
       }
       
-      // Fallback: Check for WebGPU support (less restrictive now)
-      const nav = window.navigator as any;
-      if (nav.gpu) {
-        console.log('🎮 WebGPU available, attempting WebLLM initialization');
-        return true; // Allow attempt even if validator creation failed
-      } else {
-        console.log('📱 WebGPU not supported, using enhanced PDF-only mode');
-        return false;
-      }
+      // Even more relaxed fallback - don't require WebGPU
+      console.log('🔄 Attempting WebLLM without strict GPU requirements');
+      return true; // Allow attempt, better to try and fail gracefully than not try at all
       
     } catch (error) {
-      console.warn('⚠️ WebLLM availability check failed:', error);
+      console.warn('⚠️ WebLLM availability check failed, using enhanced PDF-only mode:', error);
       return false;
     }
   }
