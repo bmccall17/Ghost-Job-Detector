@@ -1,8 +1,11 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api'
 
-// Set up PDF.js worker
-GlobalWorkerOptions.workerSrc = '/pdfjs-dist/build/pdf.worker.mjs'
+// Set up PDF.js worker - Vite-compatible configuration
+GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString()
 
 export interface PDFTextContent {
   fullText: string
@@ -43,14 +46,26 @@ export class PDFTextExtractor {
     const startTime = Date.now()
     
     try {
+      console.log('🔄 Starting PDF.js text extraction...', {
+        fileName: file.name,
+        fileSize: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
+        workerSrc: GlobalWorkerOptions.workerSrc
+      })
+      
       // Convert File to ArrayBuffer
       const arrayBuffer = await file.arrayBuffer()
+      console.log('📄 File converted to ArrayBuffer:', arrayBuffer.byteLength, 'bytes')
       
       // Load PDF document
       const pdf = await getDocument({
         data: arrayBuffer,
-        verbosity: 0 // Reduce console noise
+        verbosity: 1 // Increase verbosity for debugging
       }).promise
+      
+      console.log('✅ PDF document loaded successfully:', {
+        pages: pdf.numPages,
+        fingerprint: pdf.fingerprints?.[0]
+      })
       
       // Extract metadata
       const metadata = await this.extractMetadata(pdf)
@@ -79,7 +94,7 @@ export class PDFTextExtractor {
       // Clean up PDF resources
       pdf.cleanup()
       
-      return {
+      const result = {
         fullText,
         pageTexts,
         metadata: {
@@ -88,9 +103,38 @@ export class PDFTextExtractor {
         },
         processingTimeMs: Date.now() - startTime
       }
+      
+      console.log('🎉 PDF text extraction completed successfully:', {
+        fileName: file.name,
+        pages: totalPages,
+        textLength: fullText.length,
+        processingTime: result.processingTimeMs
+      })
+      
+      return result
     } catch (error) {
       const processingTime = Date.now() - startTime
-      console.error('PDF text extraction failed:', error)
+      
+      console.error('🚨 PDF.js text extraction failed:', {
+        fileName: file.name,
+        fileSize: file.size,
+        processingTime,
+        workerSrc: GlobalWorkerOptions.workerSrc,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined
+      })
+      
+      // Specific error type detection
+      if (error instanceof Error) {
+        if (error.message.includes('worker')) {
+          console.error('❌ PDF.js Worker Loading Error - Check worker configuration')
+        } else if (error.message.includes('Invalid PDF')) {
+          console.error('❌ PDF File Format Error - File may be corrupted or encrypted')  
+        } else if (error.message.includes('Range')) {
+          console.error('❌ PDF Memory Error - File may be too large')
+        }
+      }
+      
       throw new Error(`PDF parsing failed after ${processingTime}ms: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
