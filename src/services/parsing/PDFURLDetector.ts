@@ -23,6 +23,9 @@ export class PDFURLDetector {
     /https?:\/\/(www\.)?linkedin\.com\/jobs\/view\/\d+[^\s"<>(){}[\]]*/gi,
     /https?:\/\/[^.\s]+\.greenhouse\.io\/jobs\/\d+[^\s"<>(){}[\]]*/gi,
     
+    // Code for America jobs (Greenhouse-hosted) - comprehensive pattern
+    /https?:\/\/(www\.)?codeforamerica\.org\/jobs\/posting\/[^\s"<>(){}[\]]*(?:\?[^\s"<>(){}[\]]*)*/gi,
+    
     // Enhanced Lever.co pattern - more permissive for UUIDs with hyphens
     /https?:\/\/jobs\.lever\.co\/[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+/gi,
     
@@ -33,6 +36,8 @@ export class PDFURLDetector {
     
     // Career page URLs
     /https?:\/\/careers\.[^\s"<>(){}[\]]+\/[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^.\s]+\.org\/jobs\/[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^.\s]+\.org\/careers\/[^\s"<>(){}[\]]*/gi,
     /https?:\/\/[^.\s]+\.com\/careers\/[^\s"<>(){}[\]]*/gi,
     /https?:\/\/[^.\s]+\.com\/jobs\/[^\s"<>(){}[\]]*/gi,
     
@@ -40,12 +45,13 @@ export class PDFURLDetector {
     /https?:\/\/[^\s"<>(){}[\]]+(?:job|career|position|role|hiring)[^\s"<>(){}[\]]*/gi,
     /https?:\/\/[^\s"<>(){}[\]]+\/(?:job|career|position|role|hiring)[^\s"<>(){}[\]]*/gi,
     
-    // General URL pattern (lowest priority) - more comprehensive
-    /https?:\/\/[^\s"<>(){}[\]]+/gi
+    // General URL pattern (lowest priority) - more comprehensive with query parameters
+    /https?:\/\/[^\s"<>(){}[\]]+(?:\?[^\s"<>(){}[\]]*)*/gi
   ]
 
   private static readonly PLATFORM_INDICATORS = {
     'deloitte.com': { weight: 0.95, platform: 'Deloitte' },
+    'codeforamerica.org/jobs': { weight: 0.9, platform: 'Code for America' },
     'linkedin.com/jobs': { weight: 0.9, platform: 'LinkedIn' },
     'greenhouse.io': { weight: 0.9, platform: 'Greenhouse' },
     'jobs.lever.co': { weight: 0.9, platform: 'Lever' }, // Enhanced Lever detection
@@ -196,14 +202,27 @@ export class PDFURLDetector {
     const urls: Array<Omit<DetectedURL, 'location'>> = []
     const foundURLs = new Set<string>()
     
-    // Debug: Check for Lever URLs specifically (only when debug enabled)
+    // Debug: Check for specific domains and URL patterns (only when debug enabled)
     if (debug) {
-      console.log('🔍 Searching for URLs in text sample:', text.substring(0, 300))
+      console.log('🔍 Searching for URLs in text sample:', text.substring(0, 500))
+      
+      // Check for specific domain patterns
       const leverCheck = text.match(/jobs\.lever\.co/gi)
+      const codeforamericaCheck = text.match(/codeforamerica\.org/gi)
+      const httpUrlCheck = text.match(/https?:\/\/[^\s]+/gi)
+      
       if (leverCheck) {
         console.log('✅ Found Lever domain in text!')
-      } else {
-        console.log('❌ No Lever domain found in this text segment')
+      }
+      if (codeforamericaCheck) {
+        console.log('✅ Found Code for America domain in text!')
+      }
+      if (httpUrlCheck) {
+        console.log(`✅ Found ${httpUrlCheck.length} HTTP URLs:`, httpUrlCheck.slice(0, 3))
+      }
+      
+      if (!leverCheck && !codeforamericaCheck && !httpUrlCheck) {
+        console.log('❌ No recognizable URL patterns found in this text segment')
       }
     }
     
@@ -217,9 +236,9 @@ export class PDFURLDetector {
         patternMatches++
         const url = match[0].trim()
         
-        // Debug logging for Lever URLs (only when debug enabled)
-        if (debug && url.includes('lever.co')) {
-          console.log(`🎯 Lever URL found with pattern ${i}:`, url)
+        // Debug logging for specific platforms (only when debug enabled)
+        if (debug && (url.includes('lever.co') || url.includes('codeforamerica.org') || url.includes('deloitte.com'))) {
+          console.log(`🎯 Important URL found with pattern ${i}:`, url)
         }
         
         // Clean up URL (remove trailing punctuation)
