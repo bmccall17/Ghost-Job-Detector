@@ -35,6 +35,8 @@ export const JobAnalysisDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'url' | 'pdf'>('url')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null)
+  const [pdfNeedsUrl, setPdfNeedsUrl] = useState<{file: File, jobData: any} | null>(null)
+  const [pdfUrl, setPdfUrl] = useState('')
   const [linkedInSearchUrl, setLinkedInSearchUrl] = useState('')
   const [careerSiteUrl, setCareerSiteUrl] = useState('')
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false)
@@ -249,8 +251,14 @@ export const JobAnalysisDashboard: React.FC = () => {
       }
       
       if (!jobData.sourceUrl) {
-        addLog('error', '❌ No URL detected in PDF headers/footers')
-        throw new Error('Could not find URL in PDF header/footer. Please ensure the PDF was saved with headers and footers enabled.');
+        addLog('info', '❌ No URL detected in PDF headers/footers')
+        addLog('info', '📝 PDF parsed successfully, but URL is needed for analysis')
+        
+        // Store the PDF and parsed data for when user provides URL
+        setPdfNeedsUrl({ file: selectedPdf, jobData })
+        setSelectedPdf(null) // Clear selected PDF to show the URL input form
+        setIsAnalyzing(false)
+        return
       }
 
       // Check if this job has already been analyzed using the extracted URL
@@ -300,9 +308,82 @@ export const JobAnalysisDashboard: React.FC = () => {
       setSelectedPdf(null)
     } catch (error) {
       console.error('PDF Analysis failed:', error)
-      // Show user-friendly error message
-      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze PDF. Please ensure the PDF contains header/footer information with the job URL.'
-      alert(errorMessage)
+      addLog('error', `❌ Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const onSubmitPdfWithUrl = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!pdfNeedsUrl || !pdfUrl.trim()) {
+      return
+    }
+    
+    setIsAnalyzing(true)
+    clearLogs()
+    setShowTerminal(true)
+    
+    addLog('info', '🔗 Using user-provided URL for PDF analysis')
+    addLog('info', `📄 Processing: ${pdfNeedsUrl.file.name}`)
+    addLog('info', `🌐 URL: ${pdfUrl}`)
+
+    try {
+      // Use the provided URL with the previously parsed job data
+      const jobDataWithUrl = {
+        ...pdfNeedsUrl.jobData,
+        sourceUrl: pdfUrl
+      }
+      
+      // Check if this job has already been analyzed using the provided URL
+      const existingAnalysis = findExistingAnalysis(pdfUrl)
+      
+      if (existingAnalysis) {
+        addLog('info', '📁 Found existing analysis - showing cached results')
+        setCurrentAnalysis(existingAnalysis)
+        addToHistory(existingAnalysis)
+        triggerHistoryRefresh()
+        setPdfNeedsUrl(null)
+        setPdfUrl('')
+        setIsAnalyzing(false)
+        return
+      }
+
+      // Run analysis with user-provided URL
+      addLog('analysis', '🤖 Running ghost job analysis...')
+      const result = await AnalysisService.analyzeJob(pdfUrl, {
+        title: jobDataWithUrl.title,
+        company: jobDataWithUrl.company,
+        description: jobDataWithUrl.content || '',
+        location: undefined,
+        remoteFlag: false,
+        postedAt: undefined
+      })
+
+      const analysis: JobAnalysis = {
+        id: result.id,
+        jobUrl: pdfUrl,
+        title: result.jobData?.title || jobDataWithUrl.title,
+        company: result.jobData?.company || jobDataWithUrl.company,
+        ghostProbability: result.ghostProbability,
+        confidence: 0.8,
+        factors: [...(result.riskFactors || []), ...(result.keyFactors || [])],
+        analyzedAt: new Date(),
+        status: 'completed',
+        isNewContribution: true
+      }
+
+      setCurrentAnalysis(analysis)
+      addToHistory(analysis)
+      triggerHistoryRefresh()
+      setPdfNeedsUrl(null)
+      setPdfUrl('')
+      
+      addLog('success', '✅ PDF analysis completed successfully!')
+    } catch (error) {
+      console.error('PDF Analysis with URL failed:', error)
+      addLog('error', `❌ Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsAnalyzing(false)
     }
@@ -661,55 +742,143 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       {activeTab === 'pdf' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-          <form onSubmit={pdfForm.handleSubmit(onSubmitPdf)} className="space-y-6">
-            <PDFUpload
-              onFileSelect={(file) => {
-                setSelectedPdf(file)
-                pdfForm.setValue('pdfFile', file)
-              }}
-              disabled={isAnalyzing}
-            />
+          {/* Show PDF upload form when no PDF needs URL */}
+          {!pdfNeedsUrl && (
+            <form onSubmit={pdfForm.handleSubmit(onSubmitPdf)} className="space-y-6">
+              <PDFUpload
+                onFileSelect={(file) => {
+                  setSelectedPdf(file)
+                  pdfForm.setValue('pdfFile', file)
+                }}
+                disabled={isAnalyzing}
+              />
 
-            {selectedPdf && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              {selectedPdf && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <Upload className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-green-900">
+                        PDF Ready for Analysis
+                      </p>
+                      <p className="text-sm text-green-700">
+                        {selectedPdf.name} ({(selectedPdf.size / 1024).toFixed(1)} KB)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {pdfForm.formState.errors.pdfFile && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-600">{pdfForm.formState.errors.pdfFile.message}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isAnalyzing || !selectedPdf}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Analyzing PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Analyze PDF</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Show URL input form when PDF needs URL */}
+          {pdfNeedsUrl && (
+            <div className="space-y-6">
+              {/* PDF Successfully Parsed Message */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2">
-                  <Upload className="w-5 h-5 text-green-600" />
+                  <Upload className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="text-sm font-medium text-green-900">
-                      PDF Ready for Analysis
+                    <p className="text-sm font-medium text-blue-900">
+                      PDF Successfully Processed
                     </p>
-                    <p className="text-sm text-green-700">
-                      {selectedPdf.name} ({(selectedPdf.size / 1024).toFixed(1)} KB)
+                    <p className="text-sm text-blue-700">
+                      {pdfNeedsUrl.file.name} - extracted job details successfully
                     </p>
                   </div>
                 </div>
               </div>
-            )}
 
-            {pdfForm.formState.errors.pdfFile && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-600">{pdfForm.formState.errors.pdfFile.message}</p>
+              {/* URL Input Request */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <LinkIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-yellow-900 mb-2">
+                      URL Required for Analysis
+                    </h3>
+                    <p className="text-sm text-yellow-800 mb-3">
+                      We couldn't detect the job posting URL in the PDF footer. Please provide the original job posting URL so we can cross-reference and log it in our system.
+                    </p>
+                    
+                    <form onSubmit={onSubmitPdfWithUrl} className="space-y-4">
+                      <div>
+                        <label htmlFor="pdf-url-input" className="block text-sm font-medium text-yellow-900 mb-1">
+                          Job Posting URL
+                        </label>
+                        <input
+                          id="pdf-url-input"
+                          type="url"
+                          value={pdfUrl}
+                          onChange={(e) => setPdfUrl(e.target.value)}
+                          placeholder="https://example.com/job-posting"
+                          required
+                          disabled={isAnalyzing}
+                          className="w-full px-3 py-2 border border-yellow-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:opacity-50"
+                        />
+                      </div>
+                      
+                      <div className="flex space-x-3">
+                        <button
+                          type="submit"
+                          disabled={isAnalyzing || !pdfUrl.trim()}
+                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isAnalyzing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Analyzing PDF...</span>
+                            </>
+                          ) : (
+                            <>
+                              <BarChart3 className="w-4 h-4" />
+                              <span>Analyze PDF</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPdfNeedsUrl(null)
+                            setPdfUrl('')
+                          }}
+                          disabled={isAnalyzing}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
               </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isAnalyzing || !selectedPdf}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Analyzing PDF...</span>
-                </>
-              ) : (
-                <>
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Analyze PDF</span>
-                </>
-              )}
-            </button>
-          </form>
+            </div>
+          )}
 
           {currentAnalysis && (
             <div className="border-t pt-6">
