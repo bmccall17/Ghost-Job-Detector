@@ -198,21 +198,47 @@ export class PDFParsingService {
   }
 
   private extractJobTitle(textContent: PDFTextContent, urlDetection: URLDetectionResult): string {
-    // Strategy 1: Look for title patterns in the first page
+    console.log('🔍 TITLE EXTRACTION DEBUG:')
+    console.log('📄 First page text sample:', textContent.pageTexts[0]?.substring(0, 300))
+    console.log('📄 Looking for title patterns...')
+    
+    // Strategy 1: Extract from URL if available
+    if (urlDetection.primaryURL?.url) {
+      const urlTitle = this.extractTitleFromURL(urlDetection.primaryURL.url)
+      if (urlTitle && this.isValidTitle(urlTitle)) {
+        console.log('✅ Found title from URL:', urlTitle)
+        return urlTitle
+      }
+    }
+    
+    // Strategy 2: Look for title patterns in the first page
     const firstPageText = textContent.pageTexts[0] || ''
     
-    // Common title patterns
+    // Enhanced title patterns - look for more specific job title indicators
     const titlePatterns = [
-      /(?:position|role|job\s+title|title):\s*([^\n\r]{3,60})/i,
-      /^([A-Z][^.\n\r]{10,60})$/m, // Capitalized lines that look like titles
-      /job\s+title[:\s]+([^\n\r]{3,60})/i
+      // Explicit title labels
+      /(?:job\s+title|position|role|title):\s*([^\n\r]{3,80})/i,
+      /(?:position|role)\s+title[:\s]*([^\n\r]{3,80})/i,
+      
+      // Common job title formats (but avoid job IDs)
+      /^([A-Z][A-Za-z\s,-]{5,60}(?:Manager|Engineer|Developer|Analyst|Specialist|Coordinator|Director|Associate|Senior|Junior|Lead).*?)$/m,
+      /^((?:Senior|Junior|Lead|Principal|Staff|Principal)\s+[A-Z][A-Za-z\s,-]{5,60})$/m,
+      
+      // Look for lines that are likely titles (not too short, not numbers)
+      /^([A-Z][A-Za-z\s&,-]{8,60})$/m
     ]
     
-    for (const pattern of titlePatterns) {
+    for (let i = 0; i < titlePatterns.length; i++) {
+      const pattern = titlePatterns[i]
       const match = firstPageText.match(pattern)
       if (match && match[1]) {
         const title = match[1].trim()
-        if (this.isValidTitle(title)) {
+        console.log(`🎯 Pattern ${i} found candidate:`, title)
+        console.log(`🔍 Is valid title:`, this.isValidTitle(title))
+        console.log(`🔍 Looks like job ID:`, this.looksLikeJobId(title))
+        
+        if (this.isValidTitle(title) && !this.looksLikeJobId(title)) {
+          console.log('✅ Selected title:', title)
           return title
         }
       }
@@ -234,6 +260,22 @@ export class PDFParsingService {
     if (prominentText) return prominentText
     
     return 'Position from PDF'
+  }
+
+  /**
+   * Check if a string looks like a job ID rather than a job title
+   */
+  private looksLikeJobId(text: string): boolean {
+    // Contains mostly numbers
+    if (/^\d+\s*\d*$/.test(text.replace(/\s/g, ''))) return true
+    
+    // Short alphanumeric codes
+    if (/^[A-Z0-9-_]{3,15}$/.test(text) && text.length < 15) return true
+    
+    // Contains "ID" or job ID patterns
+    if (/\b(?:id|ID|job\s*id|req\s*id|posting\s*id)\b/.test(text)) return true
+    
+    return false
   }
 
   private extractCompanyName(textContent: PDFTextContent, urlDetection: URLDetectionResult): string {
@@ -503,8 +545,15 @@ export class PDFParsingService {
     
     // Extract from greenhouse/lever URLs
     if (hostname.includes('greenhouse.io')) {
+      // First try to get company from URL path (e.g., /figma/jobs/)
+      const pathMatch = url.match(/greenhouse\.io\/([^\/]+)\//)
+      if (pathMatch && pathMatch[1] && pathMatch[1] !== 'jobs') {
+        return pathMatch[1].charAt(0).toUpperCase() + pathMatch[1].slice(1)
+      }
+      
+      // Fallback to subdomain (but skip generic ones)
       const match = url.match(/\/\/([^.]+)\.greenhouse\.io/)
-      if (match && match[1]) {
+      if (match && match[1] && match[1] !== 'job-boards' && match[1] !== 'jobs') {
         return match[1].charAt(0).toUpperCase() + match[1].slice(1)
       }
     }
