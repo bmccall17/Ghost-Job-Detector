@@ -177,46 +177,6 @@ export const PDFUpload: React.FC<PDFUploadProps> = ({
         </div>
       </div>
 
-      {/* Success Tips */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <h4 className="text-sm font-medium text-green-900 mb-2">
-              What makes a good PDF for analysis:
-            </h4>
-            <ul className="text-sm text-green-800 space-y-1">
-              <li>• Contains the complete job posting URL in the header or footer</li>
-              <li>• Includes all job details (title, company, description, requirements)</li>
-              <li>• Text is selectable (not scanned image)</li>
-              <li>• Saved directly from the job posting website</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Reference */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <ExternalLink className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <h4 className="text-sm font-medium text-yellow-900 mb-2">
-              Quick Reference - Common Job Sites:
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-yellow-800">
-              <div>• LinkedIn Jobs → URL in footer</div>
-              <div>• Company Career Pages → URL in footer</div>
-              <div>• Greenhouse.io → URL in footer</div>
-              <div>• Indeed → URL in footer</div>
-              <div>• AngelList → URL in footer</div>
-              <div>• Glassdoor → URL in footer</div>
-            </div>
-            <p className="text-xs text-yellow-700 mt-2">
-              The system will automatically detect and extract URLs from any of these locations.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
