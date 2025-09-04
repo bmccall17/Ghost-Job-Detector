@@ -941,6 +941,19 @@ export const JobAnalysisDashboard: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* AI Thinking Terminal for PDF processing */}
+          {showTerminal && (
+            <div className="mt-6">
+              <AIThinkingTerminal
+                isVisible={showTerminal}
+                isAnalyzing={isAnalyzing}
+                logs={logs}
+                onClear={clearLogs}
+                onClose={() => setShowTerminal(false)}
+              />
+            </div>
+          )}
         </div>
       )}
 

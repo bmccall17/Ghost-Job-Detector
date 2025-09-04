@@ -675,6 +675,13 @@ export class AnalysisService {
         rawTextContent: pdfData.rawTextContent || ''
       })
       
+      // Provide user feedback on validation mode
+      if (webllmResult.webllmValidation.validated) {
+        onProgress?.('AI validation completed successfully', 85)
+      } else {
+        onProgress?.('Using enhanced PDF validation mode', 85)
+      }
+      
       onProgress?.('Finalizing enhanced analysis', 90)
       
       console.log('🎯 Enhanced PDF analysis completed:', {

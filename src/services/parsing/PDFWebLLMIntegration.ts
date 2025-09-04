@@ -70,11 +70,17 @@ export class PDFWebLLMIntegration {
         parserOutputKeys: Object.keys(validationInput.parserOutput)
       });
 
-      // 2. Run WebLLM validation with timeout
-      const webllmValidation = await Promise.race([
-        this.validator.validateWithWebLLM(validationInput),
-        this.createTimeoutPromise(15000) // 15 second timeout
-      ]);
+      // 2. Run WebLLM validation with timeout and retry logic
+      let webllmValidation;
+      try {
+        webllmValidation = await Promise.race([
+          this.validator.validateWithWebLLM(validationInput),
+          this.createTimeoutPromise(15000) // 15 second timeout
+        ]);
+      } catch (validationError) {
+        console.warn('⚠️ WebLLM validation failed, using enhanced PDF-only processing:', validationError);
+        return this.createEnhancedPDFOnlyResult(input, Date.now() - startTime);
+      }
       
       console.log('✅ WebLLM validation completed:', {
         validated: webllmValidation.validated,
@@ -298,17 +304,33 @@ export class PDFWebLLMIntegration {
     try {
       // Quick availability check without full initialization
       if (typeof window === 'undefined' || !window.navigator) {
-        return false; // Server-side rendering
-      }
-      
-      // Check for WebGPU support (required for WebLLM)
-      const nav = window.navigator as any;
-      if (!nav.gpu) {
-        console.warn('⚠️ WebGPU not supported in this browser');
+        console.log('📱 Server-side rendering detected, WebLLM unavailable');
         return false;
       }
       
-      return true; // Basic availability confirmed
+      // Try to initialize WebLLM validator without strict GPU requirement
+      try {
+        // Test if the validator can be created (more reliable than GPU check)
+        const testValidator = new JobFieldValidator();
+        if (testValidator) {
+          console.log('✅ WebLLM validator created successfully');
+          return true;
+        }
+      } catch (validatorError) {
+        console.log('⚠️ WebLLM validator creation failed:', validatorError);
+        // Continue to GPU check as fallback
+      }
+      
+      // Fallback: Check for WebGPU support (less restrictive now)
+      const nav = window.navigator as any;
+      if (nav.gpu) {
+        console.log('🎮 WebGPU available, attempting WebLLM initialization');
+        return true; // Allow attempt even if validator creation failed
+      } else {
+        console.log('📱 WebGPU not supported, using enhanced PDF-only mode');
+        return false;
+      }
+      
     } catch (error) {
       console.warn('⚠️ WebLLM availability check failed:', error);
       return false;
