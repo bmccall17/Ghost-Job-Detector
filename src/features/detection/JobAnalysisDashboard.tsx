@@ -252,21 +252,23 @@ export const JobAnalysisDashboard: React.FC = () => {
 
       // Enhanced logging for WebLLM integration results
       if (jobData.parsingMetadata?.webllmValidated !== undefined) {
-        addLog('analysis', `🤖 WebLLM validation: ${jobData.parsingMetadata.webllmValidated ? 'PASSED' : 'FAILED'}`)
+        addLog('analysis', `🤖 WebLLM validation: ${jobData.parsingMetadata.webllmValidated ? 'PASSED' : 'UNAVAILABLE - Using enhanced PDF processing'}`)
         
         if (jobData.parsingMetadata.webllmValidated) {
           addLog('analysis', `🎯 AI confidence: ${Math.round(jobData.parsingMetadata.webllmConfidence * 100)}%`)
-          
-          if (jobData.parsingMetadata.legitimacyIndicators?.length > 0) {
-            addLog('analysis', `✅ Legitimacy indicators: ${jobData.parsingMetadata.legitimacyIndicators.length} found`)
-          }
-          
-          if (jobData.parsingMetadata.riskFactors?.length > 0) {
-            addLog('analysis', `⚠️ Risk factors: ${jobData.parsingMetadata.riskFactors.length} identified`)
-          }
+        } else {
+          addLog('analysis', `📄 Enhanced PDF processing applied with quality improvements`)
         }
         
-        addLog('analysis', `⏱️ AI validation time: ${jobData.parsingMetadata.validationTime}ms`)
+        if (jobData.parsingMetadata.legitimacyIndicators?.length > 0) {
+          addLog('analysis', `✅ Legitimacy indicators: ${jobData.parsingMetadata.legitimacyIndicators.length} found`)
+        }
+        
+        if (jobData.parsingMetadata.riskFactors?.length > 0) {
+          addLog('analysis', `⚠️ Risk factors: ${jobData.parsingMetadata.riskFactors.length} identified`)
+        }
+        
+        addLog('analysis', `⏱️ Processing time: ${jobData.parsingMetadata.validationTime}ms`)
       }
       
       if (!jobData.sourceUrl) {

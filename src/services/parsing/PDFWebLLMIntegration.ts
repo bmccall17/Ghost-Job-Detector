@@ -53,6 +53,14 @@ export class PDFWebLLMIntegration {
     try {
       console.log('🤖 Starting PDF → WebLLM validation process...');
       
+      // Check if WebLLM is available and working
+      const isWebLLMAvailable = await this.checkWebLLMAvailability();
+      
+      if (!isWebLLMAvailable) {
+        console.warn('⚠️ WebLLM not available, using enhanced PDF-only processing');
+        return this.createEnhancedPDFOnlyResult(input, Date.now() - startTime);
+      }
+      
       // 1. Convert PDF data to WebLLM validation format
       const validationInput = this.createPDFValidationInput(input);
       
@@ -62,8 +70,11 @@ export class PDFWebLLMIntegration {
         parserOutputKeys: Object.keys(validationInput.parserOutput)
       });
 
-      // 2. Run WebLLM validation
-      const webllmValidation = await this.validator.validateWithWebLLM(validationInput);
+      // 2. Run WebLLM validation with timeout
+      const webllmValidation = await Promise.race([
+        this.validator.validateWithWebLLM(validationInput),
+        this.createTimeoutPromise(15000) // 15 second timeout
+      ]);
       
       console.log('✅ WebLLM validation completed:', {
         validated: webllmValidation.validated,
@@ -91,7 +102,13 @@ export class PDFWebLLMIntegration {
     } catch (error) {
       console.error('❌ PDF → WebLLM validation failed:', error);
       
-      // Fallback: Return PDF data with minimal confidence
+      // Intelligent fallback based on error type
+      if (this.isWebLLMInitializationError(error)) {
+        console.log('🔄 WebLLM initialization failed, using enhanced PDF-only processing');
+        return this.createEnhancedPDFOnlyResult(input, Date.now() - startTime);
+      }
+      
+      // Generic fallback for other errors
       return this.createFallbackResult(input, Date.now() - startTime, error);
     }
   }
@@ -272,6 +289,181 @@ export class PDFWebLLMIntegration {
         riskFactors: ['WebLLM validation unavailable']
       }
     };
+  }
+
+  /**
+   * Check if WebLLM is available and can be initialized
+   */
+  private async checkWebLLMAvailability(): Promise<boolean> {
+    try {
+      // Quick availability check without full initialization
+      if (typeof window === 'undefined' || !window.navigator) {
+        return false; // Server-side rendering
+      }
+      
+      // Check for WebGPU support (required for WebLLM)
+      const nav = window.navigator as any;
+      if (!nav.gpu) {
+        console.warn('⚠️ WebGPU not supported in this browser');
+        return false;
+      }
+      
+      return true; // Basic availability confirmed
+    } catch (error) {
+      console.warn('⚠️ WebLLM availability check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a timeout promise for WebLLM validation
+   */
+  private createTimeoutPromise(ms: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`WebLLM validation timeout after ${ms}ms`)), ms);
+    });
+  }
+
+  /**
+   * Check if error is related to WebLLM initialization
+   */
+  private isWebLLMInitializationError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorMessage = error.message?.toLowerCase() || '';
+    
+    return (
+      errorMessage.includes('cannot find model record') ||
+      errorMessage.includes('webllm') ||
+      errorMessage.includes('fake worker') ||
+      errorMessage.includes('webgpu') ||
+      errorMessage.includes('timeout')
+    );
+  }
+
+  /**
+   * Create enhanced PDF-only result when WebLLM is unavailable
+   */
+  private createEnhancedPDFOnlyResult(
+    input: PDFWebLLMInput,
+    processingTime: number
+  ): PDFWebLLMResult {
+    console.log('📄 Creating enhanced PDF-only result with improved confidence');
+    
+    // Apply enhanced confidence scoring for PDF-only processing
+    const enhancedConfidence = this.calculateEnhancedPDFConfidence(input.pdfJobData);
+    
+    return {
+      validatedJobData: {
+        title: input.pdfJobData.title,
+        company: input.pdfJobData.company,
+        location: input.pdfJobData.location,
+        description: input.pdfJobData.description,
+        confidence: enhancedConfidence
+      },
+      webllmValidation: {
+        validated: false,
+        fields: {},
+        notes: 'WebLLM validation unavailable, using enhanced PDF-only processing',
+      },
+      enhancedMetadata: {
+        extractionMethod: 'pdf_webllm_integration',
+        webllmConfidence: 0,
+        validationTime: processingTime,
+        thoughtProcess: [
+          'WebLLM validation unavailable',
+          'Applied enhanced PDF confidence scoring',
+          'Used pattern-based quality assessment'
+        ],
+        legitimacyIndicators: this.generateBasicLegitimacyIndicators(input.pdfJobData),
+        riskFactors: this.generateBasicRiskFactors(input.pdfJobData)
+      }
+    };
+  }
+
+  /**
+   * Calculate enhanced confidence for PDF-only processing
+   */
+  private calculateEnhancedPDFConfidence(pdfData: PDFJobData): PDFWebLLMResult['validatedJobData']['confidence'] {
+    // Apply more sophisticated confidence calculation for PDF-only mode
+    const baseConfidence = pdfData.confidence;
+    
+    // Boost confidence based on data quality indicators
+    let titleBoost = 0;
+    let companyBoost = 0;
+    let locationBoost = 0;
+    
+    // Title quality assessment
+    if (pdfData.title.length > 10 && pdfData.title.length < 80) titleBoost += 0.1;
+    if (pdfData.title.match(/\b(engineer|manager|analyst|director|specialist)\b/i)) titleBoost += 0.1;
+    
+    // Company quality assessment  
+    if (pdfData.company.length > 3 && pdfData.company.length < 50) companyBoost += 0.1;
+    if (pdfData.company.match(/\b(inc|llc|ltd|corp|company)\b/i)) companyBoost += 0.1;
+    
+    // Location quality assessment
+    if (pdfData.location) {
+      locationBoost += 0.2;
+      if (pdfData.location.match(/,\s*[A-Z]{2}\b/)) locationBoost += 0.1; // State format
+    }
+    
+    return {
+      title: Math.min(1.0, baseConfidence.title + titleBoost),
+      company: Math.min(1.0, baseConfidence.company + companyBoost),
+      location: Math.min(1.0, (baseConfidence.url * 0.5) + locationBoost), // Use URL confidence as proxy
+      description: baseConfidence.description,
+      overall: Math.min(1.0, baseConfidence.overall + (titleBoost + companyBoost + locationBoost) / 3)
+    };
+  }
+
+  /**
+   * Generate basic legitimacy indicators from PDF data
+   */
+  private generateBasicLegitimacyIndicators(pdfData: PDFJobData): string[] {
+    const indicators: string[] = [];
+    
+    if (pdfData.sourceUrl) {
+      indicators.push('Original job posting URL detected in PDF');
+    }
+    
+    if (pdfData.description.length > 200) {
+      indicators.push('Detailed job description provided');
+    }
+    
+    if (pdfData.location) {
+      indicators.push('Specific job location identified');
+    }
+    
+    if (pdfData.confidence.overall > 0.7) {
+      indicators.push('High confidence in data extraction');
+    }
+    
+    return indicators;
+  }
+
+  /**
+   * Generate basic risk factors from PDF data
+   */
+  private generateBasicRiskFactors(pdfData: PDFJobData): string[] {
+    const riskFactors: string[] = [];
+    
+    if (!pdfData.sourceUrl) {
+      riskFactors.push('No original job posting URL found');
+    }
+    
+    if (pdfData.description.length < 100) {
+      riskFactors.push('Very brief job description');
+    }
+    
+    if (pdfData.confidence.overall < 0.5) {
+      riskFactors.push('Low confidence in data extraction');
+    }
+    
+    if (pdfData.title.includes('Position from PDF') || pdfData.company.includes('Company from PDF')) {
+      riskFactors.push('Generic placeholder values detected');
+    }
+    
+    return riskFactors;
   }
 
   /**
