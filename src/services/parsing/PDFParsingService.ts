@@ -71,8 +71,8 @@ export class PDFParsingService {
       
       options.onProgress?.('Detecting job posting URL', 60)
       
-      // 2. Detect URLs in PDF
-      const urlDetection = PDFURLDetector.detectURLs(textContent)
+      // 2. Detect URLs in PDF (enable debug mode for troubleshooting)
+      const urlDetection = PDFURLDetector.detectURLs(textContent, true)
       
       options.onProgress?.('Analyzing job content', 70)
       

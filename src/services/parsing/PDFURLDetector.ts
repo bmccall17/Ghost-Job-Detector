@@ -18,26 +18,29 @@ export interface URLDetectionResult {
 
 export class PDFURLDetector {
   private static readonly URL_PATTERNS = [
-    // Job posting URLs - specific platforms
-    /https?:\/\/(www\.)?(apply\.)?deloitte\.com\/[^"\s\)]+/gi,
-    /https?:\/\/(www\.)?linkedin\.com\/jobs\/view\/\d+[^"\s\)]*/gi,
-    /https?:\/\/[^.]+\.greenhouse\.io\/jobs\/\d+[^"\s\)]*/gi,
-    /https?:\/\/jobs\.lever\.co\/[^\/]+\/[^"\s\)]+/gi,
-    /https?:\/\/(www\.)?workday\.com\/[^"\s\)]+/gi,
-    /https?:\/\/(www\.)?indeed\.com\/viewjob[^"\s\)]*/gi,
-    /https?:\/\/(www\.)?glassdoor\.com\/job-listing\/[^"\s\)]*/gi,
-    /https?:\/\/(www\.)?monster\.com\/job-openings\/[^"\s\)]*/gi,
+    // Job posting URLs - specific platforms (ordered by priority)
+    /https?:\/\/(www\.)?(apply\.)?deloitte\.com\/[^\s"<>(){}[\]]+/gi,
+    /https?:\/\/(www\.)?linkedin\.com\/jobs\/view\/\d+[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^.\s]+\.greenhouse\.io\/jobs\/\d+[^\s"<>(){}[\]]*/gi,
+    
+    // Enhanced Lever.co pattern - more permissive for UUIDs with hyphens
+    /https?:\/\/jobs\.lever\.co\/[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+/gi,
+    
+    /https?:\/\/(www\.)?workday\.com\/[^\s"<>(){}[\]]+/gi,
+    /https?:\/\/(www\.)?indeed\.com\/viewjob[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/(www\.)?glassdoor\.com\/job-listing\/[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/(www\.)?monster\.com\/job-openings\/[^\s"<>(){}[\]]*/gi,
     
     // Career page URLs
-    /https?:\/\/careers\.[^"\s\)]+\/[^"\s\)]*/gi,
-    /https?:\/\/[^.]+\.com\/careers\/[^"\s\)]*/gi,
-    /https?:\/\/[^.]+\.com\/jobs\/[^"\s\)]*/gi,
+    /https?:\/\/careers\.[^\s"<>(){}[\]]+\/[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^.\s]+\.com\/careers\/[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^.\s]+\.com\/jobs\/[^\s"<>(){}[\]]*/gi,
     
     // Generic URLs that might be job postings
-    /https?:\/\/[^"\s\)]+(?:job|career|position|role|hiring)[^"\s\)]*/gi,
-    /https?:\/\/[^"\s\)]+\/(?:job|career|position|role|hiring)[^"\s\)]*/gi,
+    /https?:\/\/[^\s"<>(){}[\]]+(?:job|career|position|role|hiring)[^\s"<>(){}[\]]*/gi,
+    /https?:\/\/[^\s"<>(){}[\]]+\/(?:job|career|position|role|hiring)[^\s"<>(){}[\]]*/gi,
     
-    // General URL pattern (lowest priority)
+    // General URL pattern (lowest priority) - more comprehensive
     /https?:\/\/[^\s"<>(){}[\]]+/gi
   ]
 
@@ -45,6 +48,7 @@ export class PDFURLDetector {
     'deloitte.com': { weight: 0.95, platform: 'Deloitte' },
     'linkedin.com/jobs': { weight: 0.9, platform: 'LinkedIn' },
     'greenhouse.io': { weight: 0.9, platform: 'Greenhouse' },
+    'jobs.lever.co': { weight: 0.9, platform: 'Lever' }, // Enhanced Lever detection
     'lever.co': { weight: 0.9, platform: 'Lever' },
     'workday.com': { weight: 0.85, platform: 'Workday' },
     'indeed.com': { weight: 0.8, platform: 'Indeed' },
@@ -55,21 +59,35 @@ export class PDFURLDetector {
     '/jobs/': { weight: 0.7, platform: 'Job Board' }
   }
 
-  static detectURLs(pdfContent: PDFTextContent): URLDetectionResult {
+  static detectURLs(pdfContent: PDFTextContent, debug: boolean = false): URLDetectionResult {
     const startTime = Date.now()
     const allURLs: DetectedURL[] = []
     
     try {
+      // Debug logging for troubleshooting (only when enabled)
+      if (debug) {
+        console.log('🔍 PDF URL Detection Debug:')
+        console.log('📄 PDF Pages:', pdfContent.pageTexts.length)
+        console.log('📝 Total text length:', pdfContent.fullText.length)
+        
+        // Show sample of text from first and last pages for debugging
+        if (pdfContent.pageTexts.length > 0) {
+          const firstPage = pdfContent.pageTexts[0].substring(0, 200)
+          const lastPage = pdfContent.pageTexts[pdfContent.pageTexts.length - 1].substring(0, 200)
+          console.log('📄 First page sample:', firstPage)
+          console.log('📄 Last page sample:', lastPage)
+        }
+      }
       // 1. Check metadata for URLs
-      const metadataURLs = this.extractURLsFromMetadata(pdfContent)
+      const metadataURLs = this.extractURLsFromMetadata(pdfContent, debug)
       allURLs.push(...metadataURLs)
       
       // 2. Check first and last pages for headers/footers
-      const headerFooterURLs = this.extractHeaderFooterURLs(pdfContent)
+      const headerFooterURLs = this.extractHeaderFooterURLs(pdfContent, debug)
       allURLs.push(...headerFooterURLs)
       
       // 3. Check all content for URLs
-      const contentURLs = this.extractContentURLs(pdfContent)
+      const contentURLs = this.extractContentURLs(pdfContent, debug)
       allURLs.push(...contentURLs)
       
       // 4. Deduplicate and score URLs
@@ -99,7 +117,7 @@ export class PDFURLDetector {
     }
   }
 
-  private static extractURLsFromMetadata(pdfContent: PDFTextContent): DetectedURL[] {
+  private static extractURLsFromMetadata(pdfContent: PDFTextContent, debug: boolean = false): DetectedURL[] {
     const urls: DetectedURL[] = []
     const metadata = pdfContent.metadata
     
@@ -113,7 +131,7 @@ export class PDFURLDetector {
     
     for (const field of metadataFields) {
       if (field) {
-        const foundURLs = this.findURLsInText(field)
+        const foundURLs = this.findURLsInText(field, debug)
         urls.push(...foundURLs.map(url => ({
           ...url,
           location: 'metadata' as const,
@@ -125,12 +143,12 @@ export class PDFURLDetector {
     return urls
   }
 
-  private static extractHeaderFooterURLs(pdfContent: PDFTextContent): DetectedURL[] {
+  private static extractHeaderFooterURLs(pdfContent: PDFTextContent, debug: boolean = false): DetectedURL[] {
     const urls: DetectedURL[] = []
     
     // Check first page (likely has header)
     if (pdfContent.pageTexts.length > 0) {
-      const firstPageURLs = this.findURLsInText(pdfContent.pageTexts[0])
+      const firstPageURLs = this.findURLsInText(pdfContent.pageTexts[0], debug)
       urls.push(...firstPageURLs.map(url => ({
         ...url,
         location: 'header' as const,
@@ -141,7 +159,7 @@ export class PDFURLDetector {
     
     // Check last page (likely has footer)
     if (pdfContent.pageTexts.length > 1) {
-      const lastPageURLs = this.findURLsInText(pdfContent.pageTexts[pdfContent.pageTexts.length - 1])
+      const lastPageURLs = this.findURLsInText(pdfContent.pageTexts[pdfContent.pageTexts.length - 1], debug)
       urls.push(...lastPageURLs.map(url => ({
         ...url,
         location: 'footer' as const,
@@ -152,18 +170,18 @@ export class PDFURLDetector {
     
     // Check for URLs that appear at the top/bottom of multiple pages
     if (pdfContent.pageTexts.length > 2) {
-      const commonURLs = this.findCommonHeaderFooterURLs(pdfContent.pageTexts)
+      const commonURLs = this.findCommonHeaderFooterURLs(pdfContent.pageTexts, debug)
       urls.push(...commonURLs)
     }
     
     return urls
   }
 
-  private static extractContentURLs(pdfContent: PDFTextContent): DetectedURL[] {
+  private static extractContentURLs(pdfContent: PDFTextContent, debug: boolean = false): DetectedURL[] {
     const urls: DetectedURL[] = []
     
     pdfContent.pageTexts.forEach((pageText, index) => {
-      const pageURLs = this.findURLsInText(pageText)
+      const pageURLs = this.findURLsInText(pageText, debug)
       urls.push(...pageURLs.map(url => ({
         ...url,
         location: 'content' as const,
@@ -174,16 +192,35 @@ export class PDFURLDetector {
     return urls
   }
 
-  private static findURLsInText(text: string): Array<Omit<DetectedURL, 'location'>> {
+  private static findURLsInText(text: string, debug: boolean = false): Array<Omit<DetectedURL, 'location'>> {
     const urls: Array<Omit<DetectedURL, 'location'>> = []
     const foundURLs = new Set<string>()
     
-    for (const pattern of this.URL_PATTERNS) {
+    // Debug: Check for Lever URLs specifically (only when debug enabled)
+    if (debug) {
+      console.log('🔍 Searching for URLs in text sample:', text.substring(0, 300))
+      const leverCheck = text.match(/jobs\.lever\.co/gi)
+      if (leverCheck) {
+        console.log('✅ Found Lever domain in text!')
+      } else {
+        console.log('❌ No Lever domain found in this text segment')
+      }
+    }
+    
+    for (let i = 0; i < this.URL_PATTERNS.length; i++) {
+      const pattern = this.URL_PATTERNS[i]
       pattern.lastIndex = 0 // Reset regex
       let match
+      let patternMatches = 0
       
       while ((match = pattern.exec(text)) !== null) {
+        patternMatches++
         const url = match[0].trim()
+        
+        // Debug logging for Lever URLs (only when debug enabled)
+        if (debug && url.includes('lever.co')) {
+          console.log(`🎯 Lever URL found with pattern ${i}:`, url)
+        }
         
         // Clean up URL (remove trailing punctuation)
         const cleanURL = this.cleanURL(url)
@@ -194,6 +231,10 @@ export class PDFURLDetector {
           const confidence = this.calculateURLConfidence(cleanURL)
           const context = this.extractContext(text, match.index, 50)
           
+          if (debug) {
+            console.log(`✅ Added URL: ${cleanURL} (confidence: ${confidence.toFixed(2)})`)
+          }
+          
           urls.push({
             url: cleanURL,
             confidence,
@@ -201,8 +242,15 @@ export class PDFURLDetector {
           })
         }
       }
+      
+      if (debug && patternMatches > 0) {
+        console.log(`📊 Pattern ${i} matched ${patternMatches} URLs`)
+      }
     }
     
+    if (debug) {
+      console.log(`🎯 Total URLs found in this text: ${urls.length}`)
+    }
     return urls
   }
 
@@ -245,7 +293,7 @@ export class PDFURLDetector {
     return Math.min(1.0, Math.max(0.1, confidence))
   }
 
-  private static findCommonHeaderFooterURLs(pageTexts: string[]): DetectedURL[] {
+  private static findCommonHeaderFooterURLs(pageTexts: string[], debug: boolean = false): DetectedURL[] {
     const urls: DetectedURL[] = []
     
     // Find URLs that appear in multiple pages (likely headers/footers)
@@ -253,7 +301,7 @@ export class PDFURLDetector {
     const urlPages = new Map<string, number[]>()
     
     pageTexts.forEach((pageText, index) => {
-      const pageURLs = this.findURLsInText(pageText)
+      const pageURLs = this.findURLsInText(pageText, debug)
       pageURLs.forEach(urlInfo => {
         const count = urlCounts.get(urlInfo.url) || 0
         urlCounts.set(urlInfo.url, count + 1)

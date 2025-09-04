@@ -81,6 +81,8 @@
       "Bash(find:*)",
       "Bash(export DATABASE_URL=\"file:./dev.db\")",
       "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
       "Bash(cd:*)"
     ],
     "deny": [],
