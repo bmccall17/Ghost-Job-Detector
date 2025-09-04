@@ -26,9 +26,9 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
   onSubmitFeedback
 }) => {
   const [feedbackType, setFeedbackType] = useState<'correction' | 'confirmation'>('correction')
-  const [correctTitle, setCorrectTitle] = useState('')
-  const [correctCompany, setCorrectCompany] = useState('')
-  const [correctLocation, setCorrectLocation] = useState('')
+  const [correctTitle, setCorrectTitle] = useState(originalData.title || '')
+  const [correctCompany, setCorrectCompany] = useState(originalData.company || '')
+  const [correctLocation, setCorrectLocation] = useState(originalData.location || '')
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -58,9 +58,9 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Help Improve Parsing Accuracy
           </h2>
           <button
@@ -72,13 +72,13 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-medium text-blue-900 mb-2">Parsed Information</h3>
-            <div className="space-y-2 text-sm">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+            <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Parsed Information</h3>
+            <div className="space-y-2 text-sm text-gray-800 dark:text-gray-200">
               <div><strong>Title:</strong> {originalData.title}</div>
               <div><strong>Company:</strong> {originalData.company}</div>
               <div><strong>Location:</strong> {originalData.location || 'Not detected'}</div>
-              <div className="text-xs text-blue-600">Source: {originalData.url}</div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">Source: {originalData.url}</div>
             </div>
           </div>
 
@@ -93,7 +93,7 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
                   className="w-4 h-4 text-blue-600"
                 />
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-medium">This information is correct</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">This information is correct</span>
               </label>
               
               <label className="flex items-center space-x-2">
@@ -105,18 +105,18 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
                   className="w-4 h-4 text-blue-600"
                 />
                 <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <span className="text-sm font-medium">I need to make corrections</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">I need to make corrections</span>
               </label>
             </div>
 
             {feedbackType === 'correction' && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-4">
-                <p className="text-sm text-orange-800 font-medium">
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4 space-y-4">
+                <p className="text-sm text-orange-800 dark:text-orange-200 font-medium">
                   Please provide the correct information (leave blank if the original is correct):
                 </p>
                 
                 <div>
-                  <label htmlFor="correctTitle" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="correctTitle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Correct Job Title
                   </label>
                   <input
@@ -130,7 +130,7 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="correctCompany" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="correctCompany" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Correct Company Name
                   </label>
                   <input
@@ -144,7 +144,7 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="correctLocation" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="correctLocation" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Correct Location
                   </label>
                   <input
@@ -160,7 +160,7 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
             )}
 
             <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Additional Notes (Optional)
               </label>
               <textarea
@@ -174,9 +174,9 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
             </div>
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">How This Helps</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
+          <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">How This Helps</h4>
+            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <li>• Your feedback trains our AI to recognize patterns on this website</li>
               <li>• Similar job postings will be parsed more accurately in the future</li>
               <li>• All users benefit from improved parsing on this domain</li>
@@ -195,7 +195,7 @@ export const ParsingFeedbackModal: React.FC<ParsingFeedbackModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
             >
               Cancel
             </button>
