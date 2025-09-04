@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { Upload, FileText, AlertCircle, CheckCircle, ExternalLink } from 'lucide-react'
+import { Upload, FileText, AlertCircle } from 'lucide-react'
 
 interface PDFUploadProps {
   onFileSelect: (file: File) => void
