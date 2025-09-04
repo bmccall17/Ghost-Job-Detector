@@ -72,6 +72,29 @@ export class PDFParsingService {
       options.onProgress?.('Detecting job posting URL', 60)
       
       // 2. Detect URLs in PDF (enable debug mode for troubleshooting)
+      console.log('🔍 ENHANCED PDF URL DEBUG:')
+      console.log('📄 Full extracted text length:', textContent.fullText.length)
+      console.log('📄 Last 500 characters of PDF:', textContent.fullText.slice(-500))
+      console.log('📄 Searching for common URL patterns...')
+      
+      // Quick manual URL checks to help debug
+      const manualHttpCheck = textContent.fullText.match(/https?:\/\/[^\s]+/gi)
+      const manualWwwCheck = textContent.fullText.match(/www\.[^\s]+/gi)
+      const manualComCheck = textContent.fullText.match(/[a-zA-Z0-9.-]+\.com[^\s]*/gi)
+      const manualOrgCheck = textContent.fullText.match(/[a-zA-Z0-9.-]+\.org[^\s]*/gi)
+      
+      console.log('🔍 Manual HTTP check found:', manualHttpCheck?.length || 0, 'URLs')
+      if (manualHttpCheck) console.log('Sample HTTP URLs:', manualHttpCheck.slice(0, 3))
+      
+      console.log('🔍 Manual WWW check found:', manualWwwCheck?.length || 0, 'URLs')
+      if (manualWwwCheck) console.log('Sample WWW URLs:', manualWwwCheck.slice(0, 3))
+      
+      console.log('🔍 Manual .com check found:', manualComCheck?.length || 0, 'domains')
+      if (manualComCheck) console.log('Sample .com domains:', manualComCheck.slice(0, 3))
+      
+      console.log('🔍 Manual .org check found:', manualOrgCheck?.length || 0, 'domains')  
+      if (manualOrgCheck) console.log('Sample .org domains:', manualOrgCheck.slice(0, 3))
+      
       const urlDetection = PDFURLDetector.detectURLs(textContent, true)
       
       options.onProgress?.('Analyzing job content', 70)

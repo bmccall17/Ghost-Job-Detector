@@ -79,9 +79,16 @@ export class PDFURLDetector {
         // Show sample of text from first and last pages for debugging
         if (pdfContent.pageTexts.length > 0) {
           const firstPage = pdfContent.pageTexts[0].substring(0, 200)
-          const lastPage = pdfContent.pageTexts[pdfContent.pageTexts.length - 1].substring(0, 200)
+          const lastPage = pdfContent.pageTexts[pdfContent.pageTexts.length - 1]
           console.log('📄 First page sample:', firstPage)
-          console.log('📄 Last page sample:', lastPage)
+          console.log('📄 Last page sample (first 200):', lastPage.substring(0, 200))
+          console.log('📄 Last page sample (last 200):', lastPage.slice(-200))
+          
+          // Look for URL fragments that might be split
+          const urlFragments = lastPage.match(/https?:|www\.|\.com|\.org|jobs\.|careers\.|lever\.co|greenhouse\.io|linkedin\.com|deloitte\.com/gi)
+          if (urlFragments) {
+            console.log('🔍 Found URL fragments in last page:', urlFragments)
+          }
         }
       }
       // 1. Check metadata for URLs
@@ -202,14 +209,22 @@ export class PDFURLDetector {
     const urls: Array<Omit<DetectedURL, 'location'>> = []
     const foundURLs = new Set<string>()
     
+    // Try to reconstruct URLs that might be split across lines
+    const reconstructedText = this.reconstructSplitURLs(text)
+    
     // Debug: Check for specific domains and URL patterns (only when debug enabled)
     if (debug) {
       console.log('🔍 Searching for URLs in text sample:', text.substring(0, 500))
       
+      if (reconstructedText !== text) {
+        console.log('🔧 Reconstructed text differs - found potential split URLs')
+        console.log('🔧 Reconstructed sample:', reconstructedText.substring(0, 500))
+      }
+      
       // Check for specific domain patterns
-      const leverCheck = text.match(/jobs\.lever\.co/gi)
-      const codeforamericaCheck = text.match(/codeforamerica\.org/gi)
-      const httpUrlCheck = text.match(/https?:\/\/[^\s]+/gi)
+      const leverCheck = reconstructedText.match(/jobs\.lever\.co/gi)
+      const codeforamericaCheck = reconstructedText.match(/codeforamerica\.org/gi)
+      const httpUrlCheck = reconstructedText.match(/https?:\/\/[^\s]+/gi)
       
       if (leverCheck) {
         console.log('✅ Found Lever domain in text!')
@@ -232,7 +247,8 @@ export class PDFURLDetector {
       let match
       let patternMatches = 0
       
-      while ((match = pattern.exec(text)) !== null) {
+      // Use reconstructed text for pattern matching
+      while ((match = pattern.exec(reconstructedText)) !== null) {
         patternMatches++
         const url = match[0].trim()
         
@@ -408,5 +424,65 @@ export class PDFURLDetector {
     if (locations.includes('footer')) return 'footer_detection'
     if (locations.includes('metadata')) return 'metadata_extraction'
     return 'content_scan'
+  }
+
+  /**
+   * Reconstruct URLs that might be split across lines or text items
+   */
+  private static reconstructSplitURLs(text: string): string {
+    let reconstructed = text
+    
+    // Common URL split patterns - handle cases where URLs are broken across lines
+    const splitPatterns = [
+      // https:// split from domain
+      /https?:\s*[\r\n]+\s*\/\//g,
+      // Domain split from path  
+      /([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov))\s*[\r\n]+\s*\//g,
+      // Path components split
+      /\/([a-zA-Z0-9-]+)\s*[\r\n]+\s*\/([a-zA-Z0-9-]+)/g,
+      // Remove line breaks within URLs (between URL-like components)
+      /([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov))[\r\n\s]+([a-zA-Z0-9\/._-]+)/g
+    ]
+    
+    // Apply each pattern to reconstruct URLs
+    reconstructed = reconstructed.replace(splitPatterns[0], 'https://')
+    reconstructed = reconstructed.replace(splitPatterns[1], '$1/')  
+    reconstructed = reconstructed.replace(splitPatterns[2], '/$1/$2')
+    reconstructed = reconstructed.replace(splitPatterns[3], '$1/$2')
+    
+    // Also try to join lines that look like they contain URL fragments
+    const lines = reconstructed.split(/[\r\n]+/)
+    const joinedLines: string[] = []
+    let i = 0
+    
+    while (i < lines.length) {
+      let currentLine = lines[i].trim()
+      
+      // Look ahead to see if the next line might be a continuation of a URL
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim()
+        
+        // Check if current line ends with URL-like content and next line starts with URL-like content
+        if (this.looksLikeURLFragment(currentLine) && this.looksLikeURLFragment(nextLine)) {
+          // Join the lines
+          currentLine = currentLine + nextLine
+          i++ // Skip the next line since we consumed it
+        }
+      }
+      
+      joinedLines.push(currentLine)
+      i++
+    }
+    
+    return joinedLines.join('\n')
+  }
+
+  /**
+   * Check if a text fragment looks like it could be part of a URL
+   */
+  private static looksLikeURLFragment(text: string): boolean {
+    return /^(https?:|www\.|[a-zA-Z0-9.-]+\.(com|org|net|edu|gov)|\/[a-zA-Z0-9._-]|[a-zA-Z0-9._-]+\/)/.test(text) ||
+           /[a-zA-Z0-9.-]+\.(com|org|net|edu|gov)$/.test(text) ||
+           /\/(jobs?|careers?|positions?|apply|posting)[\/\w-]*$/.test(text)
   }
 }
