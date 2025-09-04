@@ -157,7 +157,6 @@ export class PDFParsingService {
       
       return result
     } catch (error) {
-      const processingTime = Date.now() - startTime
       console.error('🚨 PDF parsing failed - STOPPING processing:', error)
       
       // CRITICAL: Do NOT return fake data when PDF parsing fails
@@ -535,30 +534,4 @@ export class PDFParsingService {
     return null
   }
 
-  // DEPRECATED: This method created fake data when PDF parsing failed, which is architecturally wrong.
-  // Analysis should only proceed with real extracted content. Keeping for reference but should NOT be used.
-  private createErrorResult(file: File, error: any, processingTime: number): PDFJobData {
-    return {
-      title: 'PDF Parsing Failed',
-      company: 'Unknown Company',
-      description: `Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      confidence: {
-        title: 0,
-        company: 0,
-        description: 0,
-        url: 0,
-        overall: 0
-      },
-      parsingMetadata: {
-        pdfPages: 0,
-        textLength: 0,
-        urlsFound: [],
-        parsingMethod: 'error',
-        processingTimeMs: processingTime,
-        extractorVersion: '1.0.0',
-        fileSize: file.size,
-        fileName: file.name
-      }
-    }
-  }
 }
