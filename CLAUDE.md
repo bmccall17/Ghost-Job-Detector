@@ -288,11 +288,9 @@ All testing and validation must follow the live-server rules in ".\docs\PRE_COMM
 #### Required Testing Workflow:
 ```bash
 # Stage changes for review only
-git add .
-# Do NOT commit or push.
+# Do NOT "git add ." or commit or push.
 # Instead, call ".\docs\PRE_COMMIT_CHECKLIST.md" to validate changes.
-# The Product Manager will handle commits and pushes after review.
-
+# The Product Manager will handle add and commits and pushes after review.
 # Deployment & testing steps below are for the Product Manager only:
 
 # 1. Deploy to production, happens automatically

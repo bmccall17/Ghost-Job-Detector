@@ -644,138 +644,81 @@ export class AnalysisService {
     }
   }
 
-  static async extractJobDataFromPDF(file: File): Promise<{title: string, company: string, content: string, sourceUrl?: string}> {
+  static async extractJobDataFromPDF(file: File, onProgress?: (stage: string, progress: number) => void): Promise<{title: string, company: string, content: string, sourceUrl?: string, confidence?: number, parsingMetadata?: any}> {
     try {
-      // For demo purposes, we'll simulate PDF text extraction and URL detection
-      // In production, this would use a proper PDF parsing library (PDF.js) or API
-      const fileName = file.name.toLowerCase()
+      // Import the new PDF parsing service dynamically to avoid bundling issues
+      const { PDFParsingService } = await import('./parsing/PDFParsingService')
       
-      // Simulate extracting URL from PDF header/footer
-      // Based on the example PDF "Manager, Product Management - - 309048.pdf"
-      let extractedUrl: string | undefined
+      console.log('🔄 Starting real PDF parsing with PDF.js...')
       
-      // Mock URL extraction from PDF (in production, this would parse actual PDF content)
-      if (fileName.includes('309048')) {
-        // This matches the example PDF
-        extractedUrl = 'https://apply.deloitte.com/en_US/careers/InviteToApply?jobId=309048&source=LinkedIn'
-      } else {
-        // Simulate URL detection patterns based on filename or content
-        const urlPatterns = [
-          'https://apply.deloitte.com/en_US/careers/InviteToApply?jobId=123456&source=LinkedIn',
-          'https://careers.google.com/jobs/results/123456789',
-          'https://job-boards.greenhouse.io/surveymonkey/jobs/123456',
-          'https://www.linkedin.com/jobs/view/4278369716',
-          'https://careers.microsoft.com/us/en/job/123456'
-        ]
-        
-        // Random selection for demo - in production, extract from actual PDF content
-        extractedUrl = urlPatterns[Math.floor(Math.random() * urlPatterns.length)]
-      }
-      
-      // Try to extract info from filename and detected URL
-      let title = 'Position from PDF'
-      let company = 'Unknown Company'
-      
-      // Extract title from filename
-      if (fileName.includes('manager')) {
-        title = 'Manager, Product Management'
-      } else if (fileName.includes('engineer')) {
-        title = 'Software Engineer'
-      } else if (fileName.includes('analyst')) {
-        title = 'Business Analyst'
-      }
-      
-      // Extract company from detected URL
-      if (extractedUrl) {
-        try {
-          const url = new URL(extractedUrl)
-          const hostname = url.hostname.toLowerCase().replace('www.', '')
-          
-          if (hostname.includes('deloitte.com')) {
-            company = 'Deloitte'
-          } else if (hostname.includes('google.com')) {
-            company = 'Google'
-          } else if (hostname.includes('greenhouse.io')) {
-            const pathParts = url.pathname.split('/').filter(p => p)
-            if (pathParts.length > 0) {
-              company = pathParts[0].charAt(0).toUpperCase() + pathParts[0].slice(1)
-            }
-          } else if (hostname.includes('linkedin.com')) {
-            company = 'LinkedIn Job Posting' // Would extract hiring company from content
-          } else if (hostname.includes('microsoft.com')) {
-            company = 'Microsoft'
-          } else {
-            company = hostname.split('.')[0] || 'Unknown Company'
-            company = company.charAt(0).toUpperCase() + company.slice(1)
-          }
-        } catch (urlError) {
-          // Invalid URL, keep default company name
-        }
-      }
-      
-      // Simulate reading PDF content (in production, use PDF.js or similar)
-      const reader = new FileReader()
-      const fileContent = await new Promise<string>((resolve) => {
-        reader.onload = (_e) => {
-          // Simulate PDF content with header/footer URL
-          resolve(`
-            ${extractedUrl ? `URL: ${extractedUrl}` : ''}
-            
-            Job Title: ${title}
-            Company: ${company}
-            
-            Position Summary:
-            We are seeking a qualified candidate for this position.
-            
-            Key Responsibilities:
-            - Lead strategic initiatives
-            - Collaborate with cross-functional teams
-            - Drive business outcomes
-            
-            Requirements:
-            - Bachelor's degree or equivalent experience
-            - Strong communication skills
-            - Team player with leadership potential
-            
-            This is a full-time position with competitive benefits.
-            
-            Footer: ${extractedUrl || 'No URL found in PDF'}
-          `)
-        }
-        reader.readAsText(file)
+      // Use the new real PDF parsing service
+      const pdfService = PDFParsingService.getInstance()
+      const pdfData = await pdfService.extractJobData(file, {
+        onProgress,
+        includeRawText: true
       })
       
-      // Try to extract actual title from filename patterns
-      const titlePatterns = [
-        /job[_\s-]?description[_\s-]?(.+?)\.pdf$/i,
-        /position[_\s-]?(.+?)\.pdf$/i,
-        /(.+?)[_\s-]?job[_\s-]?posting\.pdf$/i,
-        /(.+?)\.pdf$/i
-      ]
-      
-      for (const pattern of titlePatterns) {
-        const match = fileName.match(pattern)
-        if (match && match[1]) {
-          title = match[1].replace(/[_-]/g, ' ').trim()
-          title = title.charAt(0).toUpperCase() + title.slice(1)
-          break
-        }
-      }
+      console.log('✅ Real PDF parsing completed:', {
+        title: pdfData.title,
+        company: pdfData.company,
+        sourceUrl: pdfData.sourceUrl,
+        confidence: pdfData.confidence.overall,
+        pages: pdfData.parsingMetadata.pdfPages,
+        textLength: pdfData.parsingMetadata.textLength
+      })
       
       return {
-        title,
-        company,
-        content: fileContent,
-        sourceUrl: extractedUrl
+        title: pdfData.title,
+        company: pdfData.company,
+        content: pdfData.description,
+        sourceUrl: pdfData.sourceUrl,
+        confidence: pdfData.confidence.overall,
+        parsingMetadata: pdfData.parsingMetadata
       }
     } catch (error) {
-      console.error('PDF extraction error:', error)
-      return {
-        title: 'Position from PDF',
-        company: 'Unknown Company',
-        content: 'Could not extract content from PDF',
-        sourceUrl: undefined
+      console.error('❌ Real PDF parsing failed, falling back to filename extraction:', error)
+      
+      // Fallback: Extract basic info from filename as backup
+      return this.extractJobDataFromPDFFilename(file)
+    }
+  }
+
+  // Fallback method for when real PDF parsing fails
+  private static extractJobDataFromPDFFilename(file: File): {title: string, company: string, content: string, sourceUrl?: string} {
+    const fileName = file.name.toLowerCase()
+    
+    let title = 'Position from PDF'
+    let company = 'Unknown Company'
+    
+    // Extract title from filename patterns
+    const titlePatterns = [
+      /job[_\s-]?description[_\s-]?(.+?)\.pdf$/i,
+      /position[_\s-]?(.+?)\.pdf$/i,
+      /(.+?)[_\s-]?job[_\s-]?posting\.pdf$/i,
+      /(.+?)\.pdf$/i
+    ]
+    
+    for (const pattern of titlePatterns) {
+      const match = fileName.match(pattern)
+      if (match && match[1]) {
+        title = match[1].replace(/[_-]/g, ' ').trim()
+        title = title.charAt(0).toUpperCase() + title.slice(1)
+        break
       }
+    }
+    
+    // Basic company extraction from filename
+    if (fileName.includes('deloitte')) company = 'Deloitte'
+    else if (fileName.includes('google')) company = 'Google'
+    else if (fileName.includes('microsoft')) company = 'Microsoft'
+    else if (fileName.includes('apple')) company = 'Apple'
+    else if (fileName.includes('amazon')) company = 'Amazon'
+    
+    return {
+      title,
+      company,
+      content: `Job posting extracted from PDF filename: ${file.name}. Real PDF parsing failed, using basic filename extraction.`,
+      sourceUrl: undefined
     }
   }
 

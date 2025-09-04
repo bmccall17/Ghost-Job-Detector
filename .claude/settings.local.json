@@ -79,7 +79,9 @@
       "WebFetch(domain:www.indeed.com)",
       "WebFetch(domain:www.rezi.ai)",
       "Bash(find:*)",
-      "Bash(export DATABASE_URL=\"file:./dev.db\")"
+      "Bash(export DATABASE_URL=\"file:./dev.db\")",
+      "Bash(cd:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

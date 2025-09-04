@@ -222,20 +222,44 @@ export const JobAnalysisDashboard: React.FC = () => {
     
     setIsAnalyzing(true)
     setCurrentAnalysis(null)
+    clearLogs() // Clear any previous logs
+    setShowTerminal(true) // Show terminal when analysis starts
+    
+    // Add initial logs for PDF processing
+    addLog('info', '📄 Starting PDF analysis...')
+    addLog('info', `📋 Processing file: ${selectedPdf.name}`)
 
     try {
-      // Extract job data from PDF (including URL from header/footer)
-      const jobData = await AnalysisService.extractJobDataFromPDF(selectedPdf);
+      // Extract job data from PDF with progress callbacks
+      addLog('info', '🔍 Parsing PDF with PDF.js library...')
+      
+      const jobData = await AnalysisService.extractJobDataFromPDF(selectedPdf, (stage, progress) => {
+        // Add progress logs to terminal
+        addLog('info', `📊 ${stage} (${Math.round(progress)}%)`)
+      });
+      
+      // Enhanced logging for PDF extraction results
+      addLog('analysis', `✅ PDF parsing completed!`)
+      addLog('analysis', `📝 Extracted title: ${jobData.title}`)
+      addLog('analysis', `🏢 Extracted company: ${jobData.company}`)
+      addLog('analysis', `🔗 Found URL: ${jobData.sourceUrl || 'None detected'}`)
+      
+      if (jobData.confidence !== undefined) {
+        addLog('analysis', `📊 Extraction confidence: ${Math.round(jobData.confidence * 100)}%`)
+      }
       
       if (!jobData.sourceUrl) {
+        addLog('error', '❌ No URL detected in PDF headers/footers')
         throw new Error('Could not find URL in PDF header/footer. Please ensure the PDF was saved with headers and footers enabled.');
       }
 
       // Check if this job has already been analyzed using the extracted URL
+      addLog('info', '🔍 Checking for existing analysis...')
       const existingAnalysis = findExistingAnalysis(jobData.sourceUrl)
       
       if (existingAnalysis) {
         // Job already analyzed - show existing results
+        addLog('info', '📁 Found existing analysis - showing cached results')
         setCurrentAnalysis(existingAnalysis)
         addToHistory(existingAnalysis) // This will move it to top without marking as new
         triggerHistoryRefresh() // Refresh database history in History tab
@@ -246,6 +270,7 @@ export const JobAnalysisDashboard: React.FC = () => {
       }
 
       // New job - run analysis using extracted URL and data
+      addLog('analysis', '🤖 Running ghost job analysis...')
       const result = await AnalysisService.analyzeJob(jobData.sourceUrl, {
         title: jobData.title,
         company: jobData.company,
