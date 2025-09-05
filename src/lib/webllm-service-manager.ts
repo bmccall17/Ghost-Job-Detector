@@ -5,16 +5,20 @@
 import { WebLLMManager, validateWebGPUSupport } from '@/lib/webllm';
 import { getOptimalModel } from '@/lib/webllm-models';
 import { 
-  generateJobParsingPrompt, 
-  createJobParsingMessages,
   JobParsingContext 
 } from '@/lib/webllm-prompts';
+import { 
+  generateFewShotMessages,
+  validateExtractionResult
+} from '@/lib/webllm-few-shot-prompts';
 import { 
   jobParsingCache,
   generateJobParsingCacheKey,
   generateContentHash,
   CacheMetrics
 } from '@/lib/webllm-cache';
+import { WebLLMHealthMonitor } from '@/lib/webllm-health-monitor';
+import { WebLLMProductionMonitor } from '@/lib/webllm-production-monitor';
 
 // Circuit breaker states
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
@@ -75,6 +79,8 @@ export class WebLLMServiceManager {
   private manager: WebLLMManager | null = null;
   private isInitializing = false;
   private initializationPromise: Promise<void> | null = null;
+  private healthMonitor: WebLLMHealthMonitor;
+  private productionMonitor: WebLLMProductionMonitor;
   
   // Circuit breaker implementation
   private circuitBreaker: CircuitBreakerMetrics = {
@@ -105,7 +111,10 @@ export class WebLLMServiceManager {
     loadTime: number;
   } | null = null;
 
-  private constructor() {}
+  private constructor() {
+    this.healthMonitor = WebLLMHealthMonitor.getInstance();
+    this.productionMonitor = WebLLMProductionMonitor.getInstance();
+  }
 
   public static getInstance(): WebLLMServiceManager {
     if (!WebLLMServiceManager.instance) {
@@ -236,9 +245,8 @@ export class WebLLMServiceManager {
         circuitState: this.circuitBreaker.state
       });
 
-      // Generate optimized prompt
-      const prompt = generateJobParsingPrompt(context);
-      const messages = createJobParsingMessages(prompt, htmlContent);
+      // Generate few-shot learning messages with platform-specific examples
+      const messages = generateFewShotMessages(context.platform || 'generic', htmlContent);
 
       // Execute with retry logic built into WebLLM manager
       const response = await this.manager.generateCompletion(messages, {
@@ -247,11 +255,25 @@ export class WebLLMServiceManager {
         retries: 2
       });
 
-      // Parse and validate response
+      // Parse and validate response with platform-specific validation
       const result = this.parseJobParsingResponse(response, startTime);
+      
+      // Additional platform-specific validation
+      const validation = validateExtractionResult(result, context.platform || 'generic');
+      if (!validation.isValid && validation.issues.length > 0) {
+        console.warn('📋 Extraction validation issues:', validation.issues);
+      }
 
-      // Record success
-      this.recordSuccess(performance.now() - startTime);
+      // Record success in all monitoring systems
+      const processingTime = performance.now() - startTime;
+      this.recordSuccess(processingTime);
+      this.healthMonitor.recordSuccess(
+        processingTime,
+        result.confidence.overall,
+        context.platform,
+        context.url
+      );
+      this.productionMonitor.recordSuccess(processingTime, result.confidence.overall);
 
       // Cache successful result
       const cacheEntryTTL = this.calculateCacheTTL(result.confidence.overall, context.platform);
@@ -269,7 +291,21 @@ export class WebLLMServiceManager {
 
     } catch (error) {
       const processingTime = performance.now() - startTime;
+      
+      // Record failure in all monitoring systems
       this.recordFailure();
+      this.healthMonitor.recordFailure(
+        processingTime,
+        String(error),
+        this.categorizeError(String(error)),
+        context.platform,
+        context.url
+      );
+      this.productionMonitor.recordFailure(
+        processingTime,
+        String(error),
+        this.categorizeError(String(error)) === 'circuit_breaker' ? 'critical' : 'medium'
+      );
       
       console.error('❌ Job parsing failed:', error, {
         processingTime: Math.round(processingTime) + 'ms',
@@ -401,6 +437,22 @@ export class WebLLMServiceManager {
       lastFailureTime: 0,
       state: 'CLOSED'
     };
+  }
+
+  /**
+   * Categorize error for health monitoring
+   */
+  private categorizeError(error: string): string {
+    const errorLower = error.toLowerCase();
+    
+    if (errorLower.includes('webgpu') || errorLower.includes('gpu')) return 'webgpu';
+    if (errorLower.includes('model') || errorLower.includes('loading')) return 'model_load';
+    if (errorLower.includes('timeout') || errorLower.includes('time')) return 'timeout';
+    if (errorLower.includes('network') || errorLower.includes('fetch')) return 'network';
+    if (errorLower.includes('parse') || errorLower.includes('json')) return 'parsing';
+    if (errorLower.includes('circuit') || errorLower.includes('unavailable')) return 'circuit_breaker';
+    
+    return 'unknown';
   }
 
   /**
