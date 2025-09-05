@@ -1,6 +1,7 @@
 /**
  * WebLLM-powered Job Field Validator Agent
  * Validates and improves parsing results using local AI
+ * Enhanced with reliable model selection and error handling
  */
 import { WebLLMManager } from '@/lib/webllm';
 

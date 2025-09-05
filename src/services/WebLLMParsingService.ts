@@ -1,9 +1,15 @@
 /**
  * WebLLM-Powered Job Parsing Service
  * Implements automated URL scraping and intelligent job data extraction
- * Following Implementation Guide specifications
+ * Enhanced with optimized prompts and reliability improvements
  */
 import { WebLLMManager } from '@/lib/webllm';
+import { 
+  generateJobParsingPrompt, 
+  generateContextAwarePrompt,
+  createJobParsingMessages,
+  JobParsingContext 
+} from '@/lib/webllm-prompts';
 import DOMPurify from 'isomorphic-dompurify';
 
 // Type definitions for extracted job data
@@ -47,6 +53,7 @@ export class WebLLMParsingService {
   private webllmManager: WebLLMManager;
   private rateLimitDelay = 1000; // 1 second between requests to same domain  
   private lastRequestTimes: Map<string, number> = new Map();
+  private parsingAttempts: Map<string, Array<{error: string; extractedData?: any}>> = new Map();
 
   constructor() {
     this.webllmManager = WebLLMManager.getInstance();
@@ -287,82 +294,167 @@ export class WebLLMParsingService {
    * Use WebLLM to parse job information from extracted content
    */
   private async parseWithWebLLM(url: string, content: ContentExtractionResult): Promise<ExtractedJobData> {
+    const urlKey = new URL(url).hostname;
+    const maxAttempts = 3;
+    let lastError: any;
+
     try {
-      // Initialize WebLLM
+      // Initialize WebLLM with optimal model selection
       await this.webllmManager.initWebLLM();
 
-      // Create specialized prompt for job parsing
-      const systemPrompt = this.createParsingPrompt();
-      const userPrompt = this.createUserPrompt(url, content);
-
-      // Generate parsing result
-      const response = await this.webllmManager.generateCompletion([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ], {
-        temperature: 0.1, // Low temperature for consistency
-        max_tokens: 800    // Enough tokens for detailed extraction
-      });
-
-      console.log('🤖 WebLLM parsing response received');
-
-      // Parse the JSON response
-      const parsedData = this.parseWebLLMResponse(response, url);
+      // Create parsing context
+      const domain = new URL(url).hostname;
+      const platform = this.detectPlatform(domain);
       
-      return parsedData;
+      const context: JobParsingContext = {
+        url,
+        domain,
+        platform,
+        htmlContent: content.htmlContent,
+        contentLength: content.textContent.length
+      };
+
+      // Get previous attempts for this URL
+      const previousAttempts = this.parsingAttempts.get(urlKey) || [];
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`🤖 WebLLM parsing attempt ${attempt}/${maxAttempts} for ${domain}`);
+
+          // Generate context-aware prompt
+          const prompt = attempt === 1 
+            ? generateJobParsingPrompt(context)
+            : generateContextAwarePrompt(context, previousAttempts);
+
+          // Create optimized messages
+          const messages = createJobParsingMessages(prompt, this.prepareContentForParsing(content));
+
+          // Generate parsing result with enhanced retry logic
+          const response = await this.webllmManager.generateCompletion(messages, {
+            temperature: 0.2, // Slightly higher for better variety
+            max_tokens: 1024,  // More tokens for detailed responses
+            retries: 2        // Retry inference failures
+          });
+
+          console.log('🤖 WebLLM parsing response received', {
+            responseLength: response.length,
+            attempt
+          });
+
+          // Parse and validate the JSON response
+          const parsedData = this.parseWebLLMResponse(response, url);
+          
+          // Validate parsed data quality
+          const validation = await this.validateContent(parsedData);
+          
+          if (validation.confidence > 0.5) {
+            console.log(`✅ WebLLM parsing successful on attempt ${attempt}`, {
+              confidence: Math.round(validation.confidence * 100) + '%',
+              platform,
+              fields: Object.keys(parsedData).filter(k => parsedData[k as keyof ExtractedJobData] !== null).length
+            });
+
+            // Clear previous attempts on success
+            this.parsingAttempts.delete(urlKey);
+            return parsedData;
+          } else {
+            throw new Error(`Low confidence parsing result: ${validation.confidence.toFixed(2)} (${validation.issues.join(', ')})`);
+          }
+
+        } catch (error) {
+          lastError = error;
+          console.warn(`❌ WebLLM parsing attempt ${attempt} failed:`, error);
+
+          // Store attempt for context-aware retries
+          if (!this.parsingAttempts.has(urlKey)) {
+            this.parsingAttempts.set(urlKey, []);
+          }
+          this.parsingAttempts.get(urlKey)!.push({
+            error: String(error),
+            extractedData: undefined
+          });
+
+          // Don't retry on final attempt
+          if (attempt === maxAttempts) {
+            break;
+          }
+
+          // Exponential backoff
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`⏳ Retrying WebLLM parsing in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+
+      throw lastError;
 
     } catch (error) {
-      console.error('WebLLM parsing failed:', error);
+      console.error('All WebLLM parsing attempts failed:', error);
       throw new Error(`WebLLM parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Create system prompt for WebLLM job parsing
+   * Detect job platform from domain
    */
-  private createParsingPrompt(): string {
-    return `You are a professional job posting parser that extracts structured information from web content.
-
-TASK: Extract job posting information from the provided HTML content and metadata.
-
-EXTRACTION RULES:
-1. Be precise and extract only information that is clearly present
-2. Do not infer or guess information that isn't explicitly stated
-3. For dates, use ISO format (YYYY-MM-DD) when possible
-4. For salary, extract the full range or amount as displayed
-5. For job type, use standard terms: "Full-time", "Part-time", "Contract", "Internship", "Remote"
-
-OUTPUT FORMAT: Return ONLY valid JSON with this exact structure:
-{
-  "title": "exact job title or null",
-  "company": "exact company name or null", 
-  "location": "location as stated or null",
-  "description": "first 500 chars of description or null",
-  "salary": "salary range/amount as stated or null",
-  "jobType": "employment type or null",
-  "postedAt": "posting date in YYYY-MM-DD format or null",
-  "jobId": "job/posting ID if visible or null",
-  "contactDetails": "contact info if present or null"
-}
-
-IMPORTANT: 
-- Return null for any field that cannot be clearly determined
-- Ensure all text is properly escaped for JSON
-- Do not include any text outside the JSON structure`;
+  private detectPlatform(domain: string): string {
+    const lowerDomain = domain.toLowerCase();
+    
+    if (lowerDomain.includes('linkedin')) return 'linkedin';
+    if (lowerDomain.includes('workday')) return 'workday';
+    if (lowerDomain.includes('greenhouse')) return 'greenhouse';
+    if (lowerDomain.includes('lever')) return 'lever';
+    if (lowerDomain.includes('indeed')) return 'indeed';
+    if (lowerDomain.includes('glassdoor')) return 'glassdoor';
+    if (lowerDomain.includes('monster')) return 'monster';
+    
+    return 'generic';
   }
 
   /**
-   * Create user prompt with content data
+   * Prepare content for optimized parsing
    */
-  private createUserPrompt(url: string, content: ContentExtractionResult): string {
-    return JSON.stringify({
-      url: url,
-      pageTitle: content.metadata.title,
-      pageDescription: content.metadata.description,
-      platform: content.metadata.platform,
-      textContent: content.textContent.slice(0, 4000) // Limit content size
-    });
+  private prepareContentForParsing(content: ContentExtractionResult): string {
+    // Limit content size while preserving important sections
+    let htmlContent = content.htmlContent;
+    
+    // If content is too large, prioritize job-relevant sections
+    if (htmlContent.length > 8000) {
+      const importantSections = this.extractImportantSections(htmlContent);
+      htmlContent = importantSections.join('\n');
+      
+      // If still too large, truncate intelligently
+      if (htmlContent.length > 8000) {
+        htmlContent = htmlContent.substring(0, 8000) + '\n[Content truncated for processing]';
+      }
+    }
+
+    return htmlContent;
   }
+
+  /**
+   * Extract important HTML sections for job parsing
+   */
+  private extractImportantSections(htmlContent: string): string[] {
+    const sections: string[] = [];
+    
+    // Patterns for job-relevant content
+    const patterns = [
+      /<h[1-3][^>]*>.*?<\/h[1-3]>/gi,  // Headers
+      /<div[^>]*class="[^"]*job[^"]*"[^>]*>.*?<\/div>/gi, // Job-related divs
+      /<section[^>]*>.*?<\/section>/gi, // Sections
+      /<article[^>]*>.*?<\/article>/gi, // Articles
+      /<main[^>]*>.*?<\/main>/gi,      // Main content
+    ];
+
+    patterns.forEach(pattern => {
+      const matches = htmlContent.match(pattern) || [];
+      sections.push(...matches.slice(0, 3)); // Limit matches per pattern
+    });
+
+    return sections.length > 0 ? sections : [htmlContent.substring(0, 4000)];
+  }
+
 
   /**
    * Parse WebLLM response into structured job data
@@ -444,18 +536,6 @@ IMPORTANT:
     this.lastRequestTimes.set(domain, Date.now());
   }
 
-  private detectPlatform(url: string): string {
-    const hostname = url.toLowerCase();
-    if (hostname.includes('linkedin.com')) return 'LinkedIn';
-    if (hostname.includes('indeed.com')) return 'Indeed';
-    if (hostname.includes('glassdoor.com')) return 'Glassdoor';
-    if (hostname.includes('monster.com')) return 'Monster';
-    if (hostname.includes('ziprecruiter.com')) return 'ZipRecruiter';
-    if (hostname.includes('greenhouse.io')) return 'Greenhouse';
-    if (hostname.includes('lever.co')) return 'Lever';
-    if (hostname.includes('careers.') || hostname.includes('jobs.')) return 'Company Career Site';
-    return 'Other';
-  }
 
   private getFieldConfidence(value: string, fieldType: string): number {
     if (!value || value.trim().length === 0) return 0;
