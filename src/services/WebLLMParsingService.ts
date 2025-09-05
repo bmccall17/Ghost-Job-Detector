@@ -4,6 +4,7 @@
  * Enhanced with optimized prompts and reliability improvements
  */
 import { WebLLMManager } from '@/lib/webllm';
+import { WebLLMServiceManager } from '@/lib/webllm-service-manager';
 import { 
   generateJobParsingPrompt, 
   generateContextAwarePrompt,
@@ -51,12 +52,14 @@ export interface ContentExtractionResult {
 
 export class WebLLMParsingService {
   private webllmManager: WebLLMManager;
+  private serviceManager: WebLLMServiceManager;
   private rateLimitDelay = 1000; // 1 second between requests to same domain  
   private lastRequestTimes: Map<string, number> = new Map();
   private parsingAttempts: Map<string, Array<{error: string; extractedData?: any}>> = new Map();
 
   constructor() {
     this.webllmManager = WebLLMManager.getInstance();
+    this.serviceManager = WebLLMServiceManager.getInstance();
   }
 
   /**
@@ -84,8 +87,8 @@ export class WebLLMParsingService {
       // Extract content from URL
       const contentResult = await this.extractContent(url);
       
-      // Use WebLLM to parse job data
-      const extractedData = await this.parseWithWebLLM(url, contentResult);
+      // Use centralized WebLLM service for parsing (Phase 2)
+      const extractedData = await this.parseWithCentralizedService(url, contentResult);
       
       // Calculate confidence score
       const confidence = this.calculateConfidence(extractedData);
@@ -291,7 +294,58 @@ export class WebLLMParsingService {
   }
 
   /**
-   * Use WebLLM to parse job information from extracted content
+   * Parse job data using centralized WebLLM service with circuit breaker protection
+   */
+  private async parseWithCentralizedService(url: string, content: ContentExtractionResult): Promise<ExtractedJobData> {
+    try {
+      // Create parsing context
+      const domain = new URL(url).hostname;
+      const platform = this.detectPlatform(domain);
+      
+      const context: JobParsingContext = {
+        url,
+        domain,
+        platform,
+        htmlContent: content.htmlContent,
+        contentLength: content.textContent.length
+      };
+
+      console.log('🎯 Using centralized WebLLM service for parsing', {
+        platform,
+        domain,
+        contentLength: content.textContent.length
+      });
+
+      // Use centralized service with circuit breaker protection
+      const result = await this.serviceManager.parseJobData(
+        this.prepareContentForParsing(content),
+        context
+      );
+
+      // Convert centralized result to ExtractedJobData format
+      return {
+        title: result.title,
+        company: result.company,
+        location: result.location,
+        description: content.textContent.substring(0, 500) || null, // Basic description extraction
+        salary: null, // TODO: Add salary extraction to centralized service
+        jobType: result.remote ? 'Remote' : null,
+        postedAt: null, // TODO: Add date extraction
+        jobId: null, // TODO: Add job ID extraction
+        contactDetails: null, // TODO: Add contact extraction
+        originalSource: url
+      };
+
+    } catch (error) {
+      console.error('Centralized WebLLM service failed, falling back to direct parsing:', error);
+      
+      // Fallback to direct WebLLM parsing if centralized service fails
+      return this.parseWithWebLLM(url, content);
+    }
+  }
+
+  /**
+   * Fallback: Use WebLLM directly for parsing (legacy method)
    */
   private async parseWithWebLLM(url: string, content: ContentExtractionResult): Promise<ExtractedJobData> {
     const urlKey = new URL(url).hostname;

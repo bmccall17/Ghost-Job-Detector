@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Activity, CheckCircle, Clock, Cpu, AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react'
+import { Activity, CheckCircle, Clock, Cpu, AlertTriangle, RefreshCw, TrendingUp, Shield, Zap } from 'lucide-react'
+import { WebLLMServiceManager, WebLLMHealthStatus } from '@/lib/webllm-service-manager'
 
 interface WebLLMHealthMetrics {
   totalAttempts: number
@@ -18,6 +19,9 @@ interface WebLLMHealthMetrics {
     errorMessage: string
     sourceUrl: string
   }>
+  // Phase 2: Enhanced metrics
+  circuitState?: 'CLOSED' | 'OPEN' | 'HALF_OPEN'
+  serviceHealth?: WebLLMHealthStatus
 }
 
 interface MetricCardProps {
@@ -145,10 +149,23 @@ export const WebLLMHealthDashboard: React.FC = () => {
 
   const fetchMetrics = async () => {
     try {
+      setIsLoading(true)
+      
+      // Fetch database metrics
       const response = await fetch(`/api/webllm-health?range=${timeRange}`)
       if (!response.ok) throw new Error('Failed to fetch metrics')
       const data = await response.json()
-      setMetrics(data)
+      
+      // Get real-time service health from centralized manager
+      const serviceManager = WebLLMServiceManager.getInstance()
+      const serviceHealth = serviceManager.getHealthStatus()
+      
+      // Combine metrics
+      setMetrics({
+        ...data,
+        serviceHealth,
+        circuitState: serviceHealth.circuitState
+      })
       setLastUpdated(new Date())
     } catch (error) {
       console.error('Failed to fetch WebLLM health metrics:', error)
@@ -254,6 +271,77 @@ export const WebLLMHealthDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Phase 2: Circuit Breaker Status */}
+      {metrics?.circuitState && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+              <Shield className="w-6 h-6 mr-2 text-blue-500" />
+              Circuit Breaker Status
+            </h2>
+            <div className="flex items-center space-x-2">
+              {metrics.circuitState === 'CLOSED' && (
+                <div className="flex items-center space-x-2 text-green-600">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="font-medium">CLOSED</span>
+                </div>
+              )}
+              {metrics.circuitState === 'OPEN' && (
+                <div className="flex items-center space-x-2 text-red-600">
+                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium">OPEN</span>
+                </div>
+              )}
+              {metrics.circuitState === 'HALF_OPEN' && (
+                <div className="flex items-center space-x-2 text-yellow-600">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium">HALF-OPEN</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {metrics.serviceHealth?.metrics.totalRequests || 0}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total Requests</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {metrics.serviceHealth?.metrics.successfulRequests || 0}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Successful</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {metrics.serviceHealth?.metrics.failedRequests || 0}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Failed</div>
+            </div>
+          </div>
+
+          {metrics.circuitState === 'OPEN' && (
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <div className="flex items-center text-red-800 dark:text-red-200 text-sm">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Circuit breaker is open. Service requests are blocked to prevent cascade failures.
+              </div>
+            </div>
+          )}
+          
+          {metrics.circuitState === 'HALF_OPEN' && (
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="flex items-center text-yellow-800 dark:text-yellow-200 text-sm">
+                <Zap className="w-4 h-4 mr-2" />
+                Circuit breaker is testing service recovery. Limited requests allowed.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
