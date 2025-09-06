@@ -120,7 +120,7 @@ function AppContent() {
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <p>&copy; 2025 Ghost Job Detector. Detecting fake job postings with 95%+ accuracy.</p>
             <div className="flex items-center space-x-4">
-              <span>Model Version: v0.1.8</span>
+              <span>Model Version: v0.3.1</span>
               <span>•</span>
               <span>Last Updated: {new Date().toLocaleDateString()}</span>
             </div>
