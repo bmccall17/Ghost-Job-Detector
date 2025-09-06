@@ -56,6 +56,9 @@ const MetadataIntegration: React.FC<MetadataIntegrationProps> = ({
       if (analysisResult.location) {
         onWebLLMUpdate('location', analysisResult.location, 0.9);
       }
+      if (analysisResult.description) {
+        onWebLLMUpdate('description', analysisResult.description, 0.9);
+      }
       
       onAnalysisComplete();
     }

@@ -164,6 +164,10 @@ export interface JobAnalysis {
 export interface AnalysisResult {
   id: string
   url?: string
+  title?: string        // Direct access properties for metadata display
+  company?: string      // Direct access properties for metadata display  
+  location?: string     // Direct access properties for metadata display
+  description?: string  // Direct access properties for metadata display
   jobData?: {
     title: string
     company: string
