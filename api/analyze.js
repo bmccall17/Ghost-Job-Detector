@@ -332,6 +332,7 @@ export default async function handler(req, res) {
                 title: jobData.title,
                 company: jobData.company,
                 location: jobData.location,
+                description: jobData.description, // Store job description for analysis
                 remoteFlag: jobData.remoteFlag,
                 postedAt: jobData.postedAt ? new Date(jobData.postedAt) : null,
                 canonicalUrl: url,

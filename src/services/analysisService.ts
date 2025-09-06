@@ -12,7 +12,7 @@ export class AnalysisService {
         jobData = {
           title: extracted.title,
           company: extracted.company,
-          description: '', // We don't have description from basic extraction
+          description: extracted.description || '', // Use extracted description if available
           location: extracted.location,
           remoteFlag: extracted.remoteFlag,
           postedAt: extracted.postedAt

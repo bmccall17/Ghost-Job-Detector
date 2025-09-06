@@ -18,7 +18,10 @@ import { useMetadataStore } from '@/features/metadata/stores/metadataStore'
 import { useAnalysisIntegration } from '@/features/metadata/hooks/useMetadataUpdates'
 
 const urlAnalysisSchema = z.object({
-  jobUrl: z.string().url('Please enter a valid job URL')
+  jobUrl: z.string().url('Please enter a valid job URL'),
+  title: z.string().optional(),
+  company: z.string().optional(), 
+  description: z.string().optional()
 })
 
 const pdfAnalysisSchema = z.object({
@@ -134,9 +137,9 @@ export const JobAnalysisDashboard: React.FC = () => {
       // Call the REAL API for analysis and database storage
       console.log('🚀 Calling real analysis API...');
       const result = await AnalysisService.analyzeJob(data.jobUrl, {
-        title: jobData.title,
-        company: jobData.company,
-        description: '',
+        title: data.title || jobData.title, // Use form data if provided, fallback to parsed data
+        company: data.company || jobData.company, // Use form data if provided, fallback to parsed data
+        description: data.description || jobData.description || '', // Use form data first, then parsed data
         location: jobData.location,
         remoteFlag: jobData.remoteFlag,
         postedAt: jobData.postedAt
@@ -667,6 +670,51 @@ export const JobAnalysisDashboard: React.FC = () => {
               {urlForm.formState.errors.jobUrl && (
                 <p className="mt-1 text-sm text-red-600">{urlForm.formState.errors.jobUrl.message}</p>
               )}
+            </div>
+
+            {/* Optional Manual Fields for Better Analysis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Job Title <span className="text-gray-400">(Optional)</span>
+                </label>
+                <input
+                  {...urlForm.register('title')}
+                  type="text"
+                  id="title"
+                  placeholder="e.g., Senior Software Engineer"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="company" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Company Name <span className="text-gray-400">(Optional)</span>
+                </label>
+                <input
+                  {...urlForm.register('company')}
+                  type="text"
+                  id="company"
+                  placeholder="e.g., Microsoft"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Job Description <span className="text-gray-400">(Optional - helps improve accuracy)</span>
+              </label>
+              <textarea
+                {...urlForm.register('description')}
+                id="description"
+                rows={4}
+                placeholder="Paste the job description here if parsing fails to extract it automatically..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Adding job description significantly improves ghost job detection accuracy
+              </p>
             </div>
 
             <button

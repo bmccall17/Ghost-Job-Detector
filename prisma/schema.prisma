@@ -58,6 +58,7 @@ model JobListing {
   title             String
   company           String
   location          String?
+  description       String?  // Job description content for analysis
   remoteFlag        Boolean  @default(false)
   postedAt          DateTime?
   canonicalUrl      String?  // Canonical job URL
