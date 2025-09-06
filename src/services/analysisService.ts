@@ -323,7 +323,7 @@ export class AnalysisService {
     return response.blob()
   }
 
-  static async extractJobData(jobUrl: string): Promise<{title: string, company: string, location?: string, remoteFlag?: boolean, postedAt?: Date, parsingMetadata?: any}> {
+  static async extractJobData(jobUrl: string): Promise<{title: string, company: string, description?: string, location?: string, remoteFlag?: boolean, postedAt?: Date, parsingMetadata?: any}> {
     try {
       // Use the new parser registry system
       const parserRegistry = ParserRegistry.getInstance()
@@ -332,6 +332,7 @@ export class AnalysisService {
       return {
         title: parsedJob.title,
         company: parsedJob.company,
+        description: parsedJob.description,
         location: parsedJob.location,
         remoteFlag: parsedJob.remoteFlag,
         postedAt: parsedJob.postedAt,
@@ -354,6 +355,7 @@ export class AnalysisService {
         return {
           title: legacyResult.title,
           company: legacyResult.company,
+          description: undefined,
           location: undefined,
           remoteFlag: false,
           postedAt: undefined,
