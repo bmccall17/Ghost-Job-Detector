@@ -113,7 +113,7 @@ graph TD
 - **Model Loading**: <10 seconds on WebGPU-enabled browsers
 - **Extraction Time**: <2 seconds per job URL
 - **Database Writes**: 100% success rate in production testing
-- **Function Efficiency**: 11/12 Vercel functions (optimized)
+- **Function Efficiency**: 10/12 Vercel functions (optimized)
 
 ---
 

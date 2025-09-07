@@ -93,7 +93,7 @@ export class WebLLMManager {
           console.log('🎯 Selected optimal model:', selectedModel);
         } catch (modelError) {
           console.warn('⚠️ Failed to get optimal model, using fallback:', modelError);
-          selectedModel = "Llama-2-7b-chat-hf-q4f16_1"; // Safe fallback
+          selectedModel = "Phi-3-mini-4k-instruct-q4f16_1"; // Modern lightweight fallback
         }
       }
 

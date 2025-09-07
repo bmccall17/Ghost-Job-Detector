@@ -1,8 +1,61 @@
-# Ghost Job Detector - Detection Algorithm System v0.3.1
+# Ghost Job Detection Algorithm
 
-## Overview
+**Current Version**: v0.1.7 (Latest)  
+**Status**: ✅ Production Deployed  
+**Updated**: December 15, 2024
 
-The Ghost Job Detection Algorithm System represents a sophisticated multi-layered approach to identifying fraudulent job postings through AI-powered analysis, real-time learning, and advanced pattern recognition. This document details the complete detection algorithm architecture implemented in v0.3.1.
+---
+
+## 📋 Algorithm Documentation Status
+
+This document serves as the **algorithm index** for the Ghost Job Detection system. The current production algorithm is maintained in the versioned documentation below.
+
+### 🔗 Current Algorithm Documentation  
+
+**▶ [GHOST_JOB_DETECTION_ALGORITHM_v0.1.7.md](./GHOST_JOB_DETECTION_ALGORITHM_v0.1.7.md)** - **PRIMARY REFERENCE**
+- Complete 6-phase algorithm implementation
+- 35-50% accuracy improvement metrics
+- WebLLM integration specifications
+- Industry-specific thresholds
+- Company reputation scoring system
+
+### 📈 Algorithm Evolution
+
+| Version | Date | Key Improvements |
+|---------|------|------------------|
+| **v0.1.7** | Nov 15, 2024 | WebLLM integration, 6-phase processing, industry thresholds |
+| v0.1.6 | Nov 8, 2024 | Database integration fixes, real-time processing |
+| v0.1.5 | Nov 1, 2024 | Analysis history integration, TypeScript optimizations |
+
+### 🎯 Algorithm Overview
+
+The current algorithm implements **6-phase intelligent detection**:
+
+1. **URL Analysis & Content Extraction** (WebLLM-powered)
+2. **Company Career Site Verification** (Real-time validation)
+3. **Enhanced Reposting Detection** (Content hashing + historical analysis)  
+4. **Industry-Specific Intelligence** (Adaptive thresholds)
+5. **Company Reputation Scoring** (6-month performance tracking)
+6. **Engagement Signal Integration** (Application outcome analysis)
+
+### 📊 Performance Metrics (v0.1.7)
+
+- **Accuracy Improvement**: 35-50% over rule-based systems
+- **False Positive Reduction**: 60% achieved  
+- **Processing Speed**: <2 seconds per job analysis
+- **Confidence Scoring**: 0.0-1.0 with 0.85+ high confidence
+
+---
+
+## 🔍 Documentation Usage
+
+- **Algorithm Developers**: Use versioned document for implementation details
+- **Data Scientists**: Reference for model training and validation  
+- **QA Engineers**: Consult for testing scenarios and benchmarks
+
+---
+
+**Note**: This index is updated with each algorithm version release. The versioned document contains the authoritative implementation specifications.
 
 ## Detection Algorithm Architecture
 

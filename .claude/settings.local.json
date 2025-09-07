@@ -85,7 +85,9 @@
       "Bash(cd:*)",
       "Bash(cd:*)",
       "Bash(cd:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "WebSearch",
+      "WebFetch(domain:webllm.mlc.ai)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

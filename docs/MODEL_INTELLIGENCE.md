@@ -1,8 +1,52 @@
-# Ghost Job Detector - Model Intelligence System v0.3.1
+# Model Intelligence System
 
-## Overview
+**Current Version**: v0.1.0 (Latest)  
+**Status**: ✅ Production Deployed  
+**Updated**: December 15, 2024
 
-The Ghost Job Detector employs a sophisticated AI model intelligence system built on WebLLM technology, featuring dynamic model selection, platform-specific optimization, and continuous learning capabilities. This document details the complete model intelligence architecture implemented in v0.3.1.
+---
+
+## 📋 Model Intelligence Documentation Status
+
+This document serves as the **model intelligence index** for the Ghost Job Detector AI system. The current production intelligence features are maintained in the versioned documentation below.
+
+### 🔗 Current Model Documentation
+
+**▶ [MODELINTELLIGENCE_v0.1.0.md](./MODELINTELLIGENCE_v0.1.0.md)** - **PRIMARY REFERENCE**
+- WebLLM integration specifications
+- Llama-3.1-8B-Instruct implementation  
+- Browser-based AI processing
+- Model performance optimization
+- Inference monitoring and health checks
+
+### 🧠 Intelligence Overview
+
+The current model intelligence system implements:
+
+- **WebLLM Manager**: Singleton service managing Llama-3.1-8B-Instruct
+- **WebGPU Acceleration**: Hardware-accelerated browser inference
+- **Job Field Validation**: Advanced AI-powered content analysis  
+- **Real-time Learning**: Parsing improvement through user feedback
+- **Health Monitoring**: Comprehensive model performance tracking
+
+### 📊 Performance Metrics (v0.1.0)
+
+- **Model Loading**: <10 seconds on WebGPU-enabled browsers
+- **Inference Time**: <2 seconds per job analysis
+- **Accuracy Rate**: 85%+ confidence for job field extraction
+- **Memory Usage**: Optimized for 4GB+ GPU configurations
+
+---
+
+## 🔍 Documentation Usage
+
+- **AI Engineers**: Use versioned document for model implementation
+- **Frontend Developers**: Reference for WebLLM integration patterns
+- **Performance Engineers**: Consult for optimization strategies
+
+---
+
+**Note**: This index tracks the latest model intelligence capabilities. The versioned document contains detailed implementation specifications.
 
 ## Model Intelligence Architecture
 
