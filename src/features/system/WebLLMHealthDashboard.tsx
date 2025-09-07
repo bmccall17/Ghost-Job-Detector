@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Activity, CheckCircle, Clock, Cpu, AlertTriangle, RefreshCw, TrendingUp, Shield, Zap } from 'lucide-react'
 import { WebLLMServiceManager, WebLLMHealthStatus } from '@/lib/webllm-service-manager'
+import { getSelectedModelInfo } from '@/lib/webllm-models'
 
 interface WebLLMHealthMetrics {
   totalAttempts: number
@@ -146,6 +147,7 @@ export const WebLLMHealthDashboard: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('24h')
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [selectedModel, setSelectedModel] = useState<string>('Loading...')
 
   const fetchMetrics = async () => {
     try {
@@ -159,6 +161,14 @@ export const WebLLMHealthDashboard: React.FC = () => {
       // Get real-time service health from centralized manager
       const serviceManager = WebLLMServiceManager.getInstance()
       const serviceHealth = serviceManager.getHealthStatus()
+      
+      // Get currently selected model info
+      const modelInfo = getSelectedModelInfo()
+      if (modelInfo) {
+        setSelectedModel(modelInfo.name)
+      } else {
+        setSelectedModel('Llama-3.1-8B-Instruct') // Default display name
+      }
       
       // Combine metrics
       setMetrics({
@@ -226,7 +236,7 @@ export const WebLLMHealthDashboard: React.FC = () => {
     },
     {
       title: "WebLLM Model",
-      value: "Llama-2-7b",
+      value: selectedModel,
       icon: <Cpu className="w-8 h-8 text-purple-500" />,
       color: "text-purple-600",
       target: metrics?.modelStatus ? `Status: ${metrics.modelStatus}` : undefined
