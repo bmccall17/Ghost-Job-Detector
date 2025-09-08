@@ -89,7 +89,8 @@
       "WebSearch",
       "WebFetch(domain:webllm.mlc.ai)",
       "Bash(npx tsc:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(powershell.exe:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

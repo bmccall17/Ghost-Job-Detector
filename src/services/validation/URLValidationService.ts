@@ -55,6 +55,22 @@ export class URLValidationService {
       const analysis = httpValidation.analysis!;
       const jobIndicators = this.analyzeJobIndicators(analysis);
       
+      // Check if URL appears to be a non-job posting and block if so
+      if (!jobIndicators.hasJobIndicators) {
+        const highImpactWarnings = jobIndicators.warnings.filter(w => w.impact === 'high');
+        if (highImpactWarnings.length > 0) {
+          return this.createErrorResult(analysis.url, [{
+            code: ValidationErrorCode.URL_NOT_JOB_POSTING,
+            message: `URL does not appear to be a job posting: ${highImpactWarnings[0].message}`,
+            severity: 'blocking',
+            category: 'url',
+            userMessage: 'This URL does not appear to link to a specific job posting.',
+            suggestion: 'Please provide a direct link to a job posting rather than a company homepage or general career page.',
+            retryable: false
+          }], startTime, analysis);
+        }
+      }
+      
       const result: URLValidationResult = {
         isValid: true,
         confidence: this.calculateURLConfidence(analysis, jobIndicators),
@@ -278,41 +294,75 @@ export class URLValidationService {
   }
 
   /**
-   * Analyze job-related indicators in URL and response
+   * Analyze job-related indicators in URL and response with enhanced detection
    */
   private analyzeJobIndicators(analysis: URLAnalysis): { hasJobIndicators: boolean; warnings: any[] } {
     const warnings: any[] = [];
     let jobIndicatorScore = 0;
-
-    // URL path analysis
     const urlPath = new URL(analysis.url).pathname.toLowerCase();
+    const urlParams = new URL(analysis.url).searchParams;
+    const domain = analysis.domain.toLowerCase();
+
+    // Enhanced URL pattern analysis
+    const jobPathPatterns = [
+      /\/jobs?\/\d+/,                    // /job/123, /jobs/456
+      /\/jobs?\/view/,                   // /jobs/view/
+      /\/jobs?\/apply/,                  // /jobs/apply/
+      /\/careers?\/\d+/,                 // /career/123
+      /\/positions?\/\d+/,               // /position/123
+      /\/openings?\/\d+/,                // /opening/123
+      /\/vacancy\/\d+/,                  // /vacancy/123
+      /\/job-listing/,                   // /job-listing/
+      /\/job-details/,                   // /job-details/
+      /\/apply-now/,                     // /apply-now/
+      /\/viewjob\?/,                     // Indeed style
+      /\/job\/[a-zA-Z0-9-]+/,           // /job/software-engineer-abc123
+      /\/jobs\/collections?/             // LinkedIn collections
+    ];
+
+    const hasJobPattern = jobPathPatterns.some(pattern => pattern.test(urlPath));
+    if (hasJobPattern) {
+      jobIndicatorScore += 0.6;
+    }
+
+    // URL parameter analysis  
+    const jobParams = ['jobId', 'job_id', 'position_id', 'posting_id', 'req_id', 'vacancy_id'];
+    const hasJobParams = jobParams.some(param => urlParams.has(param));
+    if (hasJobParams) {
+      jobIndicatorScore += 0.4;
+    }
+
+    // Basic keyword analysis (reduced weight)
     const jobKeywords = ['job', 'career', 'employment', 'position', 'opening', 'vacancy', 'hiring', 'apply', 'roles'];
     const foundKeywords = jobKeywords.filter(keyword => urlPath.includes(keyword));
-    
     if (foundKeywords.length > 0) {
-      jobIndicatorScore += 0.4;
-    } else {
-      warnings.push({
-        code: 'URL_NO_JOB_KEYWORDS',
-        message: 'URL does not contain obvious job-related keywords',
-        impact: 'medium',
-        userMessage: 'This URL may not be a direct link to a job posting.'
-      });
+      jobIndicatorScore += 0.2; // Reduced from 0.4
     }
 
-    // Platform detection
-    const knownJobPlatforms = ['linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter', 'workday', 'greenhouse', 'lever'];
-    const isKnownJobPlatform = knownJobPlatforms.some(platform => analysis.domain.toLowerCase().includes(platform));
-    
-    if (isKnownJobPlatform) {
-      jobIndicatorScore += 0.5;
-    } else if (analysis.domain.includes('jobs') || analysis.domain.includes('careers')) {
-      jobIndicatorScore += 0.3;
-    }
+    // Platform-specific scoring
+    const platformScoring = this.getPlatformJobScore(domain, urlPath);
+    jobIndicatorScore += platformScoring.score;
+    warnings.push(...platformScoring.warnings);
 
-    // Content type analysis
-    if (analysis.contentType.includes('text/html')) {
-      jobIndicatorScore += 0.1;
+    // Anti-patterns that indicate NOT a job posting
+    const antiPatterns = [
+      { pattern: /\/(about|company|home|contact|blog|news|products|services)\/?$/, penalty: -0.8, message: 'Company page detected' },
+      { pattern: /\/(careers?|jobs?)\/?$/, penalty: -0.5, message: 'General career page (not specific job)' }, 
+      { pattern: /\/(login|signup|register)/, penalty: -0.6, message: 'Authentication page detected' },
+      { pattern: /\.(pdf|doc|docx)$/, penalty: -0.3, message: 'Document URL detected' },
+      { pattern: /^\/\s*$/, penalty: -0.7, message: 'Root/homepage URL detected' }
+    ];
+
+    for (const antiPattern of antiPatterns) {
+      if (antiPattern.pattern.test(urlPath)) {
+        jobIndicatorScore += antiPattern.penalty;
+        warnings.push({
+          code: 'URL_ANTI_PATTERN_DETECTED',
+          message: antiPattern.message,
+          impact: 'high',
+          userMessage: 'This appears to be a company page rather than a specific job posting.'
+        });
+      }
     }
 
     const hasJobIndicators = jobIndicatorScore >= 0.4;
@@ -322,7 +372,7 @@ export class URLValidationService {
         code: 'URL_LOW_JOB_RELEVANCE',
         message: `Low job relevance score: ${jobIndicatorScore.toFixed(2)}`,
         impact: 'high',
-        userMessage: 'This URL may not lead to a job posting. Please verify the link.'
+        userMessage: 'This URL does not appear to be a direct link to a job posting.'
       });
     }
 
@@ -358,6 +408,67 @@ export class URLValidationService {
     if (analysis.isExpired) confidence -= 0.3;
 
     return Math.max(0, Math.min(1, confidence));
+  }
+
+  /**
+   * Get platform-specific job scoring
+   */
+  private getPlatformJobScore(domain: string, urlPath: string): { score: number; warnings: any[] } {
+    const warnings: any[] = [];
+    
+    // LinkedIn specific patterns
+    if (domain.includes('linkedin')) {
+      if (/\/jobs\/view\/\d+/.test(urlPath)) return { score: 0.8, warnings };
+      if (/\/jobs\/collections/.test(urlPath)) return { score: 0.7, warnings };
+      if (urlPath === '/jobs' || urlPath === '/jobs/') {
+        warnings.push({ code: 'LINKEDIN_GENERAL_JOBS', message: 'LinkedIn general jobs page', impact: 'high', userMessage: 'This is LinkedIn\'s general jobs page, not a specific job posting.' });
+        return { score: -0.6, warnings };
+      }
+      return { score: 0.5, warnings };
+    }
+    
+    // Indeed specific patterns
+    if (domain.includes('indeed')) {
+      if (/\/viewjob\?/.test(urlPath)) return { score: 0.8, warnings };
+      if (urlPath === '/' || urlPath === '/jobs') {
+        warnings.push({ code: 'INDEED_GENERAL_PAGE', message: 'Indeed homepage or general jobs page', impact: 'high', userMessage: 'This is Indeed\'s general page, not a specific job posting.' });
+        return { score: -0.7, warnings };
+      }
+      return { score: 0.4, warnings };
+    }
+    
+    // Workday patterns
+    if (domain.includes('workday') || domain.includes('myworkdayjobs')) {
+      if (/\/job\/\d+/.test(urlPath) || /\/job\/[A-Z0-9_-]+/.test(urlPath)) return { score: 0.8, warnings };
+      return { score: 0.3, warnings };
+    }
+    
+    // Greenhouse patterns  
+    if (domain.includes('greenhouse') || domain.includes('boards.greenhouse.io')) {
+      if (/\/jobs\/\d+/.test(urlPath)) return { score: 0.8, warnings };
+      return { score: 0.3, warnings };
+    }
+    
+    // Lever patterns
+    if (domain.includes('lever') || domain.includes('jobs.lever.co')) {
+      if (/\/\d+/.test(urlPath)) return { score: 0.7, warnings };
+      return { score: 0.3, warnings };
+    }
+    
+    // Generic company domains - check for obvious non-job indicators
+    if (!domain.includes('job') && !domain.includes('career') && !domain.includes('hiring')) {
+      if (urlPath === '/' || urlPath === '' || /^\/$/.test(urlPath)) {
+        warnings.push({ 
+          code: 'COMPANY_HOMEPAGE_DETECTED', 
+          message: 'Company homepage detected', 
+          impact: 'high', 
+          userMessage: 'This appears to be a company homepage rather than a job posting.' 
+        });
+        return { score: -0.8, warnings };
+      }
+    }
+    
+    return { score: 0, warnings };
   }
 
   /**

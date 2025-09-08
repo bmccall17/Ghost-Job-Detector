@@ -52,6 +52,37 @@ export default async function handler(req, res) {
 
         console.log(`🔍 Starting analysis for URL: ${url}`);
         
+        // URL validation step - check if URL appears to be a job posting
+        try {
+            const { URLValidationService } = await import('../lib/services/validation/URLValidationService.js');
+            const validator = new URLValidationService();
+            
+            console.log(`🔍 Validating URL as job posting...`);
+            const validationResult = await validator.validateURL(url);
+            
+            if (!validationResult.isValid) {
+                const blockingErrors = validationResult.errors.filter(e => e.severity === 'blocking');
+                if (blockingErrors.length > 0) {
+                    const primaryError = blockingErrors[0];
+                    console.log(`❌ URL validation failed: ${primaryError.code} - ${primaryError.message}`);
+                    
+                    return res.status(400).json({
+                        error: primaryError.userMessage,
+                        code: primaryError.code,
+                        suggestion: primaryError.suggestion,
+                        type: 'validation_error',
+                        canRetry: primaryError.retryable
+                    });
+                }
+            }
+            
+            console.log(`✅ URL validation passed with ${(validationResult.confidence * 100).toFixed(1)}% confidence`);
+            
+        } catch (validationError) {
+            console.warn(`⚠️ URL validation failed with error, continuing with analysis:`, validationError.message);
+            // Continue with analysis even if validation fails to avoid breaking existing functionality
+        }
+        
         let extractedData = null;
         let extractionMethod = 'manual';
         let parsingConfidence = 0.0;

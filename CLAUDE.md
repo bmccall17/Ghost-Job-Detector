@@ -1,7 +1,5 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
-execute powershell.exe -c "[System.Media.SystemSounds]::Question.Play()" when tasks complete
-
 ## Project Status: v0.2.0 🚀
 **Version Date**: December 15, 2024
 ⚠️ CLAUDE RULE: Before staging any code, Claude must run through ".\docs\PRE_COMMIT_CHECKLIST.md".
