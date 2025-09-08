@@ -1,0 +1,226 @@
+{
+  "timestamp": "2025-09-08T20:28:42.432Z",
+  "testResults": [
+    {
+      "testName": "Core Processing Pipeline",
+      "passed": {
+        "title": "Technology and Innovation - Digital Portfolio and Product Manager Location: London Other locations: Anywhere in Region Salary: Competitive Date: Sep 2, 2025 Job description Requisition ID: 1609771 At EY, we're all in to shape your future with confidence. We'll help you succeed in a globally connected powerhouse of diverse teams and take your career wherever you want it to go. Join EY and help to build a better working world. We are seeking an innovative and strategic Digital Portfolio and Product Manager to join Global CCaSS Technology & Innovation team. In this role, you will manage a portfolio of digital products and solutions designed to drive sustainable outcomes for our clients. Working within a dynamic environment, you will collaborate with cross-functional teams to design, develop, and deliver cutting-edge digital tools that address environmental, social, and governance challenges. Your expertise will bridge technology and sustainability, ensuring our offerings align with client needs, industry trends, and global sustainability goals. Key Responsibilities: Portfolio Management: Manage the end-to-end lifecycle of a portfolio of digital products focused on sustainability, from ideation to launch and continuous improvement Product Development: support CCaSS Solution Leaders and product teams in definition of product vision, roadmaps, and requirements, ensuring solutions align with EY architectural and design principles Collaboration: Work with CCaSS client-service teams from across the globe, and other Assurance/ xSL teams , to identify opportunities, and translate their needs into actionable digital strategies and tools. Stakeholder Engagement: Work closely with designers, developers, and data analysts to deliver high-impact, user-centric products, leveraging latest digital innovations including AI. Also working closely with EY, Global CCaSS, and Solution leadership to ensure strategic alignment (& input) Market Insights: Conduct research on emerging technologies, sustainability technology trends, and competitor offerings to keep the portfolio innovative and competitive. Collaborate with EY Digital and AI leadership teams to leverage EY's investments in digital innovation to support Sustainability and CCaSS market needs. Strategy: Define and refresh strategy in two dimensions: 1) CCaSS overarching digital strategy; 2) specific, Solution/ Geography focused strategies Innovation: refresh and establish a sustainability technology innovation workstream; from client start up treks and 90d experiments, to internal technology experiments (e.g. Agentic AI) Performance Tracking: Establish KPIs to measure product success, including sustainability impact, user adoption, and client satisfaction Qualifications and Skills: 10+ years of analytical, technology, consulting experience 5+ years of experience in product or portfolio management Proven track record of delivering digital products or services – ideally with some sustainability experience or tangible curiosity Strong understanding of digital tools (e.g., SaaS platforms, data analytics, IoT) – ideally with some sustainability experience or tangible curiosity Excellent project management skills, with experience in agile methodologies Ability to communicate complex ideas to diverse stakeholders, including clients, technical teams, and leadership Passion for both technology and sustainability; with a commitment to driving positive environmental and social impact Definition and implementation of digital strategies Curiosity, empathy, and ability to learn/ adapt quickly Strong stakeholder (Partner level) management skills and experiences; focus on influence, engagement, and commercial mindset What we offer you The compensation ranges below are provided in order to comply with United States pay transparency laws. Other geographies will follow their local salary guidelines, which may not be a direct conversion of published US salary ranges. At EY, we'll develop you with future-focused skills and equip you with world-class experiences. We'll empower you in a flexible environment, and fuel you and your extraordinary talents in a diverse and inclusive culture of globally connected teams. Learn more. We offer a comprehensive compensation and benefits package where you'll be rewarded based on your performance and recognized for the value you bring to the business. The base salary range for this job in all geographic locations in the US is $148,900 to $340,200. The base salary range for New York City Metro Area, Washington State and California (excluding Sacramento) is $178,700 to $386,600. Individual salaries within those ranges are determined through a wide variety of factors including but not limited to education, experience, knowledge, skills and geography. In addition, our Total Rewards package includes medical and dental coverage, pension and 401(k) plans, and a wide range of paid time off options. Join us in our team-led and leader-enabled hybrid model. Our expectation is for most people in external, client serving roles to work together in person 40-60% of the time over the course of an engagement, project or year. Under our flexible vacation policy, you'll decide how much vacation time you need based on your own personal circumstances. You'll also be granted time off for designated EY Paid Holidays, Winter/Summer breaks, Personal/Family Care, and other leaves of absence when needed to support your physical, financial, and emotional well-being. Are you ready to shape your future with confidence? Apply today. EY accepts applications for this position on an on-going basis. For those living in California, please click here for additional information. EY focuses on high-ethical standards and integrity among its employees and expects all candidates to demonstrate these qualities. EY",
+        "company": "EY (Ernst & Young)",
+        "location": "London",
+        "salary": "Competitive",
+        "date": "Sep 2, 2025",
+        "requisitionId": "1609771",
+        "jobType": "hybrid",
+        "experienceLevel": "10+ years",
+        "department": "Technology & Innovation",
+        "industry": "Professional Services / Consulting"
+      },
+      "processingTime": 3,
+      "details": {
+        "sectionsDetected": 0,
+        "metadataExtracted": 10,
+        "structureScore": 0.39,
+        "validationPassed": false
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Section Detection Accuracy",
+      "passed": false,
+      "accuracy": 0,
+      "details": {
+        "sectionsDetected": 0,
+        "titleAccuracy": 0,
+        "typeAccuracy": 0,
+        "expectedSections": 5,
+        "detectedTitles": [],
+        "detectedTypes": [],
+        "averageConfidence": null
+      },
+      "recommendations": [
+        "Improve section title detection patterns",
+        "Enhance section type classification logic"
+      ]
+    },
+    {
+      "testName": "Bullet Point Extraction Quality",
+      "passed": false,
+      "quality": null,
+      "details": {
+        "totalBullets": 0,
+        "labeledBullets": 0,
+        "highQualityBullets": 0,
+        "labelAccuracy": null,
+        "qualityRatio": null,
+        "patternAccuracy": 0,
+        "averageConfidence": null,
+        "detectedLabels": []
+      },
+      "recommendations": [
+        "Add more sophisticated bullet pattern matching"
+      ]
+    },
+    {
+      "testName": "Metadata Extraction Completeness",
+      "passed": true,
+      "score": 1.125,
+      "details": {
+        "extractedFields": 10,
+        "expectedFields": 8,
+        "correctExtractions": 8,
+        "completeness": 1.25,
+        "accuracy": 1,
+        "metadata": {
+          "title": "Technology and Innovation - Digital Portfolio and Product Manager Location: London Other locations: Anywhere in Region Salary: Competitive Date: Sep 2, 2025 Job description Requisition ID: 1609771 At EY, we're all in to shape your future with confidence. We'll help you succeed in a globally connected powerhouse of diverse teams and take your career wherever you want it to go. Join EY and help to build a better working world. We are seeking an innovative and strategic Digital Portfolio and Product Manager to join Global CCaSS Technology & Innovation team. In this role, you will manage a portfolio of digital products and solutions designed to drive sustainable outcomes for our clients. Working within a dynamic environment, you will collaborate with cross-functional teams to design, develop, and deliver cutting-edge digital tools that address environmental, social, and governance challenges. Your expertise will bridge technology and sustainability, ensuring our offerings align with client needs, industry trends, and global sustainability goals. Key Responsibilities: Portfolio Management: Manage the end-to-end lifecycle of a portfolio of digital products focused on sustainability, from ideation to launch and continuous improvement Product Development: support CCaSS Solution Leaders and product teams in definition of product vision, roadmaps, and requirements, ensuring solutions align with EY architectural and design principles Collaboration: Work with CCaSS client-service teams from across the globe, and other Assurance/ xSL teams , to identify opportunities, and translate their needs into actionable digital strategies and tools. Stakeholder Engagement: Work closely with designers, developers, and data analysts to deliver high-impact, user-centric products, leveraging latest digital innovations including AI. Also working closely with EY, Global CCaSS, and Solution leadership to ensure strategic alignment (& input) Market Insights: Conduct research on emerging technologies, sustainability technology trends, and competitor offerings to keep the portfolio innovative and competitive. Collaborate with EY Digital and AI leadership teams to leverage EY's investments in digital innovation to support Sustainability and CCaSS market needs. Strategy: Define and refresh strategy in two dimensions: 1) CCaSS overarching digital strategy; 2) specific, Solution/ Geography focused strategies Innovation: refresh and establish a sustainability technology innovation workstream; from client start up treks and 90d experiments, to internal technology experiments (e.g. Agentic AI) Performance Tracking: Establish KPIs to measure product success, including sustainability impact, user adoption, and client satisfaction Qualifications and Skills: 10+ years of analytical, technology, consulting experience 5+ years of experience in product or portfolio management Proven track record of delivering digital products or services – ideally with some sustainability experience or tangible curiosity Strong understanding of digital tools (e.g., SaaS platforms, data analytics, IoT) – ideally with some sustainability experience or tangible curiosity Excellent project management skills, with experience in agile methodologies Ability to communicate complex ideas to diverse stakeholders, including clients, technical teams, and leadership Passion for both technology and sustainability; with a commitment to driving positive environmental and social impact Definition and implementation of digital strategies Curiosity, empathy, and ability to learn/ adapt quickly Strong stakeholder (Partner level) management skills and experiences; focus on influence, engagement, and commercial mindset What we offer you The compensation ranges below are provided in order to comply with United States pay transparency laws. Other geographies will follow their local salary guidelines, which may not be a direct conversion of published US salary ranges. At EY, we'll develop you with future-focused skills and equip you with world-class experiences. We'll empower you in a flexible environment, and fuel you and your extraordinary talents in a diverse and inclusive culture of globally connected teams. Learn more. We offer a comprehensive compensation and benefits package where you'll be rewarded based on your performance and recognized for the value you bring to the business. The base salary range for this job in all geographic locations in the US is $148,900 to $340,200. The base salary range for New York City Metro Area, Washington State and California (excluding Sacramento) is $178,700 to $386,600. Individual salaries within those ranges are determined through a wide variety of factors including but not limited to education, experience, knowledge, skills and geography. In addition, our Total Rewards package includes medical and dental coverage, pension and 401(k) plans, and a wide range of paid time off options. Join us in our team-led and leader-enabled hybrid model. Our expectation is for most people in external, client serving roles to work together in person 40-60% of the time over the course of an engagement, project or year. Under our flexible vacation policy, you'll decide how much vacation time you need based on your own personal circumstances. You'll also be granted time off for designated EY Paid Holidays, Winter/Summer breaks, Personal/Family Care, and other leaves of absence when needed to support your physical, financial, and emotional well-being. Are you ready to shape your future with confidence? Apply today. EY accepts applications for this position on an on-going basis. For those living in California, please click here for additional information. EY focuses on high-ethical standards and integrity among its employees and expects all candidates to demonstrate these qualities. EY",
+          "company": "EY (Ernst & Young)",
+          "location": "London",
+          "salary": "Competitive",
+          "date": "Sep 2, 2025",
+          "requisitionId": "1609771",
+          "jobType": "hybrid",
+          "experienceLevel": "10+ years",
+          "department": "Technology & Innovation",
+          "industry": "Professional Services / Consulting"
+        },
+        "expectedMetadata": {
+          "title": "Digital Portfolio and Product Manager",
+          "company": "EY",
+          "location": "London",
+          "salary": "Competitive",
+          "date": "Sep 2, 2025",
+          "requisitionId": "1609771",
+          "department": "Technology",
+          "experienceLevel": "10+ years"
+        }
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Structure Quality Assessment",
+      "passed": false,
+      "qualityScore": 0.39,
+      "details": {
+        "passedChecks": 1,
+        "totalChecks": 5,
+        "qualityMetrics": {
+          "sectionCompleteness": 0,
+          "bulletPointQuality": 0.5,
+          "hierarchicalConsistency": 0.5,
+          "contentFidelity": 0.7,
+          "overallStructureScore": 0.39
+        },
+        "thresholds": {
+          "sectionCompleteness": 0.8,
+          "bulletPointQuality": 0.7,
+          "hierarchicalConsistency": 0.7,
+          "contentFidelity": 0.6,
+          "overallStructureScore": 0.7
+        },
+        "qualityChecks": {
+          "sectionCompleteness": false,
+          "bulletPointQuality": false,
+          "hierarchicalConsistency": false,
+          "contentFidelity": true,
+          "overallStructureScore": false
+        }
+      },
+      "recommendations": [
+        "Improve section completeness",
+        "Improve bullet point quality",
+        "Improve hierarchical consistency",
+        "Improve overall structure score"
+      ]
+    },
+    {
+      "testName": "Performance Validation",
+      "passed": true,
+      "targetMet": true,
+      "averageTime": 0.6666666666666666,
+      "details": {
+        "iterations": 3,
+        "processingTimes": [
+          1,
+          0,
+          1
+        ],
+        "averageTime": 0.6666666666666666,
+        "maxTime": 1,
+        "minTime": 0,
+        "maxAllowedTime": 2000,
+        "targetTime": 1000,
+        "contentSize": 7448
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Target Quality Comparison",
+      "passed": false,
+      "qualityScore": null,
+      "details": {
+        "targetThreshold": 0.8,
+        "qualityDetails": {
+          "sectionOrganization": {
+            "score": 0,
+            "weight": 0.25
+          },
+          "bulletPointFormatting": {
+            "score": null,
+            "weight": 0.25
+          },
+          "metadataCompleteness": {
+            "score": 1.125,
+            "weight": 0.25
+          },
+          "contentQuality": {
+            "score": 0.39,
+            "weight": 0.25
+          }
+        },
+        "overallAssessment": "F",
+        "targetRequirements": {
+          "sectionOrganization": {
+            "expectedSections": [
+              "Global CCaSS - Technology and Innovation",
+              "About the Role",
+              "Key Responsibilities",
+              "Qualifications and Skills",
+              "What EY Offers"
+            ],
+            "hierarchicalOrder": true,
+            "professionalFormatting": true
+          },
+          "bulletPointFormatting": {
+            "labelDescriptionPattern": true,
+            "properIndentation": true,
+            "consistentFormatting": true,
+            "specificContent": true
+          },
+          "metadataCompleteness": {
+            "title": "Digital Portfolio and Product Manager - EY",
+            "location": "London",
+            "otherLocations": "Anywhere in Region",
+            "salary": "Competitive",
+            "date": "Sep 2, 2025",
+            "requisitionId": "1609771"
+          },
+          "contentQuality": {
+            "noInformationLoss": true,
+            "properSectionSeparation": true,
+            "cleanFormatting": true,
+            "contextPreservation": true
+          }
+        }
+      },
+      "recommendations": [
+        "Enhance section organization",
+        "Enhance content quality"
+      ]
+    }
+  ],
+  "summary": {
+    "totalTests": 7,
+    "passedTests": 3,
+    "overallSuccessRate": 0.42857142857142855,
+    "grade": "F"
+  }
+}

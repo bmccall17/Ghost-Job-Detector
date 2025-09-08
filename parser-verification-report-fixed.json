@@ -1,0 +1,200 @@
+{
+  "timestamp": "2025-09-08T20:33:43.862Z",
+  "testResults": [
+    {
+      "testName": "Core Processing Pipeline",
+      "passed": true,
+      "processingTime": 5,
+      "details": {
+        "sectionsDetected": 7,
+        "metadataExtracted": 10,
+        "structureScore": 0.438828125,
+        "validationPassed": false
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Section Detection Accuracy",
+      "passed": false,
+      "accuracy": 0.475,
+      "details": {
+        "sectionsDetected": 7,
+        "titleAccuracy": 0.75,
+        "typeAccuracy": 0.2,
+        "expectedSections": 4,
+        "detectedTitles": [
+          "Global CCaSS - Technology and Innovation - Digital Portfolio and Product Manager",
+          "Requisition ID: 1609771",
+          "Key Responsibilities",
+          "Excellent project management skills, with experience in agile methodologies",
+          "What we offer you",
+          "Are you ready to shape your future with confidence? Apply today.",
+          "EY | Building a better working world"
+        ],
+        "detectedTypes": [
+          "metadata",
+          "metadata",
+          "metadata",
+          "metadata",
+          "metadata",
+          "metadata",
+          "metadata"
+        ],
+        "averageConfidence": 0.7857142857142856
+      },
+      "recommendations": [
+        "Enhance section type classification logic"
+      ]
+    },
+    {
+      "testName": "Bullet Point Extraction Quality",
+      "passed": false,
+      "quality": 0.3645833333333333,
+      "details": {
+        "totalBullets": 32,
+        "labeledBullets": 5,
+        "highQualityBullets": 10,
+        "labelAccuracy": 0.15625,
+        "qualityRatio": 0.3125,
+        "patternAccuracy": 0.625,
+        "averageConfidence": 0.7406249999999999,
+        "detectedLabels": [
+          "Portfolio Management",
+          "Product Development",
+          "Stakeholder Engagement",
+          "Market Insights",
+          "Performance Tracking"
+        ]
+      },
+      "recommendations": [
+        "Improve Label: Description pattern recognition",
+        "Enhance bullet point confidence scoring"
+      ]
+    },
+    {
+      "testName": "Metadata Extraction Completeness",
+      "passed": true,
+      "score": 1.0625,
+      "details": {
+        "extractedFields": 10,
+        "expectedFields": 8,
+        "correctExtractions": 6,
+        "completeness": 1.25,
+        "accuracy": 0.875,
+        "metadata": {
+          "title": "Tech",
+          "company": "EY (Ernst & Young)",
+          "location": "Lo",
+          "salary": "Competitive\nDate: Sep 2, 2025\n\nJob descriptio",
+          "date": "Sep 2, 2025\n\nJob descriptio",
+          "requisitionId": "1609771",
+          "jobType": "hybrid",
+          "experienceLevel": "10+ years",
+          "department": "Technology & Innovation",
+          "industry": "Professional Services / Consulting"
+        },
+        "expectedMetadata": {
+          "title": "Digital Portfolio and Product Manager",
+          "company": "EY",
+          "location": "London",
+          "salary": "Competitive",
+          "date": "Sep 2, 2025",
+          "requisitionId": "1609771",
+          "department": "Technology",
+          "experienceLevel": "10+ years"
+        }
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Structure Quality Assessment",
+      "passed": true,
+      "qualityScore": 0.438828125,
+      "details": {
+        "passedChecks": 3,
+        "totalChecks": 5,
+        "qualityMetrics": {
+          "sectionCompleteness": 0,
+          "bulletPointQuality": 0.5653124999999999,
+          "hierarchicalConsistency": 0.55,
+          "contentFidelity": 0.8,
+          "overallStructureScore": 0.438828125
+        },
+        "thresholds": {
+          "sectionCompleteness": 0.6,
+          "bulletPointQuality": 0.5,
+          "hierarchicalConsistency": 0.5,
+          "contentFidelity": 0.6,
+          "overallStructureScore": 0.6
+        },
+        "qualityChecks": {
+          "sectionCompleteness": false,
+          "bulletPointQuality": true,
+          "hierarchicalConsistency": true,
+          "contentFidelity": true,
+          "overallStructureScore": false
+        }
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Performance Validation",
+      "passed": true,
+      "targetMet": true,
+      "averageTime": 1,
+      "details": {
+        "iterations": 3,
+        "processingTimes": [
+          1,
+          1,
+          1
+        ],
+        "averageTime": 1,
+        "maxTime": 1,
+        "minTime": 1,
+        "maxAllowedTime": 1000,
+        "targetTime": 500,
+        "contentSize": 7477
+      },
+      "recommendations": []
+    },
+    {
+      "testName": "Target Quality Comparison",
+      "passed": false,
+      "qualityScore": 0.5852278645833333,
+      "details": {
+        "targetThreshold": 0.6,
+        "qualityDetails": {
+          "sectionOrganization": {
+            "score": 0.475,
+            "weight": 0.25
+          },
+          "bulletPointFormatting": {
+            "score": 0.3645833333333333,
+            "weight": 0.25
+          },
+          "metadataCompleteness": {
+            "score": 1.0625,
+            "weight": 0.25
+          },
+          "contentQuality": {
+            "score": 0.438828125,
+            "weight": 0.25
+          }
+        },
+        "overallAssessment": "F"
+      },
+      "recommendations": [
+        "Enhance section organization",
+        "Enhance bullet point formatting",
+        "Enhance content quality"
+      ]
+    }
+  ],
+  "summary": {
+    "totalTests": 7,
+    "passedTests": 4,
+    "overallSuccessRate": 0.5714285714285714,
+    "grade": "F"
+  }
+}
