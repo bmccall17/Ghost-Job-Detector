@@ -343,7 +343,7 @@ export class UnifiedInputValidator {
    * Result creation helpers
    */
   private createUnifiedResult(
-    url: string,
+    _url: string,
     tier: 1 | 2 | 3,
     startTime: number,
     urlValidation?: any,

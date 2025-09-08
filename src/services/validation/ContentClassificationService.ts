@@ -16,9 +16,9 @@ import DOMPurify from 'isomorphic-dompurify';
 
 export class ContentClassificationService {
   private config: ValidationConfig;
-  private jobKeywords: Set<string>;
-  private nonJobKeywords: Set<string>;
-  private companyKeywords: Set<string>;
+  private jobKeywords: Set<string> = new Set();
+  private nonJobKeywords: Set<string> = new Set();
+  private companyKeywords: Set<string> = new Set();
 
   constructor(config: ValidationConfig = DEFAULT_VALIDATION_CONFIG) {
     this.config = config;
@@ -310,13 +310,13 @@ export class ContentClassificationService {
     const description = meta['description'] || meta['og:description'] || '';
     const title = meta['og:title'] || meta['title'] || '';
     
-    // Check for job-related metadata
-    const hasJobMetadata = 
-      description.toLowerCase().includes('job') ||
-      description.toLowerCase().includes('career') ||
-      description.toLowerCase().includes('position') ||
-      title.toLowerCase().includes('job') ||
-      title.toLowerCase().includes('hiring');
+    // Check for job-related metadata - used for future enhancements
+    // const hasJobMetadata = 
+    //   description.toLowerCase().includes('job') ||
+    //   description.toLowerCase().includes('career') ||
+    //   description.toLowerCase().includes('position') ||
+    //   title.toLowerCase().includes('job') ||
+    //   title.toLowerCase().includes('hiring');
 
     // Extract dates from metadata
     const publishedDate = meta['article:published_time'] || meta['datePublished'] || '';
@@ -633,7 +633,7 @@ export class ContentClassificationService {
     };
   }
 
-  private createErrorResult(url: string, errors: ValidationError[], startTime: number): ContentValidationResult {
+  private createErrorResult(_url: string, errors: ValidationError[], startTime: number): ContentValidationResult {
     return {
       isValid: false,
       confidence: 0,

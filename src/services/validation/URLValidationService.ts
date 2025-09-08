@@ -411,7 +411,7 @@ export class URLValidationService {
     return false;
   }
 
-  private createErrorResult(url: string, errors: ValidationError[], startTime: number, analysis?: URLAnalysis): URLValidationResult {
+  private createErrorResult(_url: string, errors: ValidationError[], startTime: number, analysis?: URLAnalysis): URLValidationResult {
     return {
       isValid: false,
       confidence: 0,
