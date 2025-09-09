@@ -737,7 +737,7 @@ export class AnalysisService {
       // Check if this is a recoverable error with enhanced parsing data
       if ((error as any)?.isRecoverable && (error as any)?.enhancedParsingData) {
         // Re-throw with enhanced data for UI recovery
-        const enhancedError = new Error(`Enhanced PDF parsing validation failed: ${error.message}`) as any
+        const enhancedError = new Error(`Enhanced PDF parsing validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`) as any
         enhancedError.enhancedParsingData = (error as any).enhancedParsingData
         enhancedError.isRecoverable = true
         throw enhancedError

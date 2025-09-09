@@ -152,7 +152,7 @@ export class EnhancedPDFParsingService {
   /**
    * Phase 2: Validate extracted data using DataIntegrityValidator
    */
-  private async validateExtractedData(pdfData: PDFJobData, fileName: string): Promise<ValidationResult> {
+  private async validateExtractedData(pdfData: PDFJobData, _fileName: string): Promise<ValidationResult> {
     const jobDataToValidate: JobDataToValidate = {
       title: pdfData.title,
       company: pdfData.company,
@@ -170,17 +170,36 @@ export class EnhancedPDFParsingService {
   /**
    * Phase 3: Enhance with WebLLM if basic validation passes
    */
-  private async enhanceWithWebLLM(pdfData: PDFJobData, options: EnhancedParsingOptions): Promise<PDFJobData> {
+  private async enhanceWithWebLLM(pdfData: PDFJobData, _options: EnhancedParsingOptions): Promise<PDFJobData> {
     try {
       console.log('🤖 Attempting WebLLM enhancement...');
       
-      // Only enhance if we have sufficient content
-      if (pdfData.rawTextContent && pdfData.rawTextContent.length > 100) {
-        const webllmEnhancement = await this.webllmService.enhanceJobData(pdfData);
+      // Only enhance if we have sufficient content and source URL
+      if (pdfData.rawTextContent && pdfData.rawTextContent.length > 100 && pdfData.sourceUrl) {
+        // Use existing WebLLM validation method with the source URL
+        const webllmValidation = await this.webllmService.validateContent({
+          title: pdfData.title || null,
+          company: pdfData.company || null,
+          location: pdfData.location || null,
+          description: pdfData.description || null,
+          salary: null,
+          jobType: null,
+          postedAt: pdfData.postedAt?.toISOString() || null,
+          jobId: null,
+          contactDetails: null,
+          originalSource: pdfData.sourceUrl || ''
+        });
         
-        if (webllmEnhancement && webllmEnhancement.confidence > pdfData.confidence.overall) {
-          console.log('✅ WebLLM enhancement successful, using enhanced data');
-          return webllmEnhancement;
+        if (webllmValidation && webllmValidation.confidence > pdfData.confidence.overall) {
+          console.log('✅ WebLLM validation successful, confidence improved');
+          // Update confidence but keep original data structure
+          return {
+            ...pdfData,
+            confidence: {
+              ...pdfData.confidence,
+              overall: webllmValidation.confidence
+            }
+          };
         }
       }
       
