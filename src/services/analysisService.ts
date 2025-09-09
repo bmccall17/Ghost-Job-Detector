@@ -646,82 +646,106 @@ export class AnalysisService {
     }
   }
 
-  static async extractJobDataFromPDF(file: File, onProgress?: (stage: string, progress: number) => void): Promise<{title: string, company: string, content: string, sourceUrl?: string, confidence?: number, parsingMetadata?: any}> {
+  static async extractJobDataFromPDF(file: File, onProgress?: (stage: string, progress: number) => void, options?: { allowPartialData?: boolean }): Promise<{title: string, company: string, content: string, sourceUrl?: string, confidence?: number, parsingMetadata?: any}> {
+    console.log('🚀 Starting robust PDF analysis with enhanced validation...')
+    
     try {
-      // Import the PDF parsing services dynamically to avoid bundling issues
-      const { PDFParsingService } = await import('./parsing/PDFParsingService')
-      const { PDFWebLLMIntegration } = await import('./parsing/PDFWebLLMIntegration')
+      // Import the enhanced PDF parsing service
+      const { EnhancedPDFParsingService } = await import('./parsing/EnhancedPDFParsingService')
       
-      console.log('🔄 Starting enhanced PDF parsing with WebLLM integration...')
+      console.log('🔄 Starting enhanced PDF parsing with comprehensive validation...')
       
-      // Phase 1: Extract raw data from PDF
-      onProgress?.('Extracting PDF content', 30)
-      const pdfService = PDFParsingService.getInstance()
-      const pdfData = await pdfService.extractJobData(file, {
+      // Phase 1: Enhanced PDF parsing with validation
+      onProgress?.('Validating PDF file', 10)
+      const enhancedService = EnhancedPDFParsingService.getInstance()
+      
+      // File validation
+      const fileValidation = await enhancedService.validateFile(file)
+      if (!fileValidation.isValid) {
+        throw new Error(`File validation failed: ${fileValidation.errors.join(', ')}`)
+      }
+      
+      onProgress?.('Extracting and validating PDF content', 20)
+      
+      const enhancedResult = await enhancedService.extractJobData(file, {
         onProgress: (stage, progress) => {
-          // Map PDF extraction progress to first 60% of total progress
-          const mappedProgress = 30 + (progress * 0.3)
+          // Map PDF extraction progress to 20-80% of total progress
+          const mappedProgress = 20 + (progress * 0.6)
           onProgress?.(stage, mappedProgress)
         },
-        includeRawText: true
+        includeRawText: true,
+        allowPartialData: options?.allowPartialData || false,
+        fallbackStrategies: {
+          enableManualInput: true,
+          enableURLRecovery: true,
+          enableRetry: true
+        }
       })
-      
-      console.log('✅ PDF extraction completed, starting WebLLM validation...')
-      
-      // Phase 2: Validate through WebLLM pipeline (Phase 3.1 implementation)
-      onProgress?.('Validating job data with AI', 70)
-      
-      const webllmResult = await PDFWebLLMIntegration.validatePDFJobData({
-        pdfJobData: pdfData,
-        sourceUrl: pdfData.sourceUrl,
-        rawTextContent: pdfData.rawTextContent || ''
-      })
-      
-      // Provide user feedback on validation mode
-      if (webllmResult.webllmValidation.validated) {
-        onProgress?.('AI validation completed successfully', 85)
-      } else {
-        onProgress?.('Using enhanced PDF validation mode', 85)
-      }
       
       onProgress?.('Finalizing enhanced analysis', 90)
       
-      console.log('🎯 Enhanced PDF analysis completed:', {
-        title: webllmResult.validatedJobData.title,
-        company: webllmResult.validatedJobData.company,
-        confidence: webllmResult.validatedJobData.confidence.overall,
-        webllmValidated: webllmResult.webllmValidation.validated,
-        legitimacyIndicators: webllmResult.enhancedMetadata.legitimacyIndicators.length,
-        riskFactors: webllmResult.enhancedMetadata.riskFactors.length
+      // CRITICAL: Check if data is analyzable before proceeding
+      if (!enhancedResult.isAnalyzable && !options?.allowPartialData) {
+        console.error('🚨 PDF parsing produced non-analyzable data - STOPPING analysis:', {
+          dataStatus: enhancedResult.validationResult.dataQualityStatus,
+          errors: enhancedResult.validationResult.errors.filter(e => e.severity === 'blocking').map(e => e.message),
+          requiredActions: enhancedResult.requiredActions
+        })
+        
+        // Create custom error with enhanced parsing data for UI recovery
+        const error = new Error(`PDF parsing validation failed: ${enhancedResult.requiredActions[0] || 'Data quality insufficient for analysis'}`) as any
+        error.enhancedParsingData = enhancedResult
+        error.isRecoverable = true
+        throw error
+      }
+      
+      console.log('✅ Enhanced PDF analysis completed successfully:', {
+        title: enhancedResult.title,
+        company: enhancedResult.company,
+        confidence: enhancedResult.confidence.overall,
+        qualityScore: enhancedResult.validationResult.qualityScore,
+        dataStatus: enhancedResult.validationResult.dataQualityStatus,
+        isAnalyzable: enhancedResult.isAnalyzable,
+        fallbackOptions: enhancedResult.fallbackOptions.length
       })
       
-      // Convert to expected format with enhanced data
+      // Convert to expected format with enhanced validation data
       return {
-        title: webllmResult.validatedJobData.title,
-        company: webllmResult.validatedJobData.company,
-        content: webllmResult.validatedJobData.description,
-        sourceUrl: pdfData.sourceUrl,
-        confidence: webllmResult.validatedJobData.confidence.overall,
+        title: enhancedResult.title,
+        company: enhancedResult.company,
+        content: enhancedResult.description,
+        sourceUrl: enhancedResult.sourceUrl,
+        confidence: enhancedResult.confidence.overall,
         parsingMetadata: {
-          ...pdfData.parsingMetadata,
-          // Add WebLLM enhancement metadata
-          extractionMethod: webllmResult.enhancedMetadata.extractionMethod,
-          webllmValidated: webllmResult.webllmValidation.validated,
-          webllmConfidence: webllmResult.enhancedMetadata.webllmConfidence,
-          validationTime: webllmResult.enhancedMetadata.validationTime,
-          thoughtProcess: webllmResult.enhancedMetadata.thoughtProcess,
-          legitimacyIndicators: webllmResult.enhancedMetadata.legitimacyIndicators,
-          riskFactors: webllmResult.enhancedMetadata.riskFactors,
+          ...enhancedResult.parsingMetadata,
+          // Add validation metadata
+          validationStatus: enhancedResult.validationResult.dataQualityStatus,
+          qualityScore: enhancedResult.validationResult.qualityScore,
+          isAnalyzable: enhancedResult.isAnalyzable,
+          validationErrors: enhancedResult.validationResult.errors.length,
+          validationWarnings: enhancedResult.validationResult.warnings.length,
           // Enhanced confidence breakdown
-          confidenceBreakdown: webllmResult.validatedJobData.confidence
+          confidenceBreakdown: enhancedResult.confidence,
+          fallbackOptionsAvailable: enhancedResult.fallbackOptions.length,
+          requiredActions: enhancedResult.requiredActions,
+          enhancedParsingData: enhancedResult // Include full enhanced data for recovery
         }
       }
     } catch (error) {
-      console.error('🚨 PDF parsing failed - STOPPING analysis workflow:', error)
+      console.error('🚨 Enhanced PDF parsing failed - STOPPING analysis workflow:', error)
+      
+      // Check if this is a recoverable error with enhanced parsing data
+      if ((error as any)?.isRecoverable && (error as any)?.enhancedParsingData) {
+        // Re-throw with enhanced data for UI recovery
+        const enhancedError = new Error(`Enhanced PDF parsing validation failed: ${error.message}`) as any
+        enhancedError.enhancedParsingData = (error as any).enhancedParsingData
+        enhancedError.isRecoverable = true
+        throw enhancedError
+      }
       
       // CRITICAL: Do NOT proceed with analysis when PDF parsing fails
       // This prevents fake analysis results from being generated and stored
-      throw new Error(`PDF parsing failed - cannot analyze job posting: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(`Enhanced PDF parsing failed - cannot analyze job posting: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
