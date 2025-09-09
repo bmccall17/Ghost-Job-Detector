@@ -1,13 +1,13 @@
 # CLAUDE.md – Ghost Job Detector Development Guidelines
 
 ## Project Status: v0.2.0 🚀
-**Version Date**: December 15, 2024
+**Version Date**: September 8, 2025
 ⚠️ CLAUDE RULE: Before staging any code, Claude must run through ".\docs\PRE_COMMIT_CHECKLIST.md".
 This ensures all validations are aligned with production-first testing.
 Claude should not commit or push changes. Staging only.
 All testing and validation must follow the live-server rules in ".\docs\PRE_COMMIT_CHECKLIST.md".
 
-**Latest Updates (v0.2.0) - USER FEEDBACK INTEGRATION COMPLETE** *(December 15, 2024)*:
+**Latest Updates (v0.2.0) - USER FEEDBACK INTEGRATION COMPLETE** *(September 8, 2025)*:
 - ✅ **Complete "Improve Parsing" Database Integration**: User corrections now write to backend database
 - ✅ **ParsingCorrection Model Integration**: Full user feedback tracking with ParsingCorrection ↔ JobListing relationship
 - ✅ **Real-time Learning System**: User corrections immediately improve parsing accuracy across all sessions
@@ -18,7 +18,7 @@ All testing and validation must follow the live-server rules in ".\docs\PRE_COMM
 - ✅ **Production Performance**: Sub-500ms feedback submission with real-time UI updates
 - ✅ **Zero Function Count Increase**: Smart design stayed within 8/12 Vercel function limit
 
-**v0.1.8-WebLLM Foundation (Complete)** *(November 28, 2024)*:
+**v0.1.8-WebLLM Foundation (Complete)** *(August 28, 2025)*:
 - ✅ **Algorithm Core v0.1.8**: All 6 phases implemented with 35-50% accuracy improvement
 - ✅ **WebLLM Integration Complete**: Full implementation of Llama-3.1-8B-Instruct for automated job parsing
 - ✅ **Phase 2 Database Optimization**: 40-60% storage reduction via JSON consolidation and relational data architecture
@@ -27,7 +27,7 @@ All testing and validation must follow the live-server rules in ".\docs\PRE_COMM
 - ✅ **News & Impact Feature**: Complete blog-style interface with 10 curated articles, filtering, and ghost job statistics
 - ✅ **Automated Quality Assurance**: Pre-commit health checks preventing TypeScript errors, API mismatches, and function limit violations
 
-**Previous Updates (v0.1.7)** *(November 15, 2024)*:
+**Previous Updates (v0.1.7)** *(August 15, 2025)*:
 - ✅ **News & Impact Feature**: Complete implementation replacing "Powered by AI" text
 - ✅ **Interactive Statistics Tooltip**: Displays key ghost job statistics on hover (43% prevalence, 67-day duration)
 - ✅ **Resource Library**: 9 curated articles from reputable sources (WSJ, Indeed, New York Post, etc.)
@@ -35,14 +35,14 @@ All testing and validation must follow the live-server rules in ".\docs\PRE_COMM
 - ✅ **Content Management**: Filter by type, tags, and chronological sorting functionality
 - ✅ **Documentation Cleanup**: All project docs updated and consolidated to v0.1.7
 
-**Previous Updates (v0.1.6)** *(November 8, 2024)*:
+**Previous Updates (v0.1.6)** *(August 8, 2025)*:
 - 🚨 **CRITICAL FIX**: Frontend API endpoint configuration resolved
 - ✅ Database writing functionality fully restored
 - ✅ Analysis results now properly stored in production database
 - ✅ Real-time analysis history synchronization working
 - ✅ Frontend-backend API communication completely functional
 
-**Previous Updates (v0.1.5)** *(November 1, 2024)*:
+**Previous Updates (v0.1.5)** *(August 1, 2025)*:
 - ✅ Detailed analyzer processing data integration complete
 - ✅ JobReportModal corrections functionality removed (cleaner UI)
 - ✅ TypeScript build errors resolved

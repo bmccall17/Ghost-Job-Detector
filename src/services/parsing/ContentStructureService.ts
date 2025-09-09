@@ -10,8 +10,7 @@ import {
   JobBulletPoint, 
   JobSectionType, 
   JobMetadata,
-  StructureQualityMetrics,
-  ProcessingInfo
+  StructureQualityMetrics
 } from '@/types/HierarchicalJobDocument';
 
 export class ContentStructureService {
@@ -146,7 +145,7 @@ export class ContentStructureService {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      if (this.isSectionHeader(line, i, lines)) {
+      if (this.isSectionHeader(line)) {
         // Save previous section if exists
         if (currentSection && currentContent.length > 0) {
           currentSection.content = currentContent.join('\n').trim();
@@ -190,7 +189,7 @@ export class ContentStructureService {
   /**
    * Detect if a line is a section header
    */
-  private isSectionHeader(line: string, index: number, allLines: string[]): boolean {
+  private isSectionHeader(line: string): boolean {
     // Format-based indicators
     const formatIndicators = [
       line.length < 100, // Headers are usually short
@@ -306,7 +305,7 @@ export class ContentStructureService {
     return metadataKeywords.some(keyword => title.includes(keyword) || content.includes(keyword));
   }
 
-  private containsRoleOverviewPatterns(title: string, content: string): boolean {
+  private containsRoleOverviewPatterns(title: string, _content: string): boolean {
     const overviewKeywords = ['about the role', 'overview', 'description', 'summary', 'position'];
     return overviewKeywords.some(keyword => title.includes(keyword));
   }
@@ -316,17 +315,17 @@ export class ContentStructureService {
     return responsibilityKeywords.some(keyword => title.includes(keyword) || content.includes(keyword));
   }
 
-  private containsQualificationsPatterns(title: string, content: string): boolean {
+  private containsQualificationsPatterns(title: string, _content: string): boolean {
     const qualificationKeywords = ['qualifications', 'requirements', 'skills', 'experience', 'education', 'must have'];
     return qualificationKeywords.some(keyword => title.includes(keyword));
   }
 
-  private containsCompensationPatterns(title: string, content: string): boolean {
+  private containsCompensationPatterns(title: string, _content: string): boolean {
     const compensationKeywords = ['salary', 'compensation', 'benefits', 'package', 'offer', 'pay'];
     return compensationKeywords.some(keyword => title.includes(keyword));
   }
 
-  private containsCompanyInfoPatterns(title: string, content: string): boolean {
+  private containsCompanyInfoPatterns(title: string, _content: string): boolean {
     const companyKeywords = ['about us', 'company', 'our team', 'culture', 'mission', 'values'];
     return companyKeywords.some(keyword => title.includes(keyword));
   }
@@ -336,7 +335,7 @@ export class ContentStructureService {
     return legalKeywords.some(keyword => title.includes(keyword) || content.includes(keyword));
   }
 
-  private containsApplicationPatterns(title: string, content: string): boolean {
+  private containsApplicationPatterns(title: string, _content: string): boolean {
     const applicationKeywords = ['apply', 'application', 'how to', 'next steps', 'process'];
     return applicationKeywords.some(keyword => title.includes(keyword));
   }
